@@ -4,19 +4,19 @@
 // Crawler creates multiple crawl calls for every element in the array
 
 class Crawler {
-  webpages: Array<string>;
-  constructor(webpages: Array<string>) {
-    this.webpages = webpages;
+  webpage: string;
+  constructor(webpage: string) {
+    this.webpage = webpage;
   }
+
   async start_crawl() {
-    // start threadinh here
-    this.webpages.forEach((link) => {
-      this.crawl(link);
-    });
+    this.crawl(this.webpage);
   }
 
   private async crawl(link: string) {
     console.log(`crawl: ${link}`);
   }
 }
-export default Crawler;
+
+const crawler = new Crawler(process.argv[2]);
+crawler.start_crawl();
