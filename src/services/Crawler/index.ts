@@ -3,10 +3,8 @@
 // the crawl method will be processed by different threads
 // Crawler creates multiple crawl calls for every element in the array
 
-import { Worker } from "worker_threads";
-
-export default class {
-  webpages: Array<string> = [];
+class Crawler {
+  webpages: Array<string>;
   constructor(webpages: Array<string>) {
     this.webpages = webpages;
   }
@@ -21,3 +19,4 @@ export default class {
     console.log(`crawl: ${link}`);
   }
 }
+export default Crawler;

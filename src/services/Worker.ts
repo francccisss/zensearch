@@ -1,4 +1,5 @@
 import path from "path";
-import { Worker } from "worker_threads";
+const { Worker } = require("worker_threads");
 
-const worker = new Worker("./src/services/Crawler/index.ts");
+const worker_file = path.join(__dirname, "./Crawler/index.ts");
+const worker = new Worker(worker_file);
