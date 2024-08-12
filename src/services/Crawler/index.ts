@@ -75,49 +75,55 @@ class Crawler {
     console.log(`crawl: ${link}`);
   }
   private async traverse_pages(current_page: string) {
-    if (this.current_browser_page == null)
-      throw new Error("Unable to create browser page.");
-    await this.current_browser_page.goto(current_page);
-    if (current_page === this.visited_stack[-1]) {
-      console.log("Already Visited: " + current_page);
-      return;
-    }
-    this.visited_stack.push(current_page);
+    try {
+      if (this.current_browser_page == null)
+        throw new Error("Unable to create browser page.");
+      await this.current_browser_page.goto(current_page);
+      if (current_page === this.visited_stack[-1]) {
+        console.log("Already Visited: " + current_page);
+        return;
+      }
+      this.visited_stack.push(current_page);
 
-    // FOR CLEANING DATA
-    const extracted_links = await this.current_browser_page?.$$eval(
-      "a",
-      (links) => {
-        const link_urls = links.map((link) => link.href);
-        return link_urls;
-      },
-    );
-    const neighbors = remove_duplicates<string>(extracted_links).filter(
-      (link) => {
-        if (link.includes("http")) {
-          const url = new URL(link);
-          return link.includes(this.visited_stack[0]) ?? link;
-        }
-      },
-    );
-    // FOR CLEANING DATA
+      // FOR CLEANING DATA
+      const extracted_links = await this.current_browser_page?.$$eval(
+        "a",
+        (links) => {
+          const link_urls = links.map((link) => link.href);
+          return link_urls;
+        },
+      );
+      const neighbors = remove_duplicates<string>(extracted_links).filter(
+        (link) => {
+          if (link.includes("http")) {
+            const url = new URL(link);
+            return link.includes(this.visited_stack[0]) ?? link;
+          }
+        },
+      );
+      // FOR CLEANING DATA
 
-    if (neighbors === undefined || neighbors.length === 0) {
-      console.log("LOG: End of call.");
-      return;
-    }
+      if (neighbors === undefined || neighbors.length === 0) {
+        console.log("LOG: End of call.");
+        return;
+      }
 
-    console.log({
-      visited_stack: this.visited_stack,
-      current_trace: current_page,
-      current_neighbors: neighbors,
-    });
+      console.log({
+        visited_stack: this.visited_stack,
+        current_trace: current_page,
+        current_neighbors: neighbors,
+      });
 
-    // START RECURSION
+      // START RECURSION
 
-    for (let current_neighbor of neighbors) {
-      console.log(current_neighbor);
-      await this.traverse_pages(current_neighbor);
+      for (let current_neighbor of neighbors) {
+        console.log(current_neighbor);
+        //await this.traverse_pages(current_neighbor);
+      }
+    } catch (err) {
+      const error = err as Error;
+      console.log("LOG: Something went wrong when crawling the website");
+      console.error(error.message);
     }
   }
 
