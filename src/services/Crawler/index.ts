@@ -1,5 +1,25 @@
 import puppeteer, { Page, Puppeteer } from "puppeteer";
 
+function remove_duplicates<T>(links: Array<T> | undefined): Array<T> {
+  let tmp: Array<T> = [];
+  if (links === undefined || links.length === 0) return [];
+  outerLoop: for (let i = 0; i < links.length; i++) {
+    if (tmp.length === 0) {
+      tmp.push(links[i]);
+      continue;
+    }
+    let exists = false;
+    for (let j = 0; j < tmp.length; j++) {
+      if (links[i] === tmp[j]) {
+        exists = true;
+        break;
+      }
+    }
+    if (!exists) tmp.push(links[i]);
+  }
+  return tmp;
+}
+
 class Scraper {
   private link: string;
   constructor() {
@@ -54,18 +74,34 @@ class Crawler {
   }
 
   private async crawl(link: string) {
-    // grab all of the links from current page (link)
-    const neighbors = ["link1", "link2", "link3"];
-    this.traverse_pages(link, neighbors); // need to keep feeding new neighbors
+    await this.traverse_pages(link);
     console.log(`crawl: ${link}`);
   }
-
-  private traverse_pages(current_page: string, link_array: Array<string>) {
-    // head of the stack
-    // comparing strings
-    if (current_page !== this.visited_stack[0]) {
-      this.visited_stack.push(current_page);
+  private async traverse_pages(current_page: string) {
+    if (current_page === this.visited_stack[0]) {
+      console.log("Already Visited: " + current_page);
+      return;
     }
+    this.visited_stack.push(current_page);
+    const extracted_links = await this.current_browser_page?.$$eval(
+      "a",
+      (links) => {
+        const link_urls = [links[0], links[1]].map((link) => link.href);
+        return link_urls;
+      },
+    );
+    const neighbors = remove_duplicates<string>(extracted_links);
+    if (neighbors === undefined || neighbors.length === 0) {
+      console.log("LOG: End of call.");
+      return;
+    }
+    for (let current_neighbor in neighbors) {
+      this.traverse_pages(current_neighbor);
+    }
+    console.log({
+      visited: this.visited_stack,
+      current_neighbors: neighbors,
+    });
   }
 
   private async index_page() {}
