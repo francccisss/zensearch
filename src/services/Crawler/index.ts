@@ -1,8 +1,3 @@
-// create a single instance of a crawler
-// call crawl method to crawl webpage
-// the crawl method will be processed by different threads
-// Crawler creates multiple crawl calls for every element in the array
-
 class Crawler {
   webpage: string;
   constructor(webpage: string) {
