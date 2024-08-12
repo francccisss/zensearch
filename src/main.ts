@@ -8,7 +8,11 @@ const event = new EventEmitter();
 event.on("crawl", async (webpages: Array<string>) => {
   console.log("crawl");
   console.log(webpages);
-  const worker = new WorkerThread(webpages);
+  try {
+    const worker = new WorkerThread(webpages);
+  } catch (err) {
+    process.exit(1);
+  }
 });
 
 (function main([_, , ...query_params]: Array<string>) {

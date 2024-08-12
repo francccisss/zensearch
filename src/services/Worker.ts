@@ -14,8 +14,19 @@ export default class WorkerThread {
   }
 
   private init() {
-    for (let i = 0; i < this.webpages.length; i++) {
-      const worker = new Worker(worker_file, { argv: [this.webpages[i]] });
+    try {
+      for (let i = 0; i < this.webpages.length - 3; i++) {
+        // testing single webpage to index
+        const worker = new Worker(worker_file, { argv: [this.webpages[i]] });
+        console.log(`WorkerID: ${worker.threadId}`);
+        worker.on("exit", () => {
+          console.log(`Worker Exit`);
+        });
+      }
+    } catch (err) {
+      const error = err as Error;
+      console.log("Log: Something went wrong when creating thread workers.\n");
+      console.error(error.message);
     }
   }
 }
