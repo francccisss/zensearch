@@ -27,7 +27,7 @@ class Scraper {
   }
   async launch_browser(): Promise<Page | null> {
     try {
-      const browser = await puppeteer.launch();
+      const browser = await puppeteer.launch({ headless: false });
       const page = await browser.newPage();
       return page;
     } catch (err) {
@@ -75,7 +75,6 @@ class Crawler {
     console.log(`crawl: ${link}`);
   }
   private async traverse_pages(current_page: string) {
-    console.log(current_page);
     if (this.current_browser_page == null)
       throw new Error("Unable to create browser page.");
     await this.current_browser_page.goto(current_page);
@@ -107,13 +106,19 @@ class Crawler {
       console.log("LOG: End of call.");
       return;
     }
-    for (let current_neighbor in neighbors) {
-      await this.traverse_pages(current_neighbor);
-    }
+
     console.log({
-      visited: this.visited_stack,
+      visited_stack: this.visited_stack,
+      current_trace: current_page,
       current_neighbors: neighbors,
     });
+
+    // START RECURSION
+
+    for (let current_neighbor of neighbors) {
+      console.log(current_neighbor);
+      await this.traverse_pages(current_neighbor);
+    }
   }
 
   private async index_page() {}
