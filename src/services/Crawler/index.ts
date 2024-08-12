@@ -27,11 +27,10 @@ class Scraper {
   }
   async launch_browser(): Promise<Page | null> {
     try {
-      const browser = await puppeteer.launch({ headless: false });
+      const browser = await puppeteer.launch();
       const page = await browser.newPage();
       await page.goto(this.link);
       const test = await page.$(".banner");
-      console.log(test);
       return page;
     } catch (err) {
       const error = err as Error;
@@ -86,18 +85,25 @@ class Crawler {
     const extracted_links = await this.current_browser_page?.$$eval(
       "a",
       (links) => {
-        const link_urls = [links[0], links[1]].map((link) => link.href);
+        const link_urls = links.map((link) => link.href);
         return link_urls;
       },
     );
-    const neighbors = remove_duplicates<string>(extracted_links);
+    const neighbors = remove_duplicates<string>(extracted_links).filter(
+      (link) => {
+        if (link.includes("http")) {
+          const url = new URL(link);
+          return link.includes(this.visited_stack[0]) ?? link;
+        }
+      },
+    );
     if (neighbors === undefined || neighbors.length === 0) {
       console.log("LOG: End of call.");
       return;
     }
-    for (let current_neighbor in neighbors) {
-      this.traverse_pages(current_neighbor);
-    }
+    //for (let current_neighbor in neighbors) {
+    //  this.traverse_pages(current_neighbor);
+    //}
     console.log({
       visited: this.visited_stack,
       current_neighbors: neighbors,
