@@ -29,8 +29,6 @@ class Scraper {
     try {
       const browser = await puppeteer.launch();
       const page = await browser.newPage();
-      await page.goto(this.link);
-      const test = await page.$(".banner");
       return page;
     } catch (err) {
       const error = err as Error;
@@ -77,11 +75,17 @@ class Crawler {
     console.log(`crawl: ${link}`);
   }
   private async traverse_pages(current_page: string) {
-    if (current_page === this.visited_stack[0]) {
+    console.log(current_page);
+    if (this.current_browser_page == null)
+      throw new Error("Unable to create browser page.");
+    await this.current_browser_page.goto(current_page);
+    if (current_page === this.visited_stack[-1]) {
       console.log("Already Visited: " + current_page);
       return;
     }
     this.visited_stack.push(current_page);
+
+    // FOR CLEANING DATA
     const extracted_links = await this.current_browser_page?.$$eval(
       "a",
       (links) => {
@@ -97,13 +101,15 @@ class Crawler {
         }
       },
     );
+    // FOR CLEANING DATA
+
     if (neighbors === undefined || neighbors.length === 0) {
       console.log("LOG: End of call.");
       return;
     }
-    //for (let current_neighbor in neighbors) {
-    //  this.traverse_pages(current_neighbor);
-    //}
+    for (let current_neighbor in neighbors) {
+      await this.traverse_pages(current_neighbor);
+    }
     console.log({
       visited: this.visited_stack,
       current_neighbors: neighbors,
