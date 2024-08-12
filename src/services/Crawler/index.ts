@@ -49,11 +49,11 @@ class Scraper {
 
 class Crawler {
   private scraper: Scraper;
-  private visited_stack: Array<string>;
+  private visited_stack: Set<string>;
   private current_browser_page: Page | null;
   constructor(scraper: Scraper) {
     this.scraper = scraper;
-    this.visited_stack = [];
+    this.visited_stack = new Set<string>([]);
     this.current_browser_page = null;
   }
   async start_crawl(link: string) {
@@ -79,13 +79,14 @@ class Crawler {
       if (this.current_browser_page == null)
         throw new Error("Unable to create browser page.");
       await this.current_browser_page.goto(current_page);
-      if (current_page === this.visited_stack[-1]) {
+      if (this.visited_stack.has(current_page)) {
         console.log("Already Visited: " + current_page);
         return;
       }
-      this.visited_stack.push(current_page);
+      this.visited_stack.add(current_page);
 
       // FOR CLEANING DATA
+      // CHANGE TO SETS HEHE POTAAAAA NO NEED FOR REMOVAL OF DUPS
       const extracted_links = await this.current_browser_page?.$$eval(
         "a",
         (links) => {
@@ -97,7 +98,7 @@ class Crawler {
         (link) => {
           if (link.includes("http")) {
             const url = new URL(link);
-            return link.includes(this.visited_stack[0]) ?? link;
+            return link.includes(current_page) ?? link;
           }
         },
       );
@@ -118,7 +119,7 @@ class Crawler {
 
       for (let current_neighbor of neighbors) {
         console.log(current_neighbor);
-        //await this.traverse_pages(current_neighbor);
+        await this.traverse_pages(current_neighbor);
       }
     } catch (err) {
       const error = err as Error;
