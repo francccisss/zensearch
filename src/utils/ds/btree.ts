@@ -5,7 +5,7 @@ class BTreeNode {
   num_keys: number;
   constructor(order: number) {
     this.keys = [];
-    this.children = [];
+    this.children = new Array(order + 1).fill(null);
     this.num_keys = 0;
   }
 }
@@ -28,22 +28,17 @@ class BTree {
     }
 
     //return null;
-    if (node.children.length === 0) {
-      // problem because children is not empty but just filled with null values
-      return null;
-    }
+    if (node.children[0] === null) return null;
     return this.search_key(node.children[i], key);
   }
 
   search_for_insertion(node: BTreeNode, new_key: number): BTreeNode {
     let i = 0;
+
     while (i < node.keys.length && new_key > node.keys[i]) {
       i++;
     }
-    if (node.children.length === 0) {
-      node.num_keys++; // increment numkeys when searching to keep track of how many is being added to the node keys
-      return node;
-    }
+    if (node.children[0] == null) return node;
     // if there are no more keys to compare to and is greater than all of the keys, i == to the maximum key
     // if new_key is < all of the keys, then i = to the range where new_key fits
     return this.search_for_insertion(node.children[i], new_key);
@@ -64,7 +59,7 @@ class BTree {
     // if we found the bottom of the node
     const searched_node = this.search_for_insertion(node, new_key);
     // check if there is space to insert directly on the searched node
-    const space = searched_node.num_keys < this.order ? true : false;
+    const space = searched_node.keys.length < this.order ? true : false;
     if (space) {
       // insert directly and sort;
       const inserted_node = this.insert(searched_node, new_key);
@@ -84,23 +79,60 @@ class BTree {
     for (let i = median_index + 1; i < new_keys.length; i++) {
       right_node.keys.push(searched_node.keys[i]);
     }
-    left_node.num_keys = left_node.keys.length;
-    right_node.num_keys = right_node.keys.length;
 
+    console.log(searched_node);
     if (searched_node === this.root) {
       const new_root = new BTreeNode(this.order);
       new_root.keys = [median];
-      new_root.num_keys = new_root.keys.length;
       new_root.children[0] = left_node;
       new_root.children[1] = right_node;
       return new_root;
+    } else {
+      const parent_node = this.find_parent(this.root, searched_node);
+      console.log(parent_node);
+      //this.insert(parent_node as BTreeNode, median);
+      //parent_node!.children[parent_node!.children.indexOf(searched_node) + 1] =
+      //  right_node;
+      //this.insert_and_split(parent_node!, median);
     }
+    console.log("end");
+    return null;
+  }
+
+  find_parent(root: BTreeNode, target_node: BTreeNode): BTreeNode | null {
+    if (root === target_node) {
+      return null; // Root node doesn't have a parent
+    }
+
+    const queue: BTreeNode[] = [root]; // Initialize BFS queue with the root node
+
+    while (queue.length > 0) {
+      const current_node = queue.shift()!;
+
+      // Check if current_node has target_node as a child
+      if (current_node.children.includes(target_node)) {
+        return current_node;
+      }
+
+      // Enqueue all non-null children of current_node
+      for (const child of current_node.children) {
+        if (child !== null) {
+          queue.push(child);
+        }
+      }
+    }
+
+    return null; // target_node was not found
   }
 }
 
 const btree = new BTree(4);
 
-console.log(btree.insert_and_split(btree.root, 1));
-console.log(btree.insert_and_split(btree.root, 2));
-console.log(btree.insert_and_split(btree.root, 3));
-console.log(btree.insert_and_split(btree.root, 4));
+btree.insert_and_split(btree.root, 1);
+btree.insert_and_split(btree.root, 2);
+btree.insert_and_split(btree.root, 3);
+btree.insert_and_split(btree.root, 4);
+btree.insert_and_split(btree.root, 5);
+btree.insert_and_split(btree.root, 6);
+btree.insert_and_split(btree.root, 7);
+btree.insert_and_split(btree.root, 8);
