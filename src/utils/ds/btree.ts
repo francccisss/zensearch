@@ -5,8 +5,7 @@ class BTreeNode {
   num_keys: number;
   constructor(order: number) {
     this.keys = [];
-    //this.keys = new Array(order).fill(null);
-    this.children = new Array(order + 1).fill(null);
+    this.children = [];
     this.num_keys = 0;
   }
 }
@@ -73,7 +72,7 @@ class BTree {
     }
     // Do some mumbo jumbo here
     const new_keys = [...searched_node.keys, new_key].sort((a, b) => a - b);
-    const median_index = Math.floor(new_keys.keys.length / 2);
+    const median_index = Math.floor(new_keys.length / 2);
     const median = searched_node.keys[median_index];
 
     const left_node = new BTreeNode(this.order);
@@ -99,6 +98,9 @@ class BTree {
   }
 }
 
-const btree = new BTree(3);
+const btree = new BTree(4);
 
-console.log(btree.search_key(btree.root, 2));
+console.log(btree.insert_and_split(btree.root, 1));
+console.log(btree.insert_and_split(btree.root, 2));
+console.log(btree.insert_and_split(btree.root, 3));
+console.log(btree.insert_and_split(btree.root, 4));
