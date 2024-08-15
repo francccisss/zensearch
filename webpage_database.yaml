@@ -1,3 +1,3 @@
 # simple documentation look up database
 
-docs: ["https://docs.python.org/3/","https://www.mcconeproperties.com/","https://developer.mozilla.org/en-US/docs/Web/JavaScript","https://go.dev/doc/"]
+docs: ["https://www.mcconeproperties.com/","https://developer.mozilla.org/en-US/docs/Web/JavaScript","https://go.dev/doc/","https://docs.python.org/3/",]
