@@ -55,11 +55,11 @@ class BTree {
     return node;
   }
 
-  insert_and_split(node: BTreeNode, new_key: number) {
+  insert_and_split(node: BTreeNode, new_key: number): BTreeNode | null {
     // if we found the bottom of the node
     const searched_node = this.search_for_insertion(node, new_key);
     // check if there is space to insert directly on the searched node
-    const space = searched_node.keys.length < this.order ? true : false;
+    const space = searched_node.keys.length !== this.order - 1 ? true : false;
     if (space) {
       // insert directly and sort;
       const inserted_node = this.insert(searched_node, new_key);
@@ -73,12 +73,8 @@ class BTree {
     const left_node = new BTreeNode(this.order);
     const right_node = new BTreeNode(this.order);
 
-    for (let i = 0; i < median_index; i++) {
-      left_node.keys.push(searched_node.keys[i]);
-    }
-    for (let i = median_index + 1; i < new_keys.length; i++) {
-      right_node.keys.push(searched_node.keys[i]);
-    }
+    left_node.keys = new_keys.slice(0, median_index);
+    right_node.keys = new_keys.slice(median_index + 1);
 
     console.log(searched_node);
     if (searched_node === this.root) {
@@ -86,14 +82,16 @@ class BTree {
       new_root.keys = [median];
       new_root.children[0] = left_node;
       new_root.children[1] = right_node;
+      this.root = new_root;
       return new_root;
     } else {
       const parent_node = this.find_parent(this.root, searched_node);
       console.log(parent_node);
-      //this.insert(parent_node as BTreeNode, median);
-      //parent_node!.children[parent_node!.children.indexOf(searched_node) + 1] =
-      //  right_node;
-      //this.insert_and_split(parent_node!, median);
+      console.log(parent_node === searched_node);
+      this.insert(parent_node as BTreeNode, median);
+      parent_node!.children[parent_node!.children.indexOf(searched_node) + 1] =
+        right_node;
+      //return this.insert_and_split(parent_node!, median);
     }
     console.log("end");
     return null;
@@ -129,10 +127,8 @@ class BTree {
 const btree = new BTree(4);
 
 btree.insert_and_split(btree.root, 1);
-btree.insert_and_split(btree.root, 2);
-btree.insert_and_split(btree.root, 3);
 btree.insert_and_split(btree.root, 4);
-btree.insert_and_split(btree.root, 5);
 btree.insert_and_split(btree.root, 6);
-btree.insert_and_split(btree.root, 7);
-btree.insert_and_split(btree.root, 8);
+btree.insert_and_split(btree.root, 10);
+console.log(btree.root.keys);
+console.log(btree.root.children);
