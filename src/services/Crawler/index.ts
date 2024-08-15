@@ -1,4 +1,6 @@
+import { userInfo } from "os";
 import puppeteer, { Browser, Page, Puppeteer } from "puppeteer";
+import { StringDecoder } from "string_decoder";
 
 function remove_duplicates<T>(links: Array<T> | undefined): Array<T> {
   let tmp: Array<T> = [];
@@ -27,7 +29,7 @@ class Scraper {
   }
   async launch_browser(): Promise<Browser | null> {
     try {
-      const browser = await puppeteer.launch({ headless: false });
+      const browser = await puppeteer.launch();
       return browser;
     } catch (err) {
       const error = err as Error;
@@ -65,7 +67,7 @@ class Crawler {
         throw new Error("Unable to create browser page.");
 
       this.page = await this.browser.newPage();
-      this.crawl(link);
+      await this.crawl(link);
     } catch (err) {
       const error = err as Error;
       this.browser?.close();
@@ -123,7 +125,6 @@ class Crawler {
       for (let current_neighbor of neighbors) {
         await this.traverse_pages(current_neighbor);
       }
-      this.browser?.close();
     } catch (err) {
       const error = err as Error;
       this.browser?.close();
@@ -132,7 +133,41 @@ class Crawler {
     }
   }
 
-  private async index_page() {}
+  private async index_page() {
+    //How does indexing work?
+    //To analyse a page and determine if it contains meaningful content for indexing.
+    //meaningful content depends on how we want it to be:
+    //  How do we determine if it is meaningful in this case?
+    //    User queries are used to look up every indexed page in the database
+    //    for retrieval to be served back to the user, a user query is just a string,
+    //    this string is used to look up the database for relevant pages from the query string
+    //
+    //    in a search engine, meaningful content means every content that **might** be useful
+    //    to the users. what are meaningful to the users? the contents on the page and what
+    //    are the contents on the page? strings, images, videos, but in this case, we'll
+    //    simplify the process and use the strings in a page as the meaningful content,
+    //    but how much data that needs to be extract from the webpage? and how do we determine within all
+    //    of the strings on a webpage that is meaningful, because we can't just take every string, some strings on
+    //    every webpage might contain duplicates, like a footer that is appended on every page, should that be meaningful?
+    //    so we need to list down what are considered to be meaningful contents for this search engine.
+    //
+    //
+    //  - Create a list of elements that we need to extract from a page
+    //    - On first visit, extract the header at the beginning
+    //      ## List of elements to extract from body element
+    //        - Headers from h1 to h6
+    //        - P
+    //        - Image alt
+    //        - Code
+    //        - Pre
+    //
+    //  After distinguishing meaningful content within a webpage for indexing
+    //  now we need a way extract these content and store in a data structure,
+    //  but first lets figure out what data we need to use to store the indexed webpage:
+    //    - Needs to be atleast O(log N) | O(1) | O(N) for retrieving.
+    //    - Needs to be O(N) to look up each element for processing in the serving stage.
+    //    - Deletion wont matter... yet.
+  }
 }
 
 const scraper = new Scraper();
