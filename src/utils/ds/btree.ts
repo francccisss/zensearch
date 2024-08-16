@@ -1,3 +1,5 @@
+import clean_links from "../cleanup_links/clean_links";
+
 const sorted = [1, 2, 3, 4];
 class BTreeNode {
   keys: number[];
@@ -26,23 +28,25 @@ class BTree {
     if (i < node.keys.length && key === node.keys[i]) {
       return node;
     }
-    if (node.children[0] === null) return null;
+    if (node.children.length === 0 || node.children[i] === null) return null;
     return this.search_key(node.children[i], key);
   }
 
-  search_for_insertion(node: BTreeNode, new_key: number): BTreeNode {
+  search_for_insertion(node: BTreeNode, new_key: number): BTreeNode | null {
     let i = 0;
+    console.log("Keys: ", node.keys);
     while (i < node.keys.length && new_key > node.keys[i]) {
       i++;
     }
-    if (node.children[0] == null) {
-      return node;
+    if (node.keys.includes(new_key)) {
+      console.error("Duplicate key detected:", new_key);
+      //node.keys = [...clean_links<number>(node.keys)];
+      console.log(node.keys);
+      return null; // or handle duplicates according to your requirements
     }
-    // Check if the child at index `i` is null before proceeding
-    if (node.children[i] === null) {
-      throw new Error("Child node cannot be null");
-    }
+    if (node.children.length === 0 || node.children[i] === null) return node;
 
+    // Check if the child at index `i` is null before proceeding
     return this.search_for_insertion(node.children[i], new_key);
   }
 
@@ -52,13 +56,15 @@ class BTree {
       node.keys[i + 1] = node.keys[i];
       i--;
     }
+
     node.keys[i + 1] = new_key;
     return node;
   }
 
   insert_and_split(node: BTreeNode, new_key: number): BTreeNode | null {
     const searched_node = this.search_for_insertion(node, new_key);
-    const space = searched_node.keys.length !== this.order - 1 ? true : false;
+    if (searched_node === null) return null;
+    const space = searched_node.keys.length < this.order;
     if (space) {
       const inserted_node = this.insert(searched_node, new_key);
       return inserted_node;
@@ -70,6 +76,7 @@ class BTree {
 
   private split(node_to_split: BTreeNode, new_key: number): BTreeNode | null {
     // Do some mumbo jumbo here
+    console.log("M = 4 - 1 = 3 keys only per node.");
     const new_keys = [...node_to_split.keys, new_key].sort((a, b) => a - b);
     const median_index = Math.floor(new_keys.length / 2);
     const median = new_keys[median_index];
@@ -78,35 +85,42 @@ class BTree {
     const right_node = new BTreeNode(this.order);
 
     left_node.keys = new_keys.slice(0, median_index);
-    right_node.keys = new_keys.slice(median_index + 1);
+    right_node.keys = clean_links<number>(new_keys.slice(median_index + 1)); // something wrong with this
+    // had to remove duplicate on right node
+    console.log("Right node: ", right_node.keys);
 
     if (node_to_split.children[0] !== null) {
       const median_child_index = Math.floor(node_to_split.children.length / 2);
-      left_node.children = node_to_split.children.slice(
-        0,
-        median_child_index + 1,
-      );
-      right_node.children = node_to_split.children.slice(
-        median_child_index + 1,
-      );
+      left_node.children = node_to_split.children
+        .slice(0, median_child_index + 1)
+        .filter((child) => child !== null);
+      right_node.children = node_to_split.children
+        .slice(median_child_index + 1)
+        .filter((child) => child !== null);
     }
+    console.log({ median, new_key, added_new_key: node_to_split.keys });
+    console.log({ left_node, right_node });
     if (node_to_split === this.root) {
+      console.log("Current Node is Root", this.root.keys);
       const new_root = new BTreeNode(this.order);
       new_root.keys = [median];
       new_root.children[0] = left_node;
       new_root.children[1] = right_node;
+      console.log("New Root: ", new_root.keys);
       this.root = new_root;
       return new_root;
     } else {
       const parent_node = this.find_parent(this.root, node_to_split);
+      console.log("Current Node is not Root", this.root.keys);
       if (parent_node === null) return null;
+      console.log("PARENT KEYS: ", parent_node?.keys);
       this.insert(parent_node, median);
+      console.log("AFTER INSERT MEDIAN TO PARENT: ", parent_node.keys);
       const parent_index = parent_node.keys.indexOf(median);
       parent_node.children[parent_index] = left_node;
       parent_node.children[parent_index + 1] = right_node;
-      parent_node.children.splice(parent_index + 1, 0, right_node);
-      //Check if the parent needs to be split and recurse upwards
       if (parent_node.keys.length === this.order) {
+        console.log("Split again: ", parent_node.keys);
         return this.split(parent_node, median);
       }
       return parent_node;
@@ -139,27 +153,5 @@ class BTree {
   }
 }
 
-const btree = new BTree(4);
-
-btree.insert_and_split(btree.root, 1);
-btree.insert_and_split(btree.root, 4);
-btree.insert_and_split(btree.root, 6);
-btree.insert_and_split(btree.root, 10);
-btree.insert_and_split(btree.root, 11);
-btree.insert_and_split(btree.root, 12);
-btree.insert_and_split(btree.root, 5);
-btree.insert_and_split(btree.root, 7);
-btree.insert_and_split(btree.root, 20);
-btree.insert_and_split(btree.root, 15);
-btree.insert_and_split(btree.root, 24);
-btree.insert_and_split(btree.root, 18);
-btree.insert_and_split(btree.root, 25);
-btree.insert_and_split(btree.root, 26);
-btree.insert_and_split(btree.root, 100);
-btree.insert_and_split(btree.root, 30);
-btree.insert_and_split(btree.root, 32);
-btree.insert_and_split(btree.root, 13);
-console.log(btree.root);
-btree.root.children.forEach((child) => {
-  console.log(child);
-});
+const btree = new BTree(5);
+export default btree;
