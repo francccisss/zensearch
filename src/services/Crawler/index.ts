@@ -48,16 +48,38 @@ class Scraper {
 
 // when index_page is triggered, store processed data on a data structure
 
+type data_t = {
+  [key: string]: any;
+  header: {
+    title: string;
+  };
+};
 class Crawler {
   private scraper: Scraper;
   private visited_stack: Set<string>;
   private browser: Browser | null;
   private page: Page | null;
+  private stack_frame_count: number;
+  data: data_t;
+
   constructor(scraper: Scraper) {
     this.scraper = scraper;
     this.visited_stack = new Set<string>([]);
     this.browser = null;
     this.page = null;
+    this.stack_frame_count = 0;
+    this.data = {
+      header: {
+        title: "",
+      },
+      paras: [],
+      h1: [],
+      h2: [],
+      h3: [],
+      h4: [],
+      code: [],
+      pre: [],
+    };
   }
   async start_crawl(link: string) {
     try {
@@ -67,6 +89,7 @@ class Crawler {
         throw new Error("Unable to create browser page.");
 
       this.page = await this.browser.newPage();
+      if (this.page === null) throw new Error("Unable to create browser page.");
       await this.crawl(link);
     } catch (err) {
       const error = err as Error;
@@ -77,8 +100,13 @@ class Crawler {
   }
 
   private async crawl(link: string) {
+    if (this.page === null) throw new Error("Unable to create browser page.");
+    await this.page.goto(link);
+    this.data.header.title = await this.page.title();
     await this.traverse_pages(link);
-    console.log(`crawl: ${link}`);
+    this.browser?.close();
+    console.log(this.data);
+    console.log(`End of Crawl`);
   }
   private async traverse_pages(current_page: string) {
     try {
@@ -88,17 +116,20 @@ class Crawler {
 
       if (this.visited_stack.has(current_page)) {
         console.log("Already Visited: " + current_page);
-        return;
+        return this.page;
       }
       this.visited_stack.add(current_page);
 
       await this.page.goto(current_page);
+
+      // INDEX CURRENT PAGE
+      await this.index_page(this.page);
+
       // FOR CLEANING DATA
       // CHANGE TO SETS HEHE POTAAAAA NO NEED FOR REMOVAL OF DUPS
-      const extracted_links = await this.page.$$eval("a", (links) => {
-        const link_urls = links.map((link) => link.href);
-        return link_urls;
-      });
+      const extracted_links = await this.page.$$eval("a", (links) =>
+        links.map((link) => link.href),
+      );
       const neighbors = remove_duplicates<string>(extracted_links).filter(
         (link) => {
           if (link.includes("http")) {
@@ -133,40 +164,41 @@ class Crawler {
     }
   }
 
-  private async index_page() {
-    //How does indexing work?
-    //To analyse a page and determine if it contains meaningful content for indexing.
-    //meaningful content depends on how we want it to be:
-    //  How do we determine if it is meaningful in this case?
-    //    User queries are used to look up every indexed page in the database
-    //    for retrieval to be served back to the user, a user query is just a string,
-    //    this string is used to look up the database for relevant pages from the query string
-    //
-    //    in a search engine, meaningful content means every content that **might** be useful
-    //    to the users. what are meaningful to the users? the contents on the page and what
-    //    are the contents on the page? strings, images, videos, but in this case, we'll
-    //    simplify the process and use the strings in a page as the meaningful content,
-    //    but how much data that needs to be extract from the webpage? and how do we determine within all
-    //    of the strings on a webpage that is meaningful, because we can't just take every string, some strings on
-    //    every webpage might contain duplicates, like a footer that is appended on every page, should that be meaningful?
-    //    so we need to list down what are considered to be meaningful contents for this search engine.
-    //
-    //
-    //  - Create a list of elements that we need to extract from a page
-    //    - On first visit, extract the header at the beginning
-    //      ## List of elements to extract from body element
-    //        - Headers from h1 to h6
-    //        - P
-    //        - Image alt
-    //        - Code
-    //        - Pre
-    //
-    //  After distinguishing meaningful content within a webpage for indexing
-    //  now we need a way extract these content and store in a data structure,
-    //  but first lets figure out what data we need to use to store the indexed webpage:
-    //    - Needs to be atleast O(log N) | O(1) | O(N) for retrieving.
-    //    - Needs to be O(N) to look up each element for processing in the serving stage.
-    //    - Deletion wont matter... yet.
+  private async index_page(current_page: Page) {
+    async function extract(selector: string) {
+      const map_ = await current_page.$$eval(selector, (el) =>
+        el.map((p) => {
+          return p.textContent;
+        }),
+      );
+      return map_.filter((p) => {
+        if (p !== undefined) {
+          return p;
+        }
+      });
+    }
+
+    const paras = await extract("p");
+    const h1 = await extract("h1");
+    const h2 = await extract("h2");
+    const h3 = await extract("h3");
+    const h4 = await extract("h4");
+
+    //const img = await current_page.$$eval("img", (el) =>
+    //  el.map((i) => i.alt as String),
+    //);
+    const code = await extract("code");
+    const pre = await extract("pre");
+    this.data = {
+      header: { ...this.data.header },
+      paras: [...this.data.paras, ...paras],
+      h1: [...this.data.h1, ...h1],
+      h2: [...this.data.h2, ...h2],
+      h3: [...this.data.h3, ...h3],
+      h4: [...this.data.h4, ...h4],
+      code: [...this.data.code, ...code],
+      pre: [...this.data.pre, ...pre],
+    };
   }
 }
 
