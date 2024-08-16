@@ -72,7 +72,7 @@ class Crawler {
       header: {
         title: "",
       },
-      paras: [],
+      p: [],
       h1: [],
       h2: [],
       h3: [],
@@ -165,40 +165,40 @@ class Crawler {
   }
 
   private async index_page(current_page: Page) {
-    async function extract(selector: string) {
+    const extract = async (selector: string) => {
       const map_ = await current_page.$$eval(selector, (el) =>
         el.map((p) => {
           return p.textContent;
         }),
       );
-      return map_.filter((p) => {
+      const filtered_ = map_.filter((p) => {
         if (p !== undefined) {
           return p;
         }
       });
-    }
+      this.data = {
+        ...this.data,
+        [selector]: [...(this.data[selector] as any[]), ...filtered_],
+      };
+    };
 
     const paras = await extract("p");
     const h1 = await extract("h1");
     const h2 = await extract("h2");
     const h3 = await extract("h3");
     const h4 = await extract("h4");
-
-    //const img = await current_page.$$eval("img", (el) =>
-    //  el.map((i) => i.alt as String),
-    //);
     const code = await extract("code");
     const pre = await extract("pre");
-    this.data = {
-      header: { ...this.data.header },
-      paras: [...this.data.paras, ...paras],
-      h1: [...this.data.h1, ...h1],
-      h2: [...this.data.h2, ...h2],
-      h3: [...this.data.h3, ...h3],
-      h4: [...this.data.h4, ...h4],
-      code: [...this.data.code, ...code],
-      pre: [...this.data.pre, ...pre],
-    };
+    //this.data = {
+    //  header: { ...this.data.header },
+    //  paras: [...this.data.paras, ...paras],
+    //  h1: [...this.data.h1, ...h1],
+    //  h2: [...this.data.h2, ...h2],
+    //  h3: [...this.data.h3, ...h3],
+    //  h4: [...this.data.h4, ...h4],
+    //  code: [...this.data.code, ...code],
+    //  pre: [...this.data.pre, ...pre],
+    //};
   }
 }
 
