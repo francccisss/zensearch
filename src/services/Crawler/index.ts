@@ -165,40 +165,48 @@ class Crawler {
   }
 
   private async index_page(current_page: Page) {
-    const extract = async (selector: string) => {
-      const map_ = await current_page.$$eval(selector, (el) =>
-        el.map((p) => {
-          return p.textContent;
-        }),
-      );
-      const filtered_ = map_.filter((p) => {
-        if (p !== undefined) {
-          return p;
-        }
+    const extract = async () => {
+      const filter_data = async (selector: string) => {
+        const map_ = await current_page.$$eval(selector, (el) =>
+          el.map((p) => {
+            return p.textContent;
+          }),
+        );
+        const filtered_ = map_.filter((p) => {
+          if (p !== undefined) {
+            return p;
+          }
+        });
+        return filtered_.join(" ");
+      };
+
+      const paras = await filter_data("p");
+      const h1 = await filter_data("h1");
+      const h2 = await filter_data("h2");
+      const h3 = await filter_data("h3");
+      const h4 = await filter_data("h4");
+      const code = await filter_data("code");
+      const pre = await filter_data("pre");
+      return await Promise.allSettled([paras, h1, h2, h3, h4, code, pre]);
+    };
+    const aggregate_data = async (
+      extracted_data: PromiseSettledResult<string>[],
+    ) => {
+      const settle = extracted_data.map((promises) => {
+        if (promises.status === "fulfilled") return promises.value;
+        return " ";
       });
+
+      const l = settle.join(" ");
       this.data = {
         ...this.data,
-        [selector]: [...(this.data[selector] as any[]), ...filtered_],
+        contents: l,
+        //[selector]: [...(this.data[selector] as any[]), ...filtered_],
       };
     };
-
-    const paras = await extract("p");
-    const h1 = await extract("h1");
-    const h2 = await extract("h2");
-    const h3 = await extract("h3");
-    const h4 = await extract("h4");
-    const code = await extract("code");
-    const pre = await extract("pre");
-    //this.data = {
-    //  header: { ...this.data.header },
-    //  paras: [...this.data.paras, ...paras],
-    //  h1: [...this.data.h1, ...h1],
-    //  h2: [...this.data.h2, ...h2],
-    //  h3: [...this.data.h3, ...h3],
-    //  h4: [...this.data.h4, ...h4],
-    //  code: [...this.data.code, ...code],
-    //  pre: [...this.data.pre, ...pre],
-    //};
+    const ex = await extract();
+    const ag = await aggregate_data(ex);
+    console.log(ag);
   }
 }
 
