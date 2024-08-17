@@ -1,3 +1,4 @@
+import { writeFileSync, writeSync } from "fs";
 import { userInfo } from "os";
 import puppeteer, { Browser, Page, Puppeteer } from "puppeteer";
 import { StringDecoder } from "string_decoder";
@@ -49,7 +50,10 @@ class Scraper {
 // when index_page is triggered, store processed data on a data structure
 
 type data_t = {
-  [key: string]: any;
+  webpage_contents: Array<{
+    header: { title: string; page_url: string };
+    contents: string;
+  }>;
   header: {
     title: string;
   };
@@ -72,13 +76,7 @@ class Crawler {
       header: {
         title: "",
       },
-      p: [],
-      h1: [],
-      h2: [],
-      h3: [],
-      h4: [],
-      code: [],
-      pre: [],
+      webpage_contents: [],
     };
   }
   async start_crawl(link: string) {
@@ -100,13 +98,26 @@ class Crawler {
   }
 
   private async crawl(link: string) {
-    if (this.page === null) throw new Error("Unable to create browser page.");
-    await this.page.goto(link);
-    this.data.header.title = await this.page.title();
-    await this.traverse_pages(link);
-    this.browser?.close();
-    console.log(this.data);
-    console.log(`End of Crawl`);
+    try {
+      if (this.page === null) throw new Error("Unable to create browser page.");
+      const l = "https://docs.python.org/3/library/stdtypes.html";
+      await this.page.goto(l);
+      this.data.header.title = await this.page.title();
+      await this.traverse_pages(l);
+      this.browser?.close();
+
+      writeFileSync("./data.json", JSON.stringify(this.data));
+      console.log(this.data);
+      console.log(`End of Crawl`);
+    } catch (err) {
+      const error = err as Error;
+      this.browser?.close();
+      console.log("LOG: Something went wrong while initializing crawler");
+      console.error(error.message);
+    } finally {
+      console.log("LOG: Close Browser");
+      this.browser?.close();
+    }
   }
   private async traverse_pages(current_page: string) {
     try {
@@ -123,7 +134,7 @@ class Crawler {
       await this.page.goto(current_page);
 
       // INDEX CURRENT PAGE
-      await this.index_page(this.page);
+      await this.index_page(this.page, current_page);
 
       // FOR CLEANING DATA
       // CHANGE TO SETS HEHE POTAAAAA NO NEED FOR REMOVAL OF DUPS
@@ -164,7 +175,34 @@ class Crawler {
     }
   }
 
-  private async index_page(current_page: Page) {
+  private async index_page(current_page: Page, link: string) {
+    const remove_hash_url = (link: string) => {
+      if (!link.includes("#")) return link;
+      const hash_index = link.indexOf("#");
+      return link.substring(0, hash_index);
+    };
+
+    if (link.includes("#")) {
+      const webpage_from_ds = this.data.webpage_contents.find(
+        (el: { header: { title: string; page_url: string } }) =>
+          remove_hash_url(el.header.page_url) === remove_hash_url(link),
+      );
+      const is_duplicate = webpage_from_ds !== null;
+      if (is_duplicate) {
+        console.log("DUPLICATES");
+        console.log({
+          webpage_from_ds: webpage_from_ds?.header.page_url,
+          link,
+        });
+        return;
+      }
+    }
+
+    console.log("NOT DUPLICATES");
+    console.log({
+      link,
+    });
+
     const extract = async () => {
       const filter_data = async (selector: string) => {
         const map_ = await current_page.$$eval(selector, (el) =>
@@ -179,7 +217,6 @@ class Crawler {
         });
         return filtered_.join(" ");
       };
-
       const paras = await filter_data("p");
       const h1 = await filter_data("h1");
       const h2 = await filter_data("h2");
@@ -194,19 +231,26 @@ class Crawler {
     ) => {
       const settle = extracted_data.map((promises) => {
         if (promises.status === "fulfilled") return promises.value;
-        return " ";
+        return "";
       });
 
-      const l = settle.join(" ");
+      const l = settle.join("");
       this.data = {
         ...this.data,
-        contents: l,
-        //[selector]: [...(this.data[selector] as any[]), ...filtered_],
+        webpage_contents: [
+          ...this.data.webpage_contents,
+          {
+            header: {
+              title: (await current_page.title()) || "",
+              page_url: (await current_page.url()) || "",
+            },
+            contents: l,
+          },
+        ],
       };
     };
     const ex = await extract();
     const ag = await aggregate_data(ex);
-    console.log(ag);
   }
 }
 
