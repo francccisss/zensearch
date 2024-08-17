@@ -3,6 +3,11 @@ import { userInfo } from "os";
 import puppeteer, { Browser, Page, Puppeteer } from "puppeteer";
 import { StringDecoder } from "string_decoder";
 
+const remove_hash_url = (link: string) => {
+  if (!link.includes("#")) return link;
+  const hash_index = link.indexOf("#");
+  return link.substring(0, hash_index);
+};
 function remove_duplicates<T>(links: Array<T> | undefined): Array<T> {
   let tmp: Array<T> = [];
   if (links === undefined || links.length === 0) return [];
@@ -100,7 +105,7 @@ class Crawler {
   private async crawl(link: string) {
     try {
       if (this.page === null) throw new Error("Unable to create browser page.");
-      const l = "https://docs.python.org/3/library/stdtypes.html";
+      const l = "https://docs.python.org/3/";
       await this.page.goto(l);
       this.data.header.title = await this.page.title();
       await this.traverse_pages(l);
@@ -119,7 +124,8 @@ class Crawler {
       this.browser?.close();
     }
   }
-  private async traverse_pages(current_page: string) {
+  private async traverse_pages(link: string) {
+    const current_page = remove_hash_url(link);
     try {
       if (this.browser == null)
         throw new Error("Unable to create browser page.");
@@ -130,40 +136,25 @@ class Crawler {
         return this.page;
       }
       this.visited_stack.add(current_page);
-
       await this.page.goto(current_page);
-
-      // INDEX CURRENT PAGE
       await this.index_page(this.page, current_page);
-
-      // FOR CLEANING DATA
-      // CHANGE TO SETS HEHE POTAAAAA NO NEED FOR REMOVAL OF DUPS
       const extracted_links = await this.page.$$eval("a", (links) =>
         links.map((link) => link.href),
       );
       const neighbors = remove_duplicates<string>(extracted_links).filter(
         (link) => {
-          if (link.includes("http")) {
-            const url = new URL(link);
-            return link.includes(current_page) ?? link;
-          }
+          return link.includes(new URL(current_page).origin) ?? link;
         },
       );
-      // FOR CLEANING DATA
-
       if (neighbors === undefined || neighbors.length === 0) {
         console.log("LOG: No neighbors.");
         return;
       }
-
       console.log({
         visited_stack: this.visited_stack,
         current_trace: current_page,
         current_neighbors: neighbors,
       });
-
-      // START RECURSION
-
       for (let current_neighbor of neighbors) {
         await this.traverse_pages(current_neighbor);
       }
@@ -176,12 +167,6 @@ class Crawler {
   }
 
   private async index_page(current_page: Page, link: string) {
-    const remove_hash_url = (link: string) => {
-      if (!link.includes("#")) return link;
-      const hash_index = link.indexOf("#");
-      return link.substring(0, hash_index);
-    };
-
     if (link.includes("#")) {
       const webpage_from_ds = this.data.webpage_contents.find(
         (el: { header: { title: string; page_url: string } }) =>
