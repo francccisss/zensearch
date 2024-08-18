@@ -3,7 +3,7 @@ import { Worker } from "worker_threads";
 
 const THREAD_POOL = 3;
 
-const worker_file = path.join(__dirname, "./Crawler/index.ts");
+const worker_file = path.join(__dirname, "./Bot/index.ts");
 
 export default class WorkerThread {
   webpages: Array<string> = [];
@@ -27,7 +27,7 @@ export default class WorkerThread {
         });
         console.log(`WorkerID: ${worker.threadId}`);
         worker.on("message", (message) => {
-          console.log("Thread changed buffer: ", message)
+          console.log("Thread changed buffer: ", message);
           worker.postMessage(worker.threadId);
         });
         worker.on("exit", () => {

@@ -1,6 +1,19 @@
 import { writeFileSync } from "fs";
 import puppeteer, { Browser, Page } from "puppeteer";
 import { parentPort, workerData } from "worker_threads";
+import sqlite3 from "sqlite3";
+import path from "path";
+const sqlite = sqlite3.verbose();
+const db = new sqlite.Database(
+  path.join(__dirname, "../DB/indexed_webpages.db"),
+  (err) => {
+    if (err) {
+      console.error("Unable to connect to indexed_webpages.db");
+      return;
+    }
+    console.log("Connected to database from a different process");
+  },
+);
 
 const FRAME_SIZE = 2;
 
@@ -140,12 +153,12 @@ class Crawler {
       await this.page.goto(current_page);
       await this.index_page(this.page, current_page);
       const extracted_links = await this.page.$$eval("a", (links) =>
-        links.map((link) => link.href)
+        links.map((link) => link.href),
       );
       const neighbors = remove_duplicates<string>(extracted_links).filter(
         (link) => {
           return link.includes(new URL(current_page).origin) ?? link;
-        }
+        },
       );
       if (neighbors === undefined || neighbors.length === 0) {
         console.log("LOG: No neighbors.");
@@ -171,7 +184,7 @@ class Crawler {
     if (link.includes("#")) {
       const webpage_from_ds = this.data.webpage_contents.find(
         (el: { header: { title: string; page_url: string } }) =>
-          remove_hash_url(el.header.page_url) === remove_hash_url(link)
+          remove_hash_url(el.header.page_url) === remove_hash_url(link),
       );
       const is_duplicate = webpage_from_ds !== null;
       if (is_duplicate) {
@@ -194,7 +207,7 @@ class Crawler {
         const map_ = await current_page.$$eval(selector, (el) =>
           el.map((p) => {
             return p.textContent;
-          })
+          }),
         );
         const filtered_ = map_.filter((p) => {
           if (p !== undefined) {
@@ -213,7 +226,7 @@ class Crawler {
       return await Promise.allSettled([paras, h1, h2, h3, h4, code, pre]);
     };
     const aggregate_data = async (
-      extracted_data: PromiseSettledResult<string>[]
+      extracted_data: PromiseSettledResult<string>[],
     ) => {
       const settle = extracted_data.map((promises) => {
         if (promises.status === "fulfilled") return promises.value;
