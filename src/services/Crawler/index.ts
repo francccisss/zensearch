@@ -1,7 +1,8 @@
-import { writeFileSync, writeSync } from "fs";
-import { userInfo } from "os";
-import puppeteer, { Browser, Page, Puppeteer } from "puppeteer";
-import { StringDecoder } from "string_decoder";
+import { writeFileSync } from "fs";
+import puppeteer, { Browser, Page } from "puppeteer";
+import { parentPort, workerData } from "worker_threads";
+
+const FRAME_SIZE = 2;
 
 const remove_hash_url = (link: string) => {
   if (!link.includes("#")) return link;
@@ -139,12 +140,12 @@ class Crawler {
       await this.page.goto(current_page);
       await this.index_page(this.page, current_page);
       const extracted_links = await this.page.$$eval("a", (links) =>
-        links.map((link) => link.href),
+        links.map((link) => link.href)
       );
       const neighbors = remove_duplicates<string>(extracted_links).filter(
         (link) => {
           return link.includes(new URL(current_page).origin) ?? link;
-        },
+        }
       );
       if (neighbors === undefined || neighbors.length === 0) {
         console.log("LOG: No neighbors.");
@@ -170,7 +171,7 @@ class Crawler {
     if (link.includes("#")) {
       const webpage_from_ds = this.data.webpage_contents.find(
         (el: { header: { title: string; page_url: string } }) =>
-          remove_hash_url(el.header.page_url) === remove_hash_url(link),
+          remove_hash_url(el.header.page_url) === remove_hash_url(link)
       );
       const is_duplicate = webpage_from_ds !== null;
       if (is_duplicate) {
@@ -193,7 +194,7 @@ class Crawler {
         const map_ = await current_page.$$eval(selector, (el) =>
           el.map((p) => {
             return p.textContent;
-          }),
+          })
         );
         const filtered_ = map_.filter((p) => {
           if (p !== undefined) {
@@ -212,7 +213,7 @@ class Crawler {
       return await Promise.allSettled([paras, h1, h2, h3, h4, code, pre]);
     };
     const aggregate_data = async (
-      extracted_data: PromiseSettledResult<string>[],
+      extracted_data: PromiseSettledResult<string>[]
     ) => {
       const settle = extracted_data.map((promises) => {
         if (promises.status === "fulfilled") return promises.value;
@@ -239,6 +240,20 @@ class Crawler {
   }
 }
 
-const scraper = new Scraper();
-const crawler = new Crawler(scraper);
-crawler.start_crawl(process.argv[2]);
+// const scraper = new Scraper();
+// const crawler = new Crawler(scraper);
+
+const shared_buffer = new Uint8Array(workerData.shared_buffer);
+let current_index = 0;
+for (let i = current_index; i < 4; i++) {
+  for (let j = 0; j < FRAME_SIZE; j++) {
+    shared_buffer[i] = i;
+  }
+  current_index++;
+}
+
+console.log(shared_buffer);
+parentPort!.postMessage(shared_buffer);
+parentPort!.on("message", (value) => {
+  console.log(value);
+});
