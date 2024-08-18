@@ -1,7 +1,7 @@
 import { EventEmitter } from "stream";
 import utils from "./utils";
 import path from "path";
-import WorkerThread from "./services/Worker";
+import ThreadHandler from "./services/ThreadHandler";
 
 const event = new EventEmitter();
 
@@ -9,7 +9,7 @@ event.on("crawl", async (webpages: Array<string>) => {
   console.log("crawl");
   console.log(webpages);
   try {
-    const worker = new WorkerThread(webpages);
+    const worker = new ThreadHandler(webpages);
   } catch (err) {
     process.exit(1);
   }

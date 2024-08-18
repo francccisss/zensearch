@@ -5,7 +5,7 @@ const THREAD_POOL = 3;
 
 const worker_file = path.join(__dirname, "./Bot/index.ts");
 
-export default class WorkerThread {
+export default class ThreadHandler {
   webpages: Array<string> = [];
 
   constructor(webpages: Array<string>) {
