@@ -17,7 +17,7 @@ CREATE TABLE known_sites (
 
 CREATE TABLE indexed_sites (
     id INTEGER PRIMARY KEY,
-    url TEXT NOT NULL, 
+    primary_url TEXT NOT NULL, 
     last_indexed INTEGER NOT NULL
 );
 
