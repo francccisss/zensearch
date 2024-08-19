@@ -1,23 +1,12 @@
-
--- type data_t = {
---   webpage_contents: Array<{
---     header: { title: string; page_url: string };
---     contents: string;
---   }>;
---   header: {
---     title: string;
---   };
--- };
-
 CREATE TABLE known_sites (
     id INTEGER PRIMARY KEY,
-    url TEXT NOT NULL, 
+    url TEXT NOT NULL,
     last_added INTEGER NOT NULL
 );
 
 CREATE TABLE indexed_sites (
     id INTEGER PRIMARY KEY,
-    primary_url TEXT NOT NULL, 
+    primary_url TEXT NOT NULL,
     last_indexed INTEGER NOT NULL
 );
 
@@ -28,6 +17,4 @@ CREATE TABLE webpages (
     title TEXT,
     contents TEXT
 );
-
-SELECT * FROM indexed_sites;
 
