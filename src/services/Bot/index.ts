@@ -3,10 +3,12 @@ import { parentPort, workerData } from "worker_threads";
 import { Crawler, Scraper } from "./Crawler";
 import { exit } from "process";
 import { Worker } from "cluster";
+import { arrayBuffer } from "stream/consumers";
+import { encode } from "punycode";
 const current_thread = new Worker();
 const scraper = new Scraper();
 const crawler = new Crawler(scraper);
-const FRAME_SIZE = 2;
+const FRAME_SIZE = 30;
 const shared_buffer = new Uint8Array(workerData.shared_buffer);
 (async function () {
   try {
@@ -36,20 +38,20 @@ const shared_buffer = new Uint8Array(workerData.shared_buffer);
     const serialize_obj = JSON.stringify(r_obj);
     const encoder = new TextEncoder();
     const byte_array = encoder.encode(serialize_obj);
-    const array_buffer = byte_array.buffer;
+    const encoded_data_buffer = byte_array.buffer;
+    const view = new Uint8Array(encoded_data_buffer);
 
-    const view = new Uint8Array(array_buffer);
-
-    const decoder = new TextDecoder();
-    const decoded_data = decoder.decode(view);
-
-    let current_index = 0;
-    for (let i = current_index; i < 4; i++) {
-      for (let j = 0; j < FRAME_SIZE; j++) {
-        shared_buffer[i] = i;
-      }
-      current_index++;
+    for (let i = 0; i < view.length; i++) {
+      shared_buffer[i] = view[i];
     }
+
+    //let current_index = 0;
+    //for (let i = current_index; i < 4; i++) {
+    //  for (let j = 0; j < FRAME_SIZE; j++) {
+    //    shared_buffer[i] = i;
+    //  }
+    //  current_index++;
+    //}
 
     parentPort!.postMessage({ type: "insert", shared_buffer });
     parentPort!.on("message", (value) => {
