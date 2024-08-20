@@ -3,7 +3,6 @@ import { Worker } from "worker_threads";
 import { data_t } from "../types/data_t";
 import WebsiteDatabase from "./DB";
 import { arrayBuffer } from "stream/consumers";
-const db = new WebsiteDatabase().init_database();
 const THREAD_POOL = 3;
 const BUFFER_SIZE = 2048;
 const worker_file = path.join(__dirname, "./Bot/index.ts");
@@ -15,9 +14,11 @@ type thread_response_t = {
 
 export default class ThreadHandler {
   webpages: Array<string> = [];
+  db;
 
   constructor(webpages: Array<string>) {
     this.webpages = webpages;
+    this.db = new WebsiteDatabase().init_database();
     this.crawl_and_index();
   }
 
@@ -48,10 +49,9 @@ export default class ThreadHandler {
     const decoded_data = decoder.decode(thread_buffer);
     const last_brace_index = decoded_data.lastIndexOf("}");
     const sliced_object = decoded_data.slice(0, last_brace_index + 1);
-
     const deserialize_data = JSON.parse(sliced_object);
-    console.log({ decoded_data });
     console.log(deserialize_data);
+    this.insert_indexed_page(deserialize_data);
   }
 
   private crawl_and_index() {
