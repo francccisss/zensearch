@@ -47,6 +47,8 @@ export default class ThreadHandler {
   }
 
   private message_decoder(shared_buffer: SharedArrayBuffer) {
+    // size in bytes is 5048 each occupied 32-bit is 4 bytes
+    // in little endian byte ordering
     const view = new Int32Array(shared_buffer);
     let received_chunks = [];
     let current_index = 0;
@@ -57,10 +59,17 @@ export default class ThreadHandler {
       current_index += FRAME_SIZE;
       Atomics.wait(view, 0, 0);
     }
+    const string_array = new Uint8Array(received_chunks);
+    for (let i = 0; i < received_chunks.length; i++) {
+      string_array[i] = received_chunks[i];
+    }
+
+    console.log({ received_chunks, string_array, view });
     const decoder = new TextDecoder();
-    const decoded_data = decoder.decode(shared_buffer);
+    const decoded_data = decoder.decode(string_array);
     const last_brace_index = decoded_data.lastIndexOf("}");
     const sliced_object = decoded_data.slice(0, last_brace_index + 1);
+    console.log({ received_chunks, string_array, sliced_object });
     const deserialize_data = JSON.parse(sliced_object);
 
     console.log({ deserialize_data });
