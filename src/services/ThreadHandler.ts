@@ -3,13 +3,15 @@ import { Worker } from "worker_threads";
 import { data_t } from "../types/data_t";
 import WebsiteDatabase from "./DB";
 import { arrayBuffer } from "stream/consumers";
+
 const THREAD_POOL = 3;
-const BUFFER_SIZE = 2048;
-const worker_file = path.join(__dirname, "./Bot/index.ts");
+const BUFFER_SIZE = 5048;
+const FRAME_SIZE = 1024;
+const WORKER_FILE = path.join(__dirname, "./Bot/index.ts");
 
 type thread_response_t = {
   type: "insert" | "error";
-  shared_buffer?: ArrayBufferLike;
+  shared_buffer?: SharedArrayBuffer;
 };
 
 export default class ThreadHandler {
@@ -22,7 +24,7 @@ export default class ThreadHandler {
     this.crawl_and_index();
   }
 
-  private event_handlers(worker: Worker, shared_buffer: ArrayBufferLike) {
+  private event_handlers(worker: Worker, shared_buffer: SharedArrayBuffer) {
     console.log(`WorkerID: ${worker.threadId}`);
     worker.on("message", (message: thread_response_t) => {
       if (message.type === "error") {
@@ -31,11 +33,11 @@ export default class ThreadHandler {
 
       if (message.type === "insert") {
         if (message.shared_buffer == undefined) return;
-        this.message_decoder(message.shared_buffer);
+        this.message_decoder(shared_buffer);
         console.log(
-          "Thread %s changed buffer: ",
+          "Thread #%s changed buffer: ",
           worker.threadId,
-          message.shared_buffer,
+          shared_buffer.byteLength,
         );
       }
     });
@@ -44,22 +46,32 @@ export default class ThreadHandler {
     });
   }
 
-  private message_decoder(thread_buffer: ArrayBufferLike) {
+  private message_decoder(shared_buffer: SharedArrayBuffer) {
+    const view = new Int32Array(shared_buffer);
+    let received_chunks = [];
+    let current_index = 0;
+    while (current_index < view.length) {
+      received_chunks.push(
+        ...view.slice(current_index, current_index + FRAME_SIZE),
+      );
+      current_index += FRAME_SIZE;
+      Atomics.wait(view, 0, 0);
+    }
     const decoder = new TextDecoder();
-    const decoded_data = decoder.decode(thread_buffer);
+    const decoded_data = decoder.decode(shared_buffer);
     const last_brace_index = decoded_data.lastIndexOf("}");
     const sliced_object = decoded_data.slice(0, last_brace_index + 1);
     const deserialize_data = JSON.parse(sliced_object);
-    console.log(deserialize_data);
+
+    console.log({ deserialize_data });
     this.insert_indexed_page(deserialize_data);
   }
 
   private crawl_and_index() {
-    const array_buffer = new SharedArrayBuffer(BUFFER_SIZE);
-    const shared_buffer = new Uint8Array(array_buffer);
+    const shared_buffer = new SharedArrayBuffer(BUFFER_SIZE);
     try {
       for (let i = 0; i < 1; i++) {
-        const worker = new Worker(worker_file, {
+        const worker = new Worker(WORKER_FILE, {
           argv: [i],
           workerData: { shared_buffer },
         });
