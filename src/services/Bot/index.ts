@@ -8,7 +8,7 @@ import { encode } from "punycode";
 const current_thread = new Worker();
 const scraper = new Scraper();
 const crawler = new Crawler(scraper);
-const FRAME_SIZE = 30;
+const FRAME_SIZE = 1024;
 const shared_buffer = new Uint8Array(workerData.shared_buffer);
 (async function () {
   try {
@@ -41,17 +41,22 @@ const shared_buffer = new Uint8Array(workerData.shared_buffer);
     const encoded_data_buffer = byte_array.buffer;
     const view = new Uint8Array(encoded_data_buffer);
 
-    for (let i = 0; i < view.length; i++) {
-      shared_buffer[i] = view[i];
-    }
-
-    //let current_index = 0;
-    //for (let i = current_index; i < 4; i++) {
-    //  for (let j = 0; j < FRAME_SIZE; j++) {
-    //    shared_buffer[i] = i;
-    //  }
-    //  current_index++;
+    //for (let i = 0; i < view.length; i++) {
+    //  shared_buffer[i] = view[i];
     //}
+
+    let current_index = 0;
+
+    while (current_index < view.length) {
+      // pass all of the remaning chunks to shared buffer
+      // if frame size is too big to prevent overflowing.
+      const chunk_size = Math.min(FRAME_SIZE, view.length - current_index);
+      for (let i = 0; i < chunk_size; i++) {
+        shared_buffer[i] = view[current_index + i];
+      }
+      current_index += chunk_size;
+    }
+    console.log({ current_index, view: view.length });
 
     parentPort!.postMessage({ type: "insert", shared_buffer });
     parentPort!.on("message", (value) => {
