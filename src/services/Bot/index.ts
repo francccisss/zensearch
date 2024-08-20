@@ -37,12 +37,21 @@ const shared_buffer = new Int32Array(workerData.shared_buffer);
 
     const serialize_obj = JSON.stringify(r_obj);
     const encoder = new TextEncoder();
-    const byte_array = encoder.encode(serialize_obj);
-    const encoded_data_buffer = byte_array.buffer;
-    const paddingLength = (4 - (byte_array.length % 4)) % 4;
-    const paddedArray = new Uint8Array(byte_array.length + paddingLength);
-    paddedArray.set(byte_array, 0);
+    const encoded_array = encoder.encode(serialize_obj);
+    const encoded_data_buffer = encoded_array.buffer;
+    const paddedArray = new Uint8Array(encoded_data_buffer.byteLength * 4); // padding for 32 bit.
+    const offset = 4;
+    for (let i = 0; i < encoded_array.length; i++) {
+      // add the value at every offset
+      paddedArray[i * offset] = encoded_array[i];
+    }
+    //7b 22 68 65 will be a single 32bit word
+    //7b 00 00 00 <- needs to be this one
+    //need offset of 4
+    //Imm(bp,index,offset)
+    //index * offset = encoded[i]
 
+    console.log({ encoded_data_buffer, paddedArray });
     const view = new Int32Array(paddedArray.buffer);
     let current_index = 0;
 
