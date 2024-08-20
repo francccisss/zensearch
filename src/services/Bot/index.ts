@@ -9,7 +9,7 @@ const current_thread = new Worker();
 const scraper = new Scraper();
 const crawler = new Crawler(scraper);
 const FRAME_SIZE = 1024;
-const shared_buffer = new Uint8Array(workerData.shared_buffer);
+const shared_buffer = new Int32Array(workerData.shared_buffer);
 (async function () {
   try {
     //await crawler.start_crawl(process.argv[2]);
@@ -39,22 +39,22 @@ const shared_buffer = new Uint8Array(workerData.shared_buffer);
     const encoder = new TextEncoder();
     const byte_array = encoder.encode(serialize_obj);
     const encoded_data_buffer = byte_array.buffer;
-    const view = new Uint8Array(encoded_data_buffer);
+    const paddingLength = (4 - (byte_array.length % 4)) % 4;
+    const paddedArray = new Uint8Array(byte_array.length + paddingLength);
+    paddedArray.set(byte_array, 0);
 
-    //for (let i = 0; i < view.length; i++) {
-    //  shared_buffer[i] = view[i];
-    //}
-
+    const view = new Int32Array(paddedArray.buffer);
     let current_index = 0;
 
     while (current_index < view.length) {
-      // pass all of the remaning chunks to shared buffer
-      // if frame size is too big to prevent overflowing.
       const chunk_size = Math.min(FRAME_SIZE, view.length - current_index);
       for (let i = 0; i < chunk_size; i++) {
-        shared_buffer[i] = view[current_index + i];
+        Atomics.store(shared_buffer, i, view[current_index + i]);
       }
       current_index += chunk_size;
+      if (current_index === view.length) {
+        Atomics.notify(shared_buffer, current_index, 1);
+      }
     }
     console.log({ current_index, view: view.length });
 
