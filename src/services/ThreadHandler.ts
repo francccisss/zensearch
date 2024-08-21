@@ -1,8 +1,9 @@
 import path from "path";
-import { Worker } from "worker_threads";
+import { threadId, Worker } from "worker_threads";
 import { data_t } from "../types/data_t";
 import WebsiteDatabase from "./DB";
 import { arrayBuffer } from "stream/consumers";
+import { IndexKind } from "typescript";
 
 const THREAD_POOL = 3;
 const BUFFER_SIZE = 5048;
@@ -12,6 +13,7 @@ const WORKER_FILE = path.join(__dirname, "./Bot/index.ts");
 type thread_response_t = {
   type: "insert" | "error";
   shared_buffer?: SharedArrayBuffer;
+  data_length: number;
 };
 
 export default class ThreadHandler {
@@ -47,39 +49,54 @@ export default class ThreadHandler {
   }
 
   private message_decoder(shared_buffer: SharedArrayBuffer) {
-    // size in bytes is 5048 each occupied 32-bit is 4 bytes
-    // in little endian byte ordering
     const view = new Int32Array(shared_buffer);
     let received_chunks = [];
     let current_index = 0;
+
+    // TBH I really dont understand how Atomics work... I need to study more.
     while (current_index < view.length) {
+      const chunk_size = Math.min(FRAME_SIZE, view.length - current_index);
+      if (view[current_index] !== 0) {
+        Atomics.wait(view, current_index, 0);
+      }
       received_chunks.push(
-        ...view.slice(current_index, current_index + FRAME_SIZE),
+        ...view.slice(current_index, current_index + chunk_size),
       );
-      current_index += FRAME_SIZE;
-      Atomics.wait(view, 0, 0);
+      current_index += chunk_size;
+      for (let i = current_index - chunk_size; i < current_index; i++) {
+        Atomics.store(view, i, 0);
+      }
     }
+
+    // if the transfered data sits on a buffer is greater than the next one,
+    // the next transffered data might include the remaining data left by the its predecessor;
+    // this includes the received chunks array, because it just copies
+
     const string_array = new Uint8Array(received_chunks);
     for (let i = 0; i < received_chunks.length; i++) {
       string_array[i] = received_chunks[i];
     }
 
-    console.log({ received_chunks, string_array, view });
     const decoder = new TextDecoder();
     const decoded_data = decoder.decode(string_array);
     const last_brace_index = decoded_data.lastIndexOf("}");
-    const sliced_object = decoded_data.slice(0, last_brace_index + 1);
-    console.log({ received_chunks, string_array, sliced_object });
-    const deserialize_data = JSON.parse(sliced_object);
-
-    console.log({ deserialize_data });
-    this.insert_indexed_page(deserialize_data);
+    const sliced_object = decoded_data.slice(0, last_brace_index) + "}"; // Buh
+    try {
+      const deserialize_data = JSON.parse(sliced_object);
+      console.log({ received_chunks, sliced_object });
+      console.log({ deserialize_data });
+      this.insert_indexed_page(deserialize_data);
+    } catch (err) {
+      const error = err as Error;
+      console.error(error.message);
+      console.error(error.stack);
+    }
   }
 
   private crawl_and_index() {
     const shared_buffer = new SharedArrayBuffer(BUFFER_SIZE);
     try {
-      for (let i = 0; i < 1; i++) {
+      for (let i = 0; i < 2; i++) {
         const worker = new Worker(WORKER_FILE, {
           argv: [i],
           workerData: { shared_buffer },
