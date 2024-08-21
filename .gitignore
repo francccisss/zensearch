@@ -4,4 +4,4 @@ data.json
 btree.json
 *.yaml
 
-# /src/services/DB/*.db
+/src/services/DB/*.db
