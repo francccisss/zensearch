@@ -3,9 +3,6 @@ import { parentPort, workerData } from "worker_threads";
 import { Crawler, Scraper } from "./Crawler";
 import { exit, title } from "process";
 import { Worker } from "cluster";
-import { arrayBuffer } from "stream/consumers";
-import { encode } from "punycode";
-import { data_t } from "../../types/data_t";
 const current_thread = new Worker();
 const scraper = new Scraper();
 const crawler = new Crawler(scraper);
@@ -14,7 +11,7 @@ const shared_buffer = new Int32Array(workerData.shared_buffer);
 (async function () {
   try {
     //await crawler.start_crawl(process.argv[2]);
-    const r_obj: Array<data_t> = [
+    const r_obj = [
       {
         header: {
           title: "This is a title",
