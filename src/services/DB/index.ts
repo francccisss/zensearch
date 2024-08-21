@@ -23,6 +23,7 @@ class WebsiteDatabase {
         console.log("Thread connected to database");
       },
     );
+    return this.db;
   }
 }
 

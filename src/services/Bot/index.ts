@@ -1,10 +1,11 @@
 import { writeFileSync } from "fs";
 import { parentPort, workerData } from "worker_threads";
 import { Crawler, Scraper } from "./Crawler";
-import { exit } from "process";
+import { exit, title } from "process";
 import { Worker } from "cluster";
 import { arrayBuffer } from "stream/consumers";
 import { encode } from "punycode";
+import { data_t } from "../../types/data_t";
 const current_thread = new Worker();
 const scraper = new Scraper();
 const crawler = new Crawler(scraper);
@@ -13,23 +14,33 @@ const shared_buffer = new Int32Array(workerData.shared_buffer);
 (async function () {
   try {
     //await crawler.start_crawl(process.argv[2]);
-    const r_obj = [
+    const r_obj: Array<data_t> = [
       {
         header: {
           title: "This is a title",
+          url: "https://doc.python.org/3/",
         },
-        url: "https://doc.python.org/3/",
         webpages: [
           {
-            webpage_url: "https://doc.python.org/3/",
+            header: {
+              title: "Some ttile for this webpage",
+              webpage_url: "https://doc.python.org/3/",
+            },
             contents: "Some contents in this webpage",
           },
 
           {
-            webpage_url: "https://doc.python.org/3/",
+            header: {
+              title: "Some ttile for this webpage",
+              webpage_url: "https://doc.python.org/3/",
+            },
             contents: "Some contents in this webpage",
           },
           {
+            header: {
+              title: "Some ttile for this webpage",
+              webpage_url: "https://doc.python.org/3/",
+            },
             webpage_url: "https://doc.python.org/3/",
             contents: "Some contents in this webpage",
           },
@@ -38,14 +49,22 @@ const shared_buffer = new Int32Array(workerData.shared_buffer);
       {
         header: {
           title: "GOLANG",
+          url: "https://golang.docs/",
         },
-        url: "https://golang.docs/",
         webpages: [
           {
+            header: {
+              title: "Some ttile for this webpage",
+              webpage_url: "https://doc.python.org/3/",
+            },
             webpage_url: "https://golang.docs/",
             contents: "Contents on golang",
           },
           {
+            header: {
+              title: "Some ttile for this webpage",
+              webpage_url: "https://doc.python.org/3/",
+            },
             webpage_url: "https://golang.docs/",
             contents: "Contents on golang",
           },
