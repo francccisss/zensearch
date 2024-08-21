@@ -1,11 +1,10 @@
 import path from "path";
 import { threadId, Worker } from "worker_threads";
 import { data_t } from "../types/data_t";
-import WebsiteDatabase from "./DB";
 import { arrayBuffer } from "stream/consumers";
-import { IndexKind } from "typescript";
+import { Database, sqlite3 } from "sqlite3";
+import { title } from "process";
 
-const THREAD_POOL = 3;
 const BUFFER_SIZE = 5048;
 const FRAME_SIZE = 1024;
 const WORKER_FILE = path.join(__dirname, "./Bot/index.ts");
@@ -19,10 +18,18 @@ type thread_response_t = {
 export default class ThreadHandler {
   webpages: Array<string> = [];
   db;
+  current_threads: number;
+  private THREAD_POOL: number;
 
-  constructor(webpages: Array<string>) {
+  constructor(
+    webpages: Array<string>,
+    database: Database,
+    thread_pool: number,
+  ) {
     this.webpages = webpages;
-    this.db = new WebsiteDatabase().init_database();
+    this.db = database;
+    this.current_threads = thread_pool;
+    this.THREAD_POOL = thread_pool;
     this.crawl_and_index();
   }
 
@@ -109,5 +116,53 @@ export default class ThreadHandler {
       console.error(error.message);
     }
   }
-  private insert_indexed_page(data: data_t) {}
+  private insert_indexed_page(data: data_t) {
+    try {
+      const url = new URL("/", data.header.url);
+      if (this.db == null) throw new Error("Database is not connected.");
+      this.db.serialize(() => {
+        this.db.run("PRAGMA foreign_keys = ON;");
+        this.db.run(
+          "INSERT OR IGNORE INTO known_sites (url, last_added) VALUES ($url, $last_added);",
+          {
+            $url: url.hostname,
+            $last_added: Date.now(),
+          },
+        );
+        const webpage_stmt = this.db.prepare(
+          "INSERT INTO webpages (webpage_url,title, contents, parent) VALUES ($webpage_url, $title, $contents, $parent);",
+        );
+        this.db.run(
+          "INSERT OR IGNORE INTO indexed_sites (primary_url, last_indexed) VALUES ($primary_url, $last_indexed);",
+          {
+            $primary_url: url.hostname,
+            $last_indexed: Date.now(),
+          },
+          function (err) {
+            if (err) {
+              throw new Error("Unable to add last indexed site,");
+            }
+            data.webpages.forEach((el) => {
+              if (el === undefined) return;
+              const {
+                header: { title, webpage_url },
+                contents,
+              } = el;
+              webpage_stmt.run({
+                $webpage_url: webpage_url,
+                $title: title,
+                $contents: contents,
+                $parent: this.lastID,
+              });
+            });
+            webpage_stmt.finalize();
+          },
+        );
+      });
+    } catch (err) {
+      const error = err as Error;
+      console.log("LOG: Something went wrong when iniating database.");
+      console.error(error.message);
+    }
+  }
 }

@@ -2,14 +2,20 @@ import { EventEmitter } from "stream";
 import utils from "./utils";
 import path from "path";
 import ThreadHandler from "./services/ThreadHandler";
+import WebsiteDatabase from "./services/DB";
 
 const event = new EventEmitter();
 
 event.on("crawl", async (webpages: Array<string>) => {
   console.log("crawl");
   console.log(webpages);
+
   try {
-    const worker = new ThreadHandler(webpages);
+    const worker = new ThreadHandler(
+      webpages,
+      new WebsiteDatabase().init_database(),
+      2,
+    );
   } catch (err) {
     process.exit(1);
   }
