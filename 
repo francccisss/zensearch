@@ -35,9 +35,26 @@ const shared_buffer = new Int32Array(workerData.shared_buffer);
           },
         ],
       },
+
       {
         header: {
-          title: "GOLANG",
+          title: "Youtube",
+        },
+        url: "https://Youtube.com/",
+        webpages: [
+          {
+            webpage_url: "https://golang.docs/",
+            contents: "Contents on golang",
+          },
+          {
+            webpage_url: "https://golang.docs/",
+            contents: "Contents on golang",
+          },
+        ],
+      },
+      {
+        header: {
+          title: "This is a title",
         },
         url: "https://golang.docs/",
         webpages: [
@@ -73,11 +90,8 @@ const shared_buffer = new Int32Array(workerData.shared_buffer);
       for (let i = 0; i < chunk_size; i++) {
         Atomics.store(shared_buffer, i, view[current_index + i]);
       }
-      if (current_index <= view.length) {
-        Atomics.notify(view, current_index, 1);
-      }
-
       current_index += chunk_size;
+      Atomics.notify(shared_buffer, current_index, 1);
     }
     console.log({ current_index, view: view.length });
 
@@ -85,6 +99,9 @@ const shared_buffer = new Int32Array(workerData.shared_buffer);
       type: "insert",
       shared_buffer,
       data_length: view.length,
+    });
+    parentPort!.on("message", (value) => {
+      console.log(value);
     });
   } catch (err) {
     const error = err as Error;
