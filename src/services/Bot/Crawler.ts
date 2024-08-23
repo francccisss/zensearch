@@ -149,7 +149,7 @@ class Crawler {
         return this.page;
       }
       this.visited_stack.add(current_page);
-      // await this.throttle_visits();
+      await this.throttle_visits();
       await this.page.goto(current_page);
       await this.index_page(this.page, current_page);
       const css_selector =
