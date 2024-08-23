@@ -1,4 +1,3 @@
-import { writeFileSync } from "fs";
 import puppeteer, { Browser, Page } from "puppeteer";
 
 const remove_hash_url = (link: string) => {
@@ -65,9 +64,9 @@ class Crawler {
   private visited_stack: Set<string>;
   private browser: Browser | null;
   private page: Page | null;
-  private stack_frame_count: number;
-  private start_visit: number = 0;
-  private end_visit: number = 0;
+  private max_interval: number = 5000;
+  private min_interval: number = 1500;
+  private current_interval: number = 800;
   data: data_t;
 
   constructor(scraper: Scraper) {
@@ -75,7 +74,6 @@ class Crawler {
     this.visited_stack = new Set<string>([]);
     this.browser = null;
     this.page = null;
-    this.stack_frame_count = 0;
     this.data = {
       header: {
         title: "",
@@ -89,7 +87,6 @@ class Crawler {
       this.browser = await this.scraper.launch_browser();
       if (this.browser == null)
         throw new Error("Unable to create browser page.");
-
       this.page = await this.browser.newPage();
       if (this.page === null) throw new Error("Unable to create browser page.");
       await this.crawl(link);
@@ -104,7 +101,8 @@ class Crawler {
   private async crawl(link: string) {
     try {
       if (this.page === null) throw new Error("Unable to create browser page.");
-      const l = "https://docs.python.org/3/";
+      const l = "https://nodejs.org/en/learn/asynchronous-work/understanding-processnexttick";
+      // const l = "https://docs.python.org/3/";
       await this.page.goto(l);
       this.data.header.title = await this.page.title();
       await this.traverse_pages(l);
@@ -122,13 +120,17 @@ class Crawler {
     }
   }
 
-  private async visit(current_page: string, quantum: number) {
+  private async throttle_visits() {
+    const DEC_INC = 30;
+    if (this.current_interval < this.max_interval) {
+      this.current_interval += DEC_INC;
+    }
+    this.current_interval -= DEC_INC;
+    console.log({ current_interval: this.current_interval });
     return new Promise((resolve) => {
       setTimeout(async () => {
-        resolve(
-        await this.page?.goto(current_page)
-);
-      }, quantum);
+        resolve("GO NEXT");
+      }, this.current_interval);
     });
   }
 
@@ -144,9 +146,12 @@ class Crawler {
         return this.page;
       }
       this.visited_stack.add(current_page);
+      await this.throttle_visits();
       await this.page.goto(current_page);
       await this.index_page(this.page, current_page);
-      const extracted_links = await this.page.$$eval("a", (links) =>
+      const css_selector =
+        'a:not([href$=".zip"]):not([href$=".pdf"]):not([href$=".exe"]):not([href$=".jpg"]):not([href$=".png"]):not([href$=".tar.gz"]):not([href$=".rar"]):not([href$=".7z"]):not([href$=".mp3"]):not([href$=".mp4"]):not([href$=".mkv"]):not([href$=".tar"]):not([href$=".xz"]):not([href$=".msi"])';
+      const extracted_links = await this.page.$$eval(css_selector, (links) =>
         links.map((link) => link.href)
       );
       const neighbors = remove_duplicates<string>(extracted_links).filter(
@@ -173,7 +178,6 @@ class Crawler {
       console.error(error.message);
     }
   }
-
   private async index_page(current_page: Page, link: string) {
     if (link.includes("#")) {
       const webpage_from_ds = this.data.webpage_contents.find(

@@ -103,9 +103,9 @@ export default class ThreadHandler {
   private crawl_and_index() {
     const shared_buffer = new SharedArrayBuffer(BUFFER_SIZE);
     try {
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < 1; i++) {
         const worker = new Worker(WORKER_FILE, {
-          argv: [i],
+          argv: [this.webpages[i]],
           workerData: { shared_buffer },
         });
         this.event_handlers(worker, shared_buffer);
