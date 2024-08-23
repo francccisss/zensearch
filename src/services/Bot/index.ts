@@ -1,7 +1,5 @@
-import { writeFileSync } from "fs";
 import { parentPort, workerData } from "worker_threads";
 import { Crawler, Scraper } from "./Crawler";
-import { exit, title } from "process";
 import { Worker } from "cluster";
 const current_thread = new Worker();
 const scraper = new Scraper();
@@ -10,66 +8,11 @@ const FRAME_SIZE = 1024;
 const shared_buffer = new Int32Array(workerData.shared_buffer);
 (async function () {
   try {
-    //await crawler.start_crawl(process.argv[2]);
-    const r_obj = [
-      {
-        header: {
-          title: "This is a title",
-          url: "https://doc.python.org/3/",
-        },
-        webpages: [
-          {
-            header: {
-              title: "Some ttile for this webpage",
-              webpage_url: "https://doc.python.org/3/",
-            },
-            contents: "Some contents in this webpage",
-          },
 
-          {
-            header: {
-              title: "Some ttile for this webpage",
-              webpage_url: "https://doc.python.org/3/",
-            },
-            contents: "Some contents in this webpage",
-          },
-          {
-            header: {
-              title: "Some ttile for this webpage",
-              webpage_url: "https://doc.python.org/3/",
-            },
-            webpage_url: "https://doc.python.org/3/",
-            contents: "Some contents in this webpage",
-          },
-        ],
-      },
-      {
-        header: {
-          title: "GOLANG",
-          url: "https://golang.docs/",
-        },
-        webpages: [
-          {
-            header: {
-              title: "Some ttile for this webpage",
-              webpage_url: "https://doc.python.org/3/",
-            },
-            webpage_url: "https://golang.docs/",
-            contents: "Contents on golang",
-          },
-          {
-            header: {
-              title: "Some ttile for this webpage",
-              webpage_url: "https://doc.python.org/3/",
-            },
-            webpage_url: "https://golang.docs/",
-            contents: "Contents on golang",
-          },
-        ],
-      },
-    ];
-
-    const serialize_obj = JSON.stringify(r_obj[Number(process.argv[2])]);
+    const indexed_data = await crawler.start_crawl(process.argv[2]);
+    console.log(indexed_data)
+    return 
+    const serialize_obj = JSON.stringify(indexed_data);
     const encoder = new TextEncoder();
     const encoded_array = encoder.encode(serialize_obj);
     const encoded_data_buffer = encoded_array.buffer;

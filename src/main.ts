@@ -1,6 +1,5 @@
 import { EventEmitter } from "stream";
 import utils from "./utils";
-import path from "path";
 import ThreadHandler from "./services/ThreadHandler";
 import WebsiteDatabase from "./services/DB";
 
