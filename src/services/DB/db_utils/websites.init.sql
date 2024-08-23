@@ -11,10 +11,9 @@ CREATE TABLE indexed_sites (
 );
 
 CREATE TABLE webpages (
-    parent INTEGER ,
+    parent INTEGER REFERENCES indexed_sites(id),
     webpage_id INTEGER PRIMARY KEY,
     webpage_url TEXT NOT NULL ,
     title TEXT,
-    contents TEXT,
-    FOREIGN KEY (parent) REFERENCES indexed_sites(id) ON DELETE CASCADE ON UPDATE CASCADE
+    contents TEXT
 );

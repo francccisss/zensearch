@@ -12,38 +12,39 @@ const shared_buffer = new Int32Array(workerData.shared_buffer);
     const encoder = new TextEncoder();
     const encoded_array = encoder.encode(serialize_obj);
     const encoded_data_buffer = encoded_array.buffer;
-    const paddedArray = new Uint8Array(encoded_data_buffer.byteLength * 4); // padding for 32 bit.
+    const padded_rray = new Uint8Array(encoded_data_buffer.byteLength * 4); // padding for 32 bit.
     const offset = 4;
     for (let i = 0; i < encoded_array.length; i++) {
       // add the value at every offset
-      paddedArray[i * offset] = encoded_array[i];
+      padded_rray[i * offset] = encoded_array[i];
       // basically leading zeros after the encoded value [<utf-8 value>,0,0,0]
       // if your cpu is using big endianess.. well goodluch xd
     }
-    const view = new Int32Array(paddedArray.buffer);
+    const view = new Int32Array(padded_rray.buffer);
     let current_index = 0;
 
     console.log("AFTER ENCODING");
     console.log({
-      encoded_data: encoded_array.slice(0, 100),
+      encoded_data: encoded_array,
+      last_index: encoded_array[2452],
       length: encoded_array.length,
     });
 
     while (current_index < view.length) {
       const chunk_size = Math.min(FRAME_SIZE, view.length - current_index);
       for (let i = 0; i < chunk_size; i++) {
-        Atomics.store(shared_buffer, i, view[current_index + i]);
+        Atomics.store(shared_buffer,current_index + i, view[current_index + i]);
       }
       if (current_index <= view.length) {
         Atomics.notify(view, current_index, 1);
       }
-
       current_index += chunk_size;
     }
 
     console.log("AFTER TRANFERRING ENCODED DATA TO SHARED BUFFER");
     console.log({
       shared_buffer: shared_buffer.slice(0, 100),
+      last_index: shared_buffer[2452],
       length: shared_buffer.length,
     });
 

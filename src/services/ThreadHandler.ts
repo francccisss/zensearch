@@ -92,11 +92,6 @@ export default class ThreadHandler {
     const decoded_data = decoder.decode(string_array);
     const last_brace_index = decoded_data.lastIndexOf("}");
     const sliced_object = decoded_data.slice(0, last_brace_index) + "}"; // Buh
-    console.log("AFTER RECEVING CHUNKS FROM THREADS")
-    console.log({received_chunks:received_chunks.slice(0,100),length:received_chunks.length})
-    console.log("AFTER DECODING CHUNKS TO UTF-8")
-    console.log({decoded_data:decoded_data.slice(0,100),length:decoded_data.length})
-    return;
     try {
       const deserialize_data = JSON.parse(sliced_object);
       console.log({ received_chunks, sliced_object });
@@ -132,7 +127,7 @@ export default class ThreadHandler {
     }
 
     this.db.serialize(() => {
-      this.db.run("PRAGMA foreign_keys = ON;");
+      // this.db.run("PRAGMA foreign_keys = ON;");
       this.db.run(
         "INSERT OR IGNORE INTO known_sites (url, last_added) VALUES ($url, $last_added);",
         {
@@ -178,9 +173,9 @@ export default class ThreadHandler {
               },
             );
           });
+        insert_webpages_stmt.finalize();
         },
       );
-      insert_webpages_stmt.finalize();
       insert_indexed_sites_stmt.finalize();
     });
   }
