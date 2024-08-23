@@ -40,7 +40,6 @@ class Scraper {
       console.log("LOG: Browser closed unexpectedly.");
       console.error(error.message);
       process.exit(1);
-      return null;
     }
   }
 
@@ -67,6 +66,8 @@ class Crawler {
   private browser: Browser | null;
   private page: Page | null;
   private stack_frame_count: number;
+  private start_visit: number = 0;
+  private end_visit: number = 0;
   data: data_t;
 
   constructor(scraper: Scraper) {
@@ -108,8 +109,6 @@ class Crawler {
       this.data.header.title = await this.page.title();
       await this.traverse_pages(l);
       this.browser?.close();
-
-      writeFileSync("./data.json", JSON.stringify(this.data));
       console.log(this.data);
       console.log(`End of Crawl`);
     } catch (err) {
@@ -122,6 +121,17 @@ class Crawler {
       this.browser?.close();
     }
   }
+
+  private async visit(current_page: string, quantum: number) {
+    return new Promise((resolve) => {
+      setTimeout(async () => {
+        resolve(
+        await this.page?.goto(current_page)
+);
+      }, quantum);
+    });
+  }
+
   private async traverse_pages(link: string) {
     const current_page = remove_hash_url(link);
     try {
@@ -137,12 +147,12 @@ class Crawler {
       await this.page.goto(current_page);
       await this.index_page(this.page, current_page);
       const extracted_links = await this.page.$$eval("a", (links) =>
-        links.map((link) => link.href),
+        links.map((link) => link.href)
       );
       const neighbors = remove_duplicates<string>(extracted_links).filter(
         (link) => {
           return link.includes(new URL(current_page).origin) ?? link;
-        },
+        }
       );
       if (neighbors === undefined || neighbors.length === 0) {
         console.log("LOG: No neighbors.");
@@ -168,7 +178,7 @@ class Crawler {
     if (link.includes("#")) {
       const webpage_from_ds = this.data.webpage_contents.find(
         (el: { header: { title: string; page_url: string } }) =>
-          remove_hash_url(el.header.page_url) === remove_hash_url(link),
+          remove_hash_url(el.header.page_url) === remove_hash_url(link)
       );
       const is_duplicate = webpage_from_ds !== null;
       if (is_duplicate) {
@@ -191,7 +201,7 @@ class Crawler {
         const map_ = await current_page.$$eval(selector, (el) =>
           el.map((p) => {
             return p.textContent;
-          }),
+          })
         );
         const filtered_ = map_.filter((p) => {
           if (p !== undefined) {
@@ -210,7 +220,7 @@ class Crawler {
       return await Promise.allSettled([paras, h1, h2, h3, h4, code, pre]);
     };
     const aggregate_data = async (
-      extracted_data: PromiseSettledResult<string>[],
+      extracted_data: PromiseSettledResult<string>[]
     ) => {
       const settle = extracted_data.map((promises) => {
         if (promises.status === "fulfilled") return promises.value;
