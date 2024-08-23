@@ -3,5 +3,5 @@ dist/
 data.json
 btree.json
 *.yaml
-
+Journey.md
 /src/services/DB/*.db
