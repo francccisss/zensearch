@@ -47,18 +47,17 @@ class Scraper {
     return new_link;
   }
 }
-
-// when index_page is triggered, store processed data on a data structure
-
 type data_t = {
-  webpage_contents: Array<{
-    header: { title: string; page_url: string };
+  webpages: Array<{
+    header: { title: string; webpage_url: string };
     contents: string;
   }>;
   header: {
     title: string;
+    url: string;
   };
 };
+
 class Crawler {
   private scraper: Scraper;
   private visited_stack: Set<string>;
@@ -66,7 +65,7 @@ class Crawler {
   private page: Page | null;
   private max_interval: number = 5000;
   private min_interval: number = 1500;
-  private current_interval: number = 800;
+  private current_interval: number = 500;
   data: data_t;
 
   constructor(scraper: Scraper) {
@@ -77,8 +76,9 @@ class Crawler {
     this.data = {
       header: {
         title: "",
+        url: "",
       },
-      webpage_contents: [],
+      webpages: [],
     };
   }
   async start_crawl(link: string) {
@@ -101,19 +101,18 @@ class Crawler {
   private async crawl(link: string) {
     try {
       if (this.page === null) throw new Error("Unable to create browser page.");
-      const l = "https://nodejs.org/en/learn/asynchronous-work/understanding-processnexttick";
-      // const l = "https://docs.python.org/3/";
-      await this.page.goto(l);
-      this.data.header.title = await this.page.title();
-      await this.traverse_pages(l);
+      await this.page.goto(link);
+      this.data.header = { title: await this.page.title(), url: link };
+      await this.traverse_pages(link);
       this.browser?.close();
-      console.log(this.data);
       console.log(`End of Crawl`);
+      return this.data;
     } catch (err) {
       const error = err as Error;
       this.browser?.close();
       console.log("LOG: Something went wrong while initializing crawler");
       console.error(error.message);
+      return this.data;
     } finally {
       console.log("LOG: Close Browser");
       this.browser?.close();
@@ -121,11 +120,15 @@ class Crawler {
   }
 
   private async throttle_visits() {
-    const DEC_INC = 30;
-    if (this.current_interval < this.max_interval) {
+    const DEC_INC = 70;
+    if (
+      this.current_interval < this.min_interval ||
+      this.current_interval < this.max_interval
+    ) {
       this.current_interval += DEC_INC;
+    } else if (this.current_interval > this.max_interval) {
+      this.current_interval = 500;
     }
-    this.current_interval -= DEC_INC;
     console.log({ current_interval: this.current_interval });
     return new Promise((resolve) => {
       setTimeout(async () => {
@@ -146,7 +149,7 @@ class Crawler {
         return this.page;
       }
       this.visited_stack.add(current_page);
-      await this.throttle_visits();
+      // await this.throttle_visits();
       await this.page.goto(current_page);
       await this.index_page(this.page, current_page);
       const css_selector =
@@ -164,9 +167,9 @@ class Crawler {
         return;
       }
       console.log({
-        visited_stack: this.visited_stack,
+        visited_stack: this.visited_stack.size,
         current_trace: current_page,
-        current_neighbors: neighbors,
+        current_neighbors: neighbors.length,
       });
       for (let current_neighbor of neighbors) {
         await this.traverse_pages(current_neighbor);
@@ -180,15 +183,15 @@ class Crawler {
   }
   private async index_page(current_page: Page, link: string) {
     if (link.includes("#")) {
-      const webpage_from_ds = this.data.webpage_contents.find(
-        (el: { header: { title: string; page_url: string } }) =>
-          remove_hash_url(el.header.page_url) === remove_hash_url(link)
+      const webpage_from_ds = this.data.webpages.find(
+        (el: { header: { title: string; webpage_url: string } }) =>
+          remove_hash_url(el.header.webpage_url) === remove_hash_url(link)
       );
       const is_duplicate = webpage_from_ds !== null;
       if (is_duplicate) {
         console.log("DUPLICATES");
         console.log({
-          webpage_from_ds: webpage_from_ds?.header.page_url,
+          webpage_from_ds: webpage_from_ds!.header.webpage_url,
           link,
         });
         return;
@@ -196,9 +199,7 @@ class Crawler {
     }
 
     console.log("NOT DUPLICATES");
-    console.log({
-      link,
-    });
+    console.log({ link });
 
     const extract = async () => {
       const filter_data = async (selector: string) => {
@@ -231,15 +232,25 @@ class Crawler {
         return "";
       });
 
+      //  type data_t = {
+      //   webpages: Array<{
+      //     header: { title: string; webpage_url: string };
+      //     contents: string;
+      //   }>;
+      //   header: {
+      //     title: string;
+      //     url: string;
+      //   };
+      // };
       const l = settle.join("");
       this.data = {
         ...this.data,
-        webpage_contents: [
-          ...this.data.webpage_contents,
+        webpages: [
+          ...this.data.webpages,
           {
             header: {
               title: (await current_page.title()) || "",
-              page_url: (await current_page.url()) || "",
+              webpage_url: current_page.url() || "",
             },
             contents: l,
           },

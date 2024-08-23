@@ -1,18 +1,14 @@
 import { parentPort, workerData } from "worker_threads";
 import { Crawler, Scraper } from "./Crawler";
 import { Worker } from "cluster";
-const current_thread = new Worker();
 const scraper = new Scraper();
 const crawler = new Crawler(scraper);
 const FRAME_SIZE = 1024;
 const shared_buffer = new Int32Array(workerData.shared_buffer);
 (async function () {
   try {
-
-    const indexed_data = await crawler.start_crawl(process.argv[2]);
-    console.log(indexed_data)
-    return 
-    const serialize_obj = JSON.stringify(indexed_data);
+    await crawler.start_crawl(process.argv[2]);
+    const serialize_obj = JSON.stringify(crawler.data);
     const encoder = new TextEncoder();
     const encoded_array = encoder.encode(serialize_obj);
     const encoded_data_buffer = encoded_array.buffer;
@@ -27,6 +23,12 @@ const shared_buffer = new Int32Array(workerData.shared_buffer);
     const view = new Int32Array(paddedArray.buffer);
     let current_index = 0;
 
+    console.log("AFTER ENCODING");
+    console.log({
+      encoded_data: encoded_array.slice(0, 100),
+      length: encoded_array.length,
+    });
+
     while (current_index < view.length) {
       const chunk_size = Math.min(FRAME_SIZE, view.length - current_index);
       for (let i = 0; i < chunk_size; i++) {
@@ -38,7 +40,12 @@ const shared_buffer = new Int32Array(workerData.shared_buffer);
 
       current_index += chunk_size;
     }
-    console.log({ current_index, view: view.length });
+
+    console.log("AFTER TRANFERRING ENCODED DATA TO SHARED BUFFER");
+    console.log({
+      shared_buffer: shared_buffer.slice(0, 100),
+      length: shared_buffer.length,
+    });
 
     parentPort!.postMessage({
       type: "insert",
