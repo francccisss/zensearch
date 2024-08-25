@@ -1,0 +1,83 @@
+@import url("./fonts.css");
+
+:root {
+  h1,
+  p,
+  h2,
+  h3,
+  h4,
+  h5,
+  li,
+  ul,
+  small {
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  --black: #1e1e1e;
+  --text-black: #2b2b2b;
+  --accent-1: #f8eed4;
+  --white-bg: #fdf9ef;
+  --white-1: #e9e5db;
+  --gray-1: #8a8a8a;
+  --gray-2: #6a6a6a;
+}
+
+button {
+  font-family:
+    "Poppins",
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Oxygen,
+    Ubuntu,
+    Cantarell,
+    "Open Sans",
+    "Helvetica Neue",
+    sans-serif;
+}
+body {
+  font-family:
+    "Poppins",
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Oxygen,
+    Ubuntu,
+    Cantarell,
+    "Open Sans",
+    "Helvetica Neue",
+    sans-serif;
+  background: var(--white-bg);
+  min-height: 100dvh;
+}
+main {
+  min-height: inherit;
+  color: var(--text-black);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#index-page-header {
+  margin-bottom: 1em;
+  h1 {
+    font-size: 3rem;
+  }
+}
+#crawl-data-submission {
+  #crawl-btn {
+    background: var(--text-black);
+    color: var(--white-1);
+    appearance: none;
+    border: none;
+    padding: 1em 1.2rem;
+    font-weight: 500;
+    font-size: 1rem;
+    border-radius: 5px;
+  }
+}
