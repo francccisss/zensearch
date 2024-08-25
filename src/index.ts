@@ -1,6 +1,6 @@
 import express, { Request, Response, NextFunction } from "express";
 import path from "path";
-import amqp, { Connection } from "amqplib/callback_api";
+import amqp, { Connection, Channel } from "amqplib";
 const cors = require("cors");
 const body_parser = require("body-parser");
 const app = express();
@@ -29,26 +29,36 @@ app.get("/", (req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-app.post("/crawl", (req: Request, res: Response) => {
+app.post("/crawl", async (req: Request, res: Response) => {
   console.log("Crawl");
-
-  amqp.connect("amqp://localhost", (err, connection: Connection) => {
-    if (err) throw err;
-    connection.createChannel((err, channel) => {
-      if (err) throw err;
-      const queue = "hello";
-      const message = "hello world";
-      channel.assertQueue(queue, {
-        durable: false,
-      });
-      channel.sendToQueue(queue, Buffer.from(message));
-      console.log("[x] Sent %s", message);
-      //setTimeout(function () {
-      //  connection.close();
-      //}, 500);
-      res.send("<p>Crawling...</p>");
-    });
+  const connection = await amqp.connect("amqp://localhost");
+  const channel = await connection.createChannel();
+  const queue = "crawl_rpc_queue";
+  const message = "Start Crawl";
+  const corID = "f27ac58-7bee-4e90-93ef-8bc08a37e26c";
+  const response_queue = await channel.assertQueue("crawl_reply_queue", {
+    exclusive: true,
   });
+  channel.sendToQueue(queue, Buffer.from(message), {
+    replyTo: response_queue.queue,
+    correlationId: corID,
+  });
+  channel.consume(
+    response_queue.queue,
+    async (msg) => {
+      if (msg === null) throw new Error("No Message");
+      console.log(msg);
+      if (msg.properties.correlationId == corID) {
+        console.log(" [.] Got %s", msg.content.toString());
+        console.log("[x] Sent %s", message);
+        res.send("<p>Crawling...</p>");
+      }
+    },
+
+    {
+      noAck: true,
+    },
+  );
 });
 
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

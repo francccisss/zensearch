@@ -15,7 +15,7 @@ amqp.connect("amqp://localhost", (err: any, connection: any) => {
     if (error) {
       throw error;
     }
-    var queue = "hello";
+    var queue = "crawl_rpc_queue";
     channel.assertQueue(queue, {
       durable: false,
     });
@@ -25,6 +25,10 @@ amqp.connect("amqp://localhost", (err: any, connection: any) => {
       function (msg) {
         if (msg === null) throw new Error("No message");
         console.log(" [x] Received %s", msg!.content.toString());
+        console.log(msg);
+        channel.sendToQueue(msg.properties.replyTo, Buffer.from("CRAAAWLEED"), {
+          correlationId: msg.properties.correlationId,
+        });
       },
       {
         noAck: true,
