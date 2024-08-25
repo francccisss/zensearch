@@ -1,29 +1,11 @@
 import puppeteer, { Browser, Page } from "puppeteer";
+import remove_duplicate from "./utils/remove_duplicate";
 
 const remove_hash_url = (link: string) => {
   if (!link.includes("#")) return link;
   const hash_index = link.indexOf("#");
   return link.substring(0, hash_index);
 };
-function remove_duplicates<T>(links: Array<T> | undefined): Array<T> {
-  let tmp: Array<T> = [];
-  if (links === undefined || links.length === 0) return [];
-  outerLoop: for (let i = 0; i < links.length; i++) {
-    if (tmp.length === 0) {
-      tmp.push(links[i]);
-      continue;
-    }
-    let exists = false;
-    for (let j = 0; j < tmp.length; j++) {
-      if (links[i] === tmp[j]) {
-        exists = true;
-        break;
-      }
-    }
-    if (!exists) tmp.push(links[i]);
-  }
-  return tmp;
-}
 
 class Scraper {
   private link: string;
@@ -157,7 +139,7 @@ class Crawler {
       const extracted_links = await this.page.$$eval(css_selector, (links) =>
         links.map((link) => link.href),
       );
-      const neighbors = remove_duplicates<string>(extracted_links).filter(
+      const neighbors = remove_duplicate<string>(extracted_links).filter(
         (link) => {
           return link.includes(new URL(current_page).origin) ?? link;
         },
