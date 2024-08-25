@@ -155,12 +155,12 @@ class Crawler {
       const css_selector =
         'a:not([href$=".zip"]):not([href$=".pdf"]):not([href$=".exe"]):not([href$=".jpg"]):not([href$=".png"]):not([href$=".tar.gz"]):not([href$=".rar"]):not([href$=".7z"]):not([href$=".mp3"]):not([href$=".mp4"]):not([href$=".mkv"]):not([href$=".tar"]):not([href$=".xz"]):not([href$=".msi"])';
       const extracted_links = await this.page.$$eval(css_selector, (links) =>
-        links.map((link) => link.href)
+        links.map((link) => link.href),
       );
       const neighbors = remove_duplicates<string>(extracted_links).filter(
         (link) => {
           return link.includes(new URL(current_page).origin) ?? link;
-        }
+        },
       );
       if (neighbors === undefined || neighbors.length === 0) {
         console.log("LOG: No neighbors.");
@@ -185,7 +185,7 @@ class Crawler {
     if (link.includes("#")) {
       const webpage_from_ds = this.data.webpages.find(
         (el: { header: { title: string; webpage_url: string } }) =>
-          remove_hash_url(el.header.webpage_url) === remove_hash_url(link)
+          remove_hash_url(el.header.webpage_url) === remove_hash_url(link),
       );
       const is_duplicate = webpage_from_ds !== null;
       if (is_duplicate) {
@@ -206,7 +206,7 @@ class Crawler {
         const map_ = await current_page.$$eval(selector, (el) =>
           el.map((p) => {
             return p.textContent;
-          })
+          }),
         );
         const filtered_ = map_.filter((p) => {
           if (p !== undefined) {
@@ -225,7 +225,7 @@ class Crawler {
       return await Promise.allSettled([paras, h1, h2, h3, h4, code, pre]);
     };
     const aggregate_data = async (
-      extracted_data: PromiseSettledResult<string>[]
+      extracted_data: PromiseSettledResult<string>[],
     ) => {
       const settle = extracted_data.map((promises) => {
         if (promises.status === "fulfilled") return promises.value;

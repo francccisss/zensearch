@@ -1,7 +1,7 @@
 import path from "path";
 import { Worker } from "worker_threads";
 import { Database, sqlite3 } from "sqlite3";
-import { data_t } from "../../types/data_t";
+import { data_t } from "./types/data_t";
 
 const BUFFER_SIZE = 50000;
 const FRAME_SIZE = 1024;

@@ -10,7 +10,7 @@ class WebsiteDatabase {
     if (this.db !== null) {
       return this.db;
     }
-    const db_file = "./website_collection.db";
+    const db_file = "../../../DB/website_collection.db";
     const sqlite = sqlite3.verbose();
     this.db = new sqlite.Database(
       path.join(__dirname, db_file),
