@@ -6,7 +6,7 @@
   "scripts": {
     "test": "jest",
     "dev": "nodemon",
-    "start": "node dist/main.js",
+    "start": "node dist/index.js",
     "store": "ts-node src/utils/ds/store_data.ts",
     "build": "npx tsc"
   },

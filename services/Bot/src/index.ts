@@ -5,6 +5,7 @@ import WebsiteDatabase from "./db_interface";
 import path from "path";
 
 const event = new EventEmitter();
+console.log("Crawler started.");
 
 //event.on("crawl", async (webpages: Array<string>) => {
 //  console.log("crawl");
