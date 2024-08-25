@@ -2,7 +2,12 @@
 <html>
   <head>
     <title>Your Search Engine</title>
-    <script type="module" defer src="scripts/index.js"></script>
+    <!--<script type="module" defer src="scripts/index.js"></script>-->
+    <script
+      src="https://unpkg.com/htmx.org@2.0.2"
+      integrity="sha384-Y7hw+L/jvKeWIRRkqWYfPcvVxHzVzn5REgzbawhxAuQGwX1XWe70vji+VSeHOThJ"
+      crossorigin="anonymous"
+    ></script>
     <link href="index.css" rel="stylesheet" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -15,12 +20,12 @@
     <main id="index-page">
       <div>
         <div id="index-page-header">
-          <small>Every Query is yours.</small>
+          <p>A distributed search engine.</p>
           <h1>Crawl before you search.</h1>
-          <p>This is a distributed search engine.</p>
+          <small>Every Query is yours.</small>
         </div>
         <div id="crawl-data-submission">
-          <button id="crawl-btn">Crawl Websites</button>
+          <button hx-post="/crawl" id="crawl-btn">Crawl Websites</button>
         </div>
       </div>
     </main>

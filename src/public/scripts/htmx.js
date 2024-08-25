@@ -3427,4 +3427,3 @@ var htmx = (function () {
   });
   return Q;
 })();
-export default htmx;
