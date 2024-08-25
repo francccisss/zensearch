@@ -1,2 +1,1 @@
-import htmx from "./htmx.js";
-console.log("Initialized htmx");
+console.log("Initialized Script");

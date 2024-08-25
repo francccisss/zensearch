@@ -3,9 +3,35 @@ import utils from "./utils";
 import ThreadHandler from "./ThreadHandler";
 import WebsiteDatabase from "./db_interface";
 import path from "path";
+import amqp, { Channel, Connection } from "amqplib/callback_api";
 
 const event = new EventEmitter();
-console.log("Crawler started.");
+console.log("Crawl start.");
+
+amqp.connect("amqp://localhost", (err: any, connection: any) => {
+  console.log("Connected to MQ");
+  if (err) throw err;
+  connection.createChannel(function (error: any, channel: Channel) {
+    if (error) {
+      throw error;
+    }
+    var queue = "hello";
+    channel.assertQueue(queue, {
+      durable: false,
+    });
+    console.log(" [*] Waiting for messages in %s. To exit press CTRL+C", queue);
+    channel.consume(
+      queue,
+      function (msg) {
+        if (msg === null) throw new Error("No message");
+        console.log(" [x] Received %s", msg!.content.toString());
+      },
+      {
+        noAck: true,
+      },
+    );
+  });
+});
 
 //event.on("crawl", async (webpages: Array<string>) => {
 //  console.log("crawl");
