@@ -2,7 +2,7 @@
   "name": "search-engine",
   "version": "1.0.0",
   "description": "Building a small scale search engine",
-  "main": "dist/main.js",
+  "main": "dist/index.js",
   "scripts": {
     "test": "jest",
     "dev": "nodemon",
