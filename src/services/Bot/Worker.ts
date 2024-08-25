@@ -33,7 +33,11 @@ const shared_buffer = new Int32Array(workerData.shared_buffer);
     while (current_index < view.length) {
       const chunk_size = Math.min(FRAME_SIZE, view.length - current_index);
       for (let i = 0; i < chunk_size; i++) {
-        Atomics.store(shared_buffer,current_index + i, view[current_index + i]);
+        Atomics.store(
+          shared_buffer,
+          current_index + i,
+          view[current_index + i],
+        );
       }
       if (current_index <= view.length) {
         Atomics.notify(view, current_index, 1);

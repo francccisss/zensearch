@@ -1,6 +1,6 @@
 import { EventEmitter } from "stream";
 import utils from "./utils";
-import ThreadHandler from "./services/ThreadHandler";
+import ThreadHandler from "./services/Bot/ThreadHandler";
 import WebsiteDatabase from "./services/DB";
 
 const event = new EventEmitter();
@@ -10,7 +10,7 @@ event.on("crawl", async (webpages: Array<string>) => {
   console.log(webpages);
 
   try {
-    const worker = new ThreadHandler(
+    const thread_handler = new ThreadHandler(
       webpages,
       new WebsiteDatabase().init_database(),
       2,
