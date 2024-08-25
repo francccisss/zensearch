@@ -1,11 +1,11 @@
 import path from "path";
-import {  Worker } from "worker_threads";
-import { data_t } from "../types/data_t";
+import { Worker } from "worker_threads";
 import { Database, sqlite3 } from "sqlite3";
+import { data_t } from "../../types/data_t";
 
 const BUFFER_SIZE = 50000;
 const FRAME_SIZE = 1024;
-const WORKER_FILE = path.join(__dirname, "./Bot/index.ts");
+const WORKER_FILE = path.join(__dirname, "./Worker.ts");
 
 type thread_response_t = {
   type: "insert" | "error";
@@ -52,18 +52,6 @@ export default class ThreadHandler {
       console.log(`Worker Exit`);
     });
   }
-
-  // 9812/4 === 2453 was added to the shared buffer
-  // so 2453 32bit ints in shared buffer
-  // or 2453 8bit ints in shared buffer.
-
-  // 50000 / 4 = 12500
-  // so 12500 32bit ints in shared buffer
-  // or 12500 8bit ints in shared buffer.
-
-  // 2453 / 12500 = 10047 (extra 32bytes) || (extra 8bits)
-
-
 
   private message_decoder(shared_buffer: SharedArrayBuffer) {
     const view = new Int32Array(shared_buffer);
@@ -173,7 +161,7 @@ export default class ThreadHandler {
               },
             );
           });
-        insert_webpages_stmt.finalize();
+          insert_webpages_stmt.finalize();
         },
       );
       insert_indexed_sites_stmt.finalize();
