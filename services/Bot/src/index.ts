@@ -25,10 +25,15 @@ amqp.connect("amqp://localhost", (err: any, connection: any) => {
       function (msg) {
         if (msg === null) throw new Error("No message");
         console.log(" [x] Received %s", msg!.content.toString());
-        console.log(msg);
-        channel.sendToQueue(msg.properties.replyTo, Buffer.from("CRAAAWLEED"), {
-          correlationId: msg.properties.correlationId,
-        });
+        setTimeout(() => {
+          channel.sendToQueue(
+            msg.properties.replyTo,
+            Buffer.from("CRAAAWLEED"),
+            {
+              correlationId: msg.properties.correlationId,
+            },
+          );
+        }, 5000);
       },
       {
         noAck: true,
