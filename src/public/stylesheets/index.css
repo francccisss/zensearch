@@ -75,9 +75,29 @@ main {
     color: var(--white-1);
     appearance: none;
     border: none;
-    padding: 1em 1.2rem;
+    padding: 0.6em 0.8em;
     font-weight: 500;
     font-size: 1rem;
-    border-radius: 5px;
+    border-radius: 2px;
+  }
+}
+
+#spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--black);
+  border-bottom-color: transparent;
+  border-radius: 50%;
+  display: inline-block;
+  box-sizing: border-box;
+  animation: rotation 1s linear infinite;
+}
+
+@keyframes rotation {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
   }
 }
