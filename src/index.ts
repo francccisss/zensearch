@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from "express";
 import path from "path";
 import amqp, { Connection, Channel } from "amqplib";
+import connect_rabbitmq from "./rabbitmq";
 const cors = require("cors");
 const body_parser = require("body-parser");
 const app = express();
@@ -19,7 +20,6 @@ app.use(
   (req: Request, res: Response, next: NextFunction) => {
     if (req.path.endsWith(".js")) {
       res.setHeader("Content-Type", "application/javascript");
-      next();
     }
     next();
   },
@@ -29,36 +29,43 @@ app.get("/", (req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-app.post("/crawl", async (req: Request, res: Response) => {
+app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
   console.log("Crawl");
-  const connection = await amqp.connect("amqp://localhost");
-  const channel = await connection.createChannel();
-  const queue = "crawl_rpc_queue";
-  const message = "Start Crawl";
-  const corID = "f27ac58-7bee-4e90-93ef-8bc08a37e26c";
-  const response_queue = await channel.assertQueue("crawl_reply_queue", {
-    exclusive: true,
-  });
-  channel.sendToQueue(queue, Buffer.from(message), {
-    replyTo: response_queue.queue,
-    correlationId: corID,
-  });
-  channel.consume(
-    response_queue.queue,
-    async (msg) => {
-      if (msg === null) throw new Error("No Message");
-      console.log(msg);
-      if (msg.properties.correlationId == corID) {
-        console.log(" [.] Got %s", msg.content.toString());
-        console.log("[x] Sent %s", message);
-        res.send("<p>Crawling...</p>");
-      }
-    },
+  try {
+    const queue = "crawl_rpc_queue";
+    const message = "Start Crawl";
+    const corID = "f27ac58-7bee-4e90-93ef-8bc08a37e26c";
+    const { connection, channel } = await connect_rabbitmq();
+    const response_queue = await channel.assertQueue(
+      "crawl_notification_queue",
+      { exclusive: false },
+    );
+    await channel.sendToQueue(queue, Buffer.from(message), {
+      replyTo: response_queue.queue,
+      correlationId: corID,
+    });
 
-    {
-      noAck: true,
-    },
-  );
+    const consumer = await channel.consume(
+      response_queue.queue,
+      (response) => {
+        if (response === null) throw new Error("No Response");
+        if (response.properties.correlationId === corID) {
+          console.log(
+            "LOG: Response from crawler received: %s",
+            response.content.toString(),
+          );
+          res.send("<p>Success</p>");
+          channel.cancel(consumer.consumerTag).catch(console.error);
+        }
+      },
+      { noAck: true },
+    );
+  } catch (err) {
+    const error = err as Error;
+    console.log("LOG:Something went wrong with RPC queue");
+    console.error(error.message);
+    next(err);
+  }
 });
 
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
