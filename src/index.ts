@@ -30,6 +30,16 @@ app.get("/", (req: Request, res: Response) => {
 });
 
 app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
+  const docs = [
+    "https://fzaid.vercel.app/",
+    "https://docs.python.org/3/",
+    "https://developer.mozilla.org/en-US/docs/Web/JavaScript",
+    "https://go.dev/doc/",
+    "https://motherfuckingwebsite.com/",
+  ];
+  const encoder = new TextEncoder();
+  const encoded_docs = encoder.encode(JSON.stringify({ docs }));
+
   console.log("Crawl");
   try {
     const queue = "crawl_rpc_queue";
@@ -40,7 +50,7 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
       "crawl_notification_queue",
       { exclusive: false },
     );
-    await channel.sendToQueue(queue, Buffer.from(message), {
+    await channel.sendToQueue(queue, Buffer.from(encoded_docs.buffer), {
       replyTo: response_queue.queue,
       correlationId: corID,
     });

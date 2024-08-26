@@ -3,45 +3,39 @@ import utils from "./utils";
 import ThreadHandler from "./ThreadHandler";
 import WebsiteDatabase from "./db_interface";
 import path from "path";
-import amqp, { Channel, Connection } from "amqplib/callback_api";
+import amqp, { Channel, Connection } from "amqplib";
 
 const event = new EventEmitter();
 console.log("Crawl start.");
 
-amqp.connect("amqp://localhost", (err: any, connection: any) => {
-  console.log("Connected to MQ");
-  if (err) throw err;
-  connection.createChannel(function (error: any, channel: Channel) {
-    if (error) {
-      throw error;
-    }
-    var queue = "crawl_rpc_queue";
-    channel.assertQueue(queue, {
-      durable: false,
-    });
-    console.log(" [*] Waiting for messages in %s. To exit press CTRL+C", queue);
-    channel.consume(
-      queue,
-      function (msg) {
-        if (msg === null) throw new Error("No message");
-        console.log(" [x] Received %s", msg!.content.toString());
-        setTimeout(() => {
-          channel.sendToQueue(
-            msg.properties.replyTo,
-            Buffer.from("CRAAAWLEED"),
-            {
-              correlationId: msg.properties.correlationId,
-            },
-          );
-        }, 5000);
-      },
-      {
-        noAck: true,
-      },
-    );
+(async function () {
+  const connection = await amqp.connect("amqp://localhost");
+  const channel = await connection.createChannel();
+  var queue = "crawl_rpc_queue";
+  await channel.assertQueue(queue, {
+    durable: false,
   });
-});
+  console.log(" [*] Waiting for messages in %s. To exit press CTRL+C", queue);
+  const decoder = new TextDecoder();
 
+  await channel.consume(
+    queue,
+    function (msg) {
+      if (msg === null) throw new Error("No message");
+      const decoded_array_buffer = decoder.decode(msg.content);
+      const to_json = JSON.parse(decoded_array_buffer);
+      console.log(to_json);
+      setTimeout(() => {
+        channel.sendToQueue(msg.properties.replyTo, Buffer.from("CRAAAWLEED"), {
+          correlationId: msg.properties.correlationId,
+        });
+      }, 5000);
+    },
+    {
+      noAck: true,
+    },
+  );
+})();
 //event.on("crawl", async (webpages: Array<string>) => {
 //  console.log("crawl");
 //  console.log(webpages);
