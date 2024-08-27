@@ -24,8 +24,21 @@ const db = init_database();
     async (data) => {
       if (data === null) throw new Error("No data was pushed.");
       console.log(data);
-      //await index_webpages(data)
+      const decoder = new TextDecoder();
+      const decoded_data = decoder.decode(data.content as ArrayBuffer);
+      const last_brace_index = decoded_data.lastIndexOf("}");
+      const sliced_object = decoded_data.slice(0, last_brace_index) + "}"; // Buh
+      try {
+        const deserialize_data = JSON.parse(sliced_object);
+        console.log({ deserialize_data });
+      } catch (err) {
+        const error = err as Error;
+        console.log("LOG: Decoder was unable to deserialized indexed data.");
+        console.error(error.message);
+        console.error(error.stack);
+      }
     },
+
     { noAck: false },
   );
 })();
