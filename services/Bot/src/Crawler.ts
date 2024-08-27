@@ -71,12 +71,14 @@ class Crawler {
         throw new Error("Unable to create browser page.");
       this.page = await this.browser.newPage();
       if (this.page === null) throw new Error("Unable to create browser page.");
-      await this.crawl(link);
+      const data = await this.crawl(link);
+      return data;
     } catch (err) {
       const error = err as Error;
       this.browser?.close();
       console.log("LOG: Something went wrong with the crawler.");
       console.error(error.message);
+      return null;
     }
   }
 
@@ -94,7 +96,7 @@ class Crawler {
       this.browser?.close();
       console.log("LOG: Something went wrong while initializing crawler");
       console.error(error.message);
-      return this.data;
+      return null;
     } finally {
       console.log("LOG: Close Browser");
       this.browser?.close();
@@ -171,18 +173,9 @@ class Crawler {
       );
       const is_duplicate = webpage_from_ds !== null;
       if (is_duplicate) {
-        console.log("DUPLICATES");
-        console.log({
-          webpage_from_ds: webpage_from_ds!.header.webpage_url,
-          link,
-        });
         return;
       }
     }
-
-    console.log("NOT DUPLICATES");
-    console.log({ link });
-
     const extract = async () => {
       const filter_data = async (selector: string) => {
         const map_ = await current_page.$$eval(selector, (el) =>

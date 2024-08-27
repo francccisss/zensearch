@@ -10,6 +10,7 @@ const WORKER_FILE = path.join(__dirname, "./Worker.ts");
 type thread_response_t = {
   type: "insert" | "error";
   shared_buffer?: SharedArrayBuffer;
+  text?: string;
   data_length: number;
 };
 
@@ -18,6 +19,7 @@ export default class ThreadHandler {
   db;
   current_threads: number;
   private THREAD_POOL: number;
+  successful_thread_count: number;
 
   constructor(
     webpages: Array<string>,
@@ -26,15 +28,40 @@ export default class ThreadHandler {
   ) {
     this.webpages = webpages;
     this.db = database;
-    this.current_threads = thread_pool;
+    this.current_threads = thread_pool; // keep track for polling
     this.THREAD_POOL = thread_pool;
+    this.successful_thread_count = 0; // self explanatory
+  }
+
+  public async crawl_and_index() {
+    const shared_buffer = new SharedArrayBuffer(BUFFER_SIZE);
+    try {
+      for (let i = 0; i < this.THREAD_POOL; i++) {
+        const worker = new Worker(WORKER_FILE, {
+          argv: [this.webpages[i]],
+          workerData: { shared_buffer },
+        });
+        this.current_threads--;
+        this.event_handlers(worker, shared_buffer);
+      }
+    } catch (err) {
+      this.current_threads++;
+      const error = err as Error;
+      console.log("Log: Something went wrong when creating thread workers.\n");
+      console.error(error.message);
+    }
   }
 
   private event_handlers(worker: Worker, shared_buffer: SharedArrayBuffer) {
     console.log(`WorkerID: ${worker.threadId}`);
     worker.on("message", (message: thread_response_t) => {
       if (message.type === "error") {
-        console.log("Thread s% Threw an error: ", worker.threadId);
+        console.error(
+          "Thread %d Threw an error: %s",
+          worker.threadId,
+          message.text,
+        );
+        this.current_threads++;
       }
 
       if (message.type === "insert") {
@@ -84,6 +111,7 @@ export default class ThreadHandler {
       console.log({ received_chunks, sliced_object });
       console.log({ deserialize_data });
       this.insert_indexed_page(deserialize_data);
+      this.successful_thread_count++;
     } catch (err) {
       const error = err as Error;
       this.current_threads++;
@@ -96,24 +124,6 @@ export default class ThreadHandler {
     return this.current_threads;
   }
 
-  public async crawl_and_index() {
-    const shared_buffer = new SharedArrayBuffer(BUFFER_SIZE);
-    try {
-      for (let i = 0; i < this.THREAD_POOL; i++) {
-        const worker = new Worker(WORKER_FILE, {
-          argv: [this.webpages[i]],
-          workerData: { shared_buffer },
-        });
-        this.current_threads--;
-        this.event_handlers(worker, shared_buffer);
-      }
-    } catch (err) {
-      this.current_threads++;
-      const error = err as Error;
-      console.log("Log: Something went wrong when creating thread workers.\n");
-      console.error(error.message);
-    }
-  }
   private insert_indexed_page(data: data_t) {
     if (this.db == null) {
       throw new Error("Database is not connected.");
