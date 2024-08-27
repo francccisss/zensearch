@@ -2,6 +2,8 @@ import path from "path";
 import { Worker } from "worker_threads";
 import { Database, sqlite3 } from "sqlite3";
 import { data_t } from "./types/data_t";
+import amqp from "amqplib";
+import { buffer } from "stream/consumers";
 
 const BUFFER_SIZE = 50000;
 const FRAME_SIZE = 1024;
@@ -52,9 +54,12 @@ export default class ThreadHandler {
     }
   }
 
-  private event_handlers(worker: Worker, shared_buffer: SharedArrayBuffer) {
+  private async event_handlers(
+    worker: Worker,
+    shared_buffer: SharedArrayBuffer,
+  ) {
     console.log(`WorkerID: ${worker.threadId}`);
-    worker.on("message", (message: thread_response_t) => {
+    worker.on("message", async (message: thread_response_t) => {
       if (message.type === "error") {
         console.error(
           "Thread %d Threw an error: %s",
@@ -66,7 +71,7 @@ export default class ThreadHandler {
 
       if (message.type === "insert") {
         if (message.shared_buffer == undefined) return;
-        this.message_decoder(shared_buffer);
+        await this.message_decoder(shared_buffer);
         console.log(
           "Thread #%s changed buffer: ",
           worker.threadId,
@@ -79,7 +84,7 @@ export default class ThreadHandler {
     });
   }
 
-  private message_decoder(shared_buffer: SharedArrayBuffer) {
+  private async message_decoder(shared_buffer: SharedArrayBuffer) {
     const view = new Int32Array(shared_buffer);
     let received_chunks = [];
     let current_index = 0;
@@ -110,7 +115,10 @@ export default class ThreadHandler {
       const deserialize_data = JSON.parse(sliced_object);
       console.log({ received_chunks, sliced_object });
       console.log({ deserialize_data });
-      this.insert_indexed_page(deserialize_data);
+      await this.insert_indexed_page(
+        deserialize_data,
+        string_array.buffer as Buffer,
+      );
       this.successful_thread_count++;
     } catch (err) {
       const error = err as Error;
@@ -124,62 +132,13 @@ export default class ThreadHandler {
     return this.current_threads;
   }
 
-  private insert_indexed_page(data: data_t) {
-    if (this.db == null) {
-      throw new Error("Database is not connected.");
-    }
-    this.db.serialize(() => {
-      // this.db.run("PRAGMA foreign_keys = ON;");
-      this.db.run(
-        "INSERT OR IGNORE INTO known_sites (url, last_added) VALUES ($url, $last_added);",
-        {
-          $url: new URL("/", data.header.url).hostname,
-          $last_added: Date.now(),
-        },
-      );
-      const insert_indexed_sites_stmt = this.db.prepare(
-        "INSERT OR IGNORE INTO indexed_sites (primary_url, last_indexed) VALUES ($primary_url, $last_indexed);",
-      );
-      const insert_webpages_stmt = this.db.prepare(
-        "INSERT INTO webpages (webpage_url, title, contents, parent) VALUES ($webpage_url, $title, $contents, $parent);",
-      );
-      insert_indexed_sites_stmt.run(
-        {
-          $primary_url: new URL("/", data.header.url).hostname,
-          $last_indexed: Date.now(),
-        },
-        function (err) {
-          if (err) {
-            console.error("Unable to add last indexed site:", err.message);
-            return;
-          }
-          const parentId = this.lastID;
-          data.webpages.forEach((el) => {
-            if (el === undefined) return;
-            const {
-              header: { title, webpage_url },
-              contents,
-            } = el;
+  private async insert_indexed_page(data: data_t, data_buffer: Buffer) {
+    console.log(data);
+    const connection = await amqp.connect("amqp://localhost");
+    const channel = await connection.createChannel();
+    const queue = "database_push_queue";
 
-            insert_webpages_stmt.run(
-              {
-                $webpage_url: webpage_url,
-                $title: title,
-                $contents: contents,
-                $parent: parentId,
-              },
-              (err) => {
-                if (err) {
-                  console.error("Error inserting webpage:", err.message);
-                }
-              },
-            );
-          });
-          insert_webpages_stmt.finalize();
-        },
-      );
-      insert_indexed_sites_stmt.finalize();
-    });
+    channel.sendToQueue(queue, data_buffer);
     this.current_threads++;
   }
 }
