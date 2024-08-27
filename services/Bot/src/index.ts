@@ -1,12 +1,12 @@
 import { EventEmitter } from "stream";
 import utils from "./utils";
-import ThreadHandler from "./ThreadHandler";
+import WorkerHandler from "./WorkerHandler";
 import WebsiteDatabase from "./db_interface";
 import path from "path";
 import amqp, { Channel, Connection } from "amqplib";
 
 const event = new EventEmitter();
-const MAX_THREADS = 1;
+const MAX_THREADS = 2;
 console.log("Crawl start.");
 
 (async function () {
@@ -26,16 +26,17 @@ console.log("Crawl start.");
       const decoded_array_buffer = decoder.decode(msg.content);
       const to_json: { docs: Array<string> } = JSON.parse(decoded_array_buffer);
       console.log(to_json);
-      const main_thread = await crawl(to_json.docs);
-      let available_threads = main_thread.current_threads;
+      const handler = await crawl(to_json.docs);
+      let available_threads = handler.current_threads;
       await thread_polling(
         available_threads,
-        main_thread.check_threads.bind(main_thread),
+        handler.check_threads.bind(handler),
       );
-      console.log(available_threads);
       channel.sendToQueue(
         msg.properties.replyTo,
-        Buffer.from(`Crawled: ${to_json.docs}`),
+        Buffer.from(
+          `Crawled: ${handler.successful_thread_count}/${to_json.docs.length}`,
+        ),
         {
           correlationId: msg.properties.correlationId,
         },
@@ -67,9 +68,9 @@ async function crawl(webpages: Array<string>) {
   console.log("crawl");
   try {
     const database = new WebsiteDatabase().init_database();
-    const thread_handler = new ThreadHandler(webpages, database, MAX_THREADS);
-    await thread_handler.crawl_and_index();
-    return thread_handler;
+    const worker_handler = new WorkerHandler(webpages, database, MAX_THREADS);
+    await worker_handler.crawl_and_index();
+    return worker_handler;
   } catch (err) {
     process.exit(1);
   }

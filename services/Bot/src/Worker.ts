@@ -7,7 +7,9 @@ const FRAME_SIZE = 1024;
 const shared_buffer = new Int32Array(workerData.shared_buffer);
 (async function () {
   try {
-    await crawler.start_crawl(process.argv[2]);
+    const data = await crawler.start_crawl(process.argv[2]);
+    if (data === null)
+      throw new Error(`Unable to crawl current website: ${process.argv[2]}`);
     const serialize_obj = JSON.stringify(crawler.data);
     const encoder = new TextEncoder();
     const encoded_array = encoder.encode(serialize_obj);
@@ -22,13 +24,6 @@ const shared_buffer = new Int32Array(workerData.shared_buffer);
     }
     const view = new Int32Array(padded_rray.buffer);
     let current_index = 0;
-
-    console.log("AFTER ENCODING");
-    console.log({
-      encoded_data: encoded_array,
-      last_index: encoded_array[2452],
-      length: encoded_array.length,
-    });
 
     while (current_index < view.length) {
       const chunk_size = Math.min(FRAME_SIZE, view.length - current_index);
@@ -45,13 +40,6 @@ const shared_buffer = new Int32Array(workerData.shared_buffer);
       current_index += chunk_size;
     }
 
-    console.log("AFTER TRANFERRING ENCODED DATA TO SHARED BUFFER");
-    console.log({
-      shared_buffer: shared_buffer.slice(0, 100),
-      last_index: shared_buffer[2452],
-      length: shared_buffer.length,
-    });
-
     parentPort!.postMessage({
       type: "insert",
       shared_buffer,
@@ -59,8 +47,8 @@ const shared_buffer = new Int32Array(workerData.shared_buffer);
     });
   } catch (err) {
     const error = err as Error;
-    console.log("LOG: Something went wrong with the current thread.");
+    console.error("LOG: Something went wrong with the current thread.");
     console.error(error.message);
-    parentPort!.postMessage({ type: "error" });
+    parentPort!.postMessage({ type: "error", text: error.message });
   }
 })();
