@@ -65,16 +65,21 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
 });
 
 app.get("/job", async (req: Request, res: Response, next: NextFunction) => {
-  const { job_id, worker_queue } = req.query;
-
+  const { job_id, job_queue } = req.query;
+  if (job_id === undefined || job_queue === undefined)
+    throw new Error("There's no worker queue for this session for crawling.");
+  console.log(job_id, job_queue);
   console.log("Check Worker queue");
   try {
     const { connection, channel } = await connect_rabbitmq();
-    const response_queue = await channel.assertQueue("polling_worker_queue", {
-      exclusive: false,
-    });
+    const { queue, messageCount, consumerCount } = await channel.checkQueue(
+      job_queue as string,
+    );
+    if (messageCount === 0) {
+      res.send("Crawling...");
+    }
     const consumer = await channel.consume(
-      response_queue.queue,
+      job_queue as string,
       (response) => {
         if (response === null) throw new Error("No Response");
         if (response.properties.correlationId === job_id) {
@@ -82,6 +87,9 @@ app.get("/job", async (req: Request, res: Response, next: NextFunction) => {
             "LOG: Response from crawler received: %s",
             response.content.toString(),
           );
+          console.log("CONSUMED");
+          res.clearCookie("job_id");
+          res.clearCookie("job_queue");
           res.send("<p>Success</p>");
           channel.cancel(consumer.consumerTag).catch(console.error);
         }
