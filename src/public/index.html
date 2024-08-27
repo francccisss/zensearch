@@ -21,11 +21,8 @@
           <small>Every Query is yours.</small>
         </div>
         <div id="crawl-data-submission">
-          <button hx-post="/crawl" hx-indicator="#spinner" id="crawl-btn">
-            Crawl Websites
-          </button>
-          <span id="spinner" class="htmx-indicator"></span>
-          <!--<span id="spinner"></span>-->
+          <button id="crawl-btn">Crawl Websites</button>
+          <span id="spinner" class="process-spinner"></span>
         </div>
       </div>
     </main>
