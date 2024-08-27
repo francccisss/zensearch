@@ -19,6 +19,9 @@
   --white-1: #e9e5db;
   --gray-1: #8a8a8a;
   --gray-2: #6a6a6a;
+  --error: #ed3737;
+  /*--success: #37ed6a;*/
+  --success: #32d961;
 }
 
 button {
@@ -80,6 +83,13 @@ main {
     font-size: 1rem;
     border-radius: 2px;
   }
+  #crawl-btn:disabled {
+    background: var(--gray-2);
+  }
+}
+
+.process-spinner {
+  opacity: 0;
 }
 
 #spinner {

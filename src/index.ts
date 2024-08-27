@@ -97,7 +97,6 @@ app.get("/job", async (req: Request, res: Response, next: NextFunction) => {
             res.clearCookie("job_queue");
             res.send("Success");
             await channel.close();
-            //channel.cancel(consumer.consumerTag).catch(console.error);
           }
         },
         { noAck: true },
