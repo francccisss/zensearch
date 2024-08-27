@@ -31,7 +31,7 @@ app.get("/", (req: Request, res: Response) => {
 
 app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
   const docs = [
-    "https://fzaid.vercel.app/",
+    "https://fzaid.vercel.",
     "https://docs.python.org/3/",
     "https://developer.mozilla.org/en-US/docs/Web/JavaScript",
     "https://go.dev/doc/",

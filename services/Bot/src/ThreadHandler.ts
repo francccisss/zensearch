@@ -28,7 +28,6 @@ export default class ThreadHandler {
     this.db = database;
     this.current_threads = thread_pool;
     this.THREAD_POOL = thread_pool;
-    this.crawl_and_index();
   }
 
   private event_handlers(worker: Worker, shared_buffer: SharedArrayBuffer) {
@@ -87,23 +86,29 @@ export default class ThreadHandler {
       this.insert_indexed_page(deserialize_data);
     } catch (err) {
       const error = err as Error;
+      this.current_threads++;
       console.log("LOG: Decoder was unable to deserialized indexed data.");
       console.error(error.message);
       console.error(error.stack);
     }
   }
+  public check_threads() {
+    return this.current_threads;
+  }
 
-  private crawl_and_index() {
+  public async crawl_and_index() {
     const shared_buffer = new SharedArrayBuffer(BUFFER_SIZE);
     try {
-      for (let i = 0; i < 1; i++) {
+      for (let i = 0; i < this.THREAD_POOL; i++) {
         const worker = new Worker(WORKER_FILE, {
           argv: [this.webpages[i]],
           workerData: { shared_buffer },
         });
+        this.current_threads--;
         this.event_handlers(worker, shared_buffer);
       }
     } catch (err) {
+      this.current_threads++;
       const error = err as Error;
       console.log("Log: Something went wrong when creating thread workers.\n");
       console.error(error.message);
@@ -113,7 +118,6 @@ export default class ThreadHandler {
     if (this.db == null) {
       throw new Error("Database is not connected.");
     }
-
     this.db.serialize(() => {
       // this.db.run("PRAGMA foreign_keys = ON;");
       this.db.run(
@@ -166,5 +170,6 @@ export default class ThreadHandler {
       );
       insert_indexed_sites_stmt.finalize();
     });
+    this.current_threads++;
   }
 }

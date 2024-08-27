@@ -213,17 +213,6 @@ class Crawler {
         if (promises.status === "fulfilled") return promises.value;
         return "";
       });
-
-      //  type data_t = {
-      //   webpages: Array<{
-      //     header: { title: string; webpage_url: string };
-      //     contents: string;
-      //   }>;
-      //   header: {
-      //     title: string;
-      //     url: string;
-      //   };
-      // };
       const l = settle.join("");
       this.data = {
         ...this.data,
