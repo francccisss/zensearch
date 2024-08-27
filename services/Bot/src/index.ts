@@ -6,6 +6,7 @@ import path from "path";
 import amqp, { Channel, Connection } from "amqplib";
 
 const event = new EventEmitter();
+const MAX_THREADS = 1;
 console.log("Crawl start.");
 
 (async function () {
@@ -18,43 +19,58 @@ console.log("Crawl start.");
   console.log(" [*] Waiting for messages in %s. To exit press CTRL+C", queue);
   const decoder = new TextDecoder();
 
-  await channel.consume(
+  channel.consume(
     queue,
-    function (msg) {
+    async function (msg) {
       if (msg === null) throw new Error("No message");
       const decoded_array_buffer = decoder.decode(msg.content);
-      const to_json = JSON.parse(decoded_array_buffer);
+      const to_json: { docs: Array<string> } = JSON.parse(decoded_array_buffer);
       console.log(to_json);
-      setTimeout(() => {
-        channel.sendToQueue(msg.properties.replyTo, Buffer.from("CRAAAWLEED"), {
+      const main_thread = await crawl(to_json.docs);
+      let available_threads = main_thread.current_threads;
+      await thread_polling(
+        available_threads,
+        main_thread.check_threads.bind(main_thread),
+      );
+      console.log(available_threads);
+      channel.sendToQueue(
+        msg.properties.replyTo,
+        Buffer.from(`Crawled: ${to_json.docs}`),
+        {
           correlationId: msg.properties.correlationId,
-        });
-      }, 5000);
+        },
+      );
     },
     {
       noAck: true,
     },
   );
 })();
-//event.on("crawl", async (webpages: Array<string>) => {
-//  console.log("crawl");
-//  console.log(webpages);
-//
-//  try {
-//    const thread_handler = new ThreadHandler(
-//      webpages,
-//      new WebsiteDatabase().init_database(),
-//      2,
-//    );
-//  } catch (err) {
-//    process.exit(1);
-//  }
-//});
-//
-//(function main([_, , ...query_params]: Array<string>) {
-//  const user_query = query_params[0];
-//  const webpages = utils.yaml_loader<{ docs: Array<string> }>(
-//    path.join(__dirname, "webpage_database.yaml"),
-//  );
-//  event.emit("crawl", webpages.docs);
-//})(process.argv);
+
+async function thread_polling(
+  available_threads: number,
+  check_current_threads: () => number,
+) {
+  while (available_threads < MAX_THREADS) {
+    available_threads = check_current_threads();
+    await new Promise((resolved) => {
+      setTimeout(() => {
+        console.log("Thread Polling");
+        console.log("Current available threads: %d", available_threads);
+        resolved("Poll worker threads");
+      }, 2 * 1000);
+    });
+  }
+}
+
+async function crawl(webpages: Array<string>) {
+  console.log("crawl");
+  try {
+    const database = new WebsiteDatabase().init_database();
+    const thread_handler = new ThreadHandler(webpages, database, MAX_THREADS);
+    await thread_handler.crawl_and_index();
+    return thread_handler;
+  } catch (err) {
+    process.exit(1);
+  }
+}
