@@ -46,20 +46,38 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     const message = "Start Crawl";
     const corID = "f27ac58-7bee-4e90-93ef-8bc08a37e26c";
     const { connection, channel } = await connect_rabbitmq();
-    const response_queue = await channel.assertQueue(
-      "crawl_notification_queue",
-      { exclusive: false },
-    );
+    const response_queue = await channel.assertQueue("polling_worker_queue", {
+      exclusive: false,
+    });
     await channel.sendToQueue(queue, Buffer.from(encoded_docs.buffer), {
       replyTo: response_queue.queue,
       correlationId: corID,
     });
+    res.cookie("job_id", corID);
+    res.cookie("job_queue", response_queue.queue);
+    res.send("<p>Crawling...</p>");
+  } catch (err) {
+    const error = err as Error;
+    console.log("LOG:Something went wrong with RPC queue");
+    console.error(error.message);
+    next(err);
+  }
+});
 
+app.get("/job", async (req: Request, res: Response, next: NextFunction) => {
+  const { job_id, worker_queue } = req.query;
+
+  console.log("Check Worker queue");
+  try {
+    const { connection, channel } = await connect_rabbitmq();
+    const response_queue = await channel.assertQueue("polling_worker_queue", {
+      exclusive: false,
+    });
     const consumer = await channel.consume(
       response_queue.queue,
       (response) => {
         if (response === null) throw new Error("No Response");
-        if (response.properties.correlationId === corID) {
+        if (response.properties.correlationId === job_id) {
           console.log(
             "LOG: Response from crawler received: %s",
             response.content.toString(),
@@ -77,7 +95,6 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     next(err);
   }
 });
-
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack);
   res.status(500).send("Something went wrong!");
