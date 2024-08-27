@@ -1,7 +1,94 @@
 import sqlite3 from "sqlite3";
 import path from "path";
+import amqp from "amqplib";
 
-function init_database() {
+export type data_t = {
+  webpages: Array<{
+    header: { title: string; webpage_url: string };
+    contents: string;
+  }>;
+  header: {
+    title: string;
+    url: string;
+  };
+};
+
+const db = init_database();
+(async () => {
+  const connection = await amqp.connect("amqp://localhost");
+  const channel = await connection.createChannel();
+  const queue = "database_push_queue";
+
+  channel.consume(
+    queue,
+    async (data) => {
+      if (data === null) throw new Error("No data was pushed.");
+      console.log(data);
+      //await index_webpages(data)
+    },
+    { noAck: false },
+  );
+})();
+
+function index_webpages(data: data_t) {
+  if (db == null) {
+    throw new Error("Database is not connected.");
+  }
+  db.serialize(() => {
+    // this.db.run("PRAGMA foreign_keys = ON;");
+    db.run(
+      "INSERT OR IGNORE INTO known_sites (url, last_added) VALUES ($url, $last_added);",
+      {
+        $url: new URL("/", data.header.url).hostname,
+        $last_added: Date.now(),
+      },
+    );
+    const insert_indexed_sites_stmt = db.prepare(
+      "INSERT OR IGNORE INTO indexed_sites (primary_url, last_indexed) VALUES ($primary_url, $last_indexed);",
+    );
+    const insert_webpages_stmt = db.prepare(
+      "INSERT INTO webpages (webpage_url, title, contents, parent) VALUES ($webpage_url, $title, $contents, $parent);",
+    );
+    insert_indexed_sites_stmt.run(
+      {
+        $primary_url: new URL("/", data.header.url).hostname,
+        $last_indexed: Date.now(),
+      },
+      function (err) {
+        if (err) {
+          console.error("Unable to add last indexed site:", err.message);
+          return;
+        }
+        const parentId = this.lastID;
+        data.webpages.forEach((el) => {
+          if (el === undefined) return;
+          const {
+            header: { title, webpage_url },
+            contents,
+          } = el;
+
+          insert_webpages_stmt.run(
+            {
+              $webpage_url: webpage_url,
+              $title: title,
+              $contents: contents,
+              $parent: parentId,
+            },
+            (err) => {
+              if (err) {
+                console.error("Error inserting webpage:", err.message);
+              }
+            },
+          );
+        });
+        insert_webpages_stmt.finalize();
+      },
+    );
+    insert_indexed_sites_stmt.finalize();
+  });
+}
+
+function init_database(): sqlite3.Database {
   const db_file = "./db_utils/websites.init.sql";
   console.log(db_file);
   const sqlite = sqlite3.verbose();
@@ -18,4 +105,3 @@ function init_database() {
   );
   return db;
 }
-init_database();
