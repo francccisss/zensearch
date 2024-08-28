@@ -31,7 +31,7 @@ const db = init_database();
       const sliced_object = decoded_data.slice(0, last_brace_index) + "}"; // Buh
       try {
         const deserialize_data = JSON.parse(sliced_object);
-        console.log({ deserialize_data });
+        index_webpages(deserialize_data);
       } catch (err) {
         const error = err as Error;
         console.log("LOG: Decoder was unable to deserialized indexed data.");
@@ -48,6 +48,7 @@ function index_webpages(data: data_t) {
   if (db == null) {
     throw new Error("Database is not connected.");
   }
+  console.log("INDEX PAGES");
   db.serialize(() => {
     // this.db.run("PRAGMA foreign_keys = ON;");
     db.run(
@@ -100,10 +101,11 @@ function index_webpages(data: data_t) {
     );
     insert_indexed_sites_stmt.finalize();
   });
+  console.log("DONE INDEXING");
 }
 
 function init_database(): sqlite3.Database {
-  const db_file = "./db_utils/websites.init.sql";
+  const db_file = "./website_collection.db";
   console.log(db_file);
   const sqlite = sqlite3.verbose();
   const db = new sqlite.Database(
