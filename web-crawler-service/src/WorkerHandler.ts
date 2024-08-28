@@ -133,12 +133,30 @@ export default class ThreadHandler {
     const reply_to_queue = "database_push_check";
     const cor_id = "97599542-6be0-48c1-b980-92e14b72fe37";
     const response_queue = await channel.assertQueue(reply_to_queue, {
-      exclusive: true,
+      exclusive: false,
     });
     channel.sendToQueue(queue, Buffer.from(data_buffer), {
       replyTo: reply_to_queue,
       correlationId: cor_id,
     });
+    const check_reply_queue = await channel.checkQueue(reply_to_queue);
+    let reply_queue_message_count = check_reply_queue.messageCount;
+    console.log(reply_to_queue);
+    while (reply_queue_message_count > 0) {
+      const recheck_queue = await channel.checkQueue(reply_to_queue);
+      reply_queue_message_count = recheck_queue.messageCount;
+      await new Promise((resolved) => {
+        setTimeout(() => {
+          console.log("Wait for Consumer");
+          console.log(
+            "Current message in reply queue in %s: %d",
+            reply_to_queue,
+            reply_queue_message_count,
+          );
+          resolved("Poll message queue");
+        }, 2 * 1000);
+      });
+    }
     channel.consume(response_queue.queue, function (data) {
       if (data === null) throw new Error("No Data in message queue");
       try {
@@ -150,6 +168,7 @@ export default class ThreadHandler {
         console.error(error.message);
       }
     });
+    // if db disconnects it is still considered success, need to check for message first in the queue that is to be sent to the consumer
     this.successful_thread_count++;
     this.current_threads++;
   }
