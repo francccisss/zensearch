@@ -18,18 +18,12 @@ type thread_response_t = {
 
 export default class ThreadHandler {
   webpages: Array<string> = [];
-  db;
   current_threads: number;
   private THREAD_POOL: number;
   successful_thread_count: number;
 
-  constructor(
-    webpages: Array<string>,
-    database: Database,
-    thread_pool: number,
-  ) {
+  constructor(webpages: Array<string>, thread_pool: number) {
     this.webpages = webpages;
-    this.db = database;
     this.current_threads = thread_pool; // keep track for polling
     this.THREAD_POOL = thread_pool;
     this.successful_thread_count = 0; // self explanatory
