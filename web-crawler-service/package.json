@@ -7,7 +7,6 @@
     "test": "jest",
     "dev": "nodemon",
     "start": "node dist/index.js",
-    "store": "ts-node src/utils/ds/store_data.ts",
     "build": "npx tsc"
   },
   "keywords": [],
