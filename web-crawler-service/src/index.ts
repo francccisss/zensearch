@@ -1,7 +1,6 @@
 import { EventEmitter } from "stream";
 import utils from "./utils";
 import WorkerHandler from "./WorkerHandler";
-import WebsiteDatabase from "./db_interface";
 import path from "path";
 import amqp, { Channel, Connection } from "amqplib";
 
