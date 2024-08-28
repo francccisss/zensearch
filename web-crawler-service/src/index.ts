@@ -67,8 +67,8 @@ async function thread_polling(
 async function crawl(webpages: Array<string>) {
   console.log("crawl");
   try {
-    const database = new WebsiteDatabase().init_database();
-    const worker_handler = new WorkerHandler(webpages, database, MAX_THREADS);
+    //const database = new WebsiteDatabase().init_database();
+    const worker_handler = new WorkerHandler(webpages, MAX_THREADS);
     await worker_handler.crawl_and_index();
     return worker_handler;
   } catch (err) {
