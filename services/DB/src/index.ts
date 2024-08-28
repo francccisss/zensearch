@@ -19,6 +19,7 @@ const db = init_database();
   const channel = await connection.createChannel();
   const queue = "database_push_queue";
 
+  channel.assertQueue(queue, { exclusive: true });
   channel.consume(
     queue,
     async (data) => {

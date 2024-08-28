@@ -119,7 +119,6 @@ export default class ThreadHandler {
         deserialize_data,
         string_array.buffer as Buffer,
       );
-      this.successful_thread_count++;
     } catch (err) {
       const error = err as Error;
       this.current_threads++;
@@ -137,8 +136,27 @@ export default class ThreadHandler {
     const connection = await amqp.connect("amqp://localhost");
     const channel = await connection.createChannel();
     const queue = "database_push_queue";
-
-    channel.sendToQueue(queue, data_buffer);
+    const reply_to_queue = "database_push_check";
+    const cor_id = "97599542-6be0-48c1-b980-92e14b72fe37";
+    const response_queue = await channel.assertQueue(reply_to_queue, {
+      exclusive: true,
+    });
+    channel.sendToQueue(queue, Buffer.from(data_buffer), {
+      replyTo: reply_to_queue,
+      correlationId: cor_id,
+    });
+    channel.consume(response_queue.queue, function (data) {
+      if (data === null) throw new Error("No Data in message queue");
+      try {
+        if (data.properties.correlationId !== cor_id) return;
+        console.log("Successfully indexed pages.");
+      } catch (err) {
+        const error = err as Error;
+        console.log("LOG: Unable to consume messae from %s", reply_to_queue);
+        console.error(error.message);
+      }
+    });
+    this.successful_thread_count++;
     this.current_threads++;
   }
 }
