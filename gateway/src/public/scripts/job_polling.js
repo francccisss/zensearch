@@ -1,5 +1,3 @@
-import ui from "./ui.js";
-
 async function get_current_job() {
   console.log("Poll Job");
   const [job_id, job_queue] = document.cookie.split("; ").map((c) => {
@@ -23,17 +21,8 @@ async function poll_loop() {
     console.log("poll");
     if (document.cookie === "") {
       is_polling = false;
-      ui.set_btn_processing(
-        document.querySelector(".process-spinner"),
-        is_polling,
-      );
       break;
     }
-    ui.set_btn_processing(
-      document.querySelector(".process-spinner"),
-      is_polling,
-    );
-
     // to block timeout
     await new Promise((resolved) => {
       setTimeout(async () => {
