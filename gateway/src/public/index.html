@@ -26,10 +26,20 @@
             <span id="spinner" class="process-spinner"></span>
           </div>
           <div id="search-container">
-            <input type="search" readonly placeholder="Start Your Search" />
+            <input
+              class="form-control"
+              type="search"
+              name="search"
+              placeholder="Start your search..."
+              hx-post="/search"
+              hx-trigger="input changed delay:500ms, search"
+              hx-target="#search-results"
+              hx-indicator=".htmx-indicator"
+            />
           </div>
         </div>
       </div>
+      <div id="search-results"></div>
     </main>
   </body>
 </html>

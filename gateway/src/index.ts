@@ -109,6 +109,27 @@ app.get("/job", async (req: Request, res: Response, next: NextFunction) => {
     next(err);
   }
 });
+
+app.post("/search", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const connection = await connect_rabbitmq();
+    if (connection === null) throw new Error("TCP Connection lost.");
+    const { search } = req.body;
+    const channel = await connection.createChannel();
+    const queue = "search_queue";
+    channel.assertQueue(queue, {
+      exclusive: true,
+    });
+    channel.sendToQueue(queue, Buffer.from(search));
+    console.log(search);
+    res.send("<p>Results</p>");
+  } catch (err) {
+    const error = err as Error;
+    console.error(error.message);
+    next(err);
+  }
+});
+
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack);
   res.status(500).send("Something went wrong!");
