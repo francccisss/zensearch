@@ -117,12 +117,19 @@ app.post("/search", async (req: Request, res: Response, next: NextFunction) => {
     const { search } = req.body;
     const channel = await connection.createChannel();
     const queue = "search_queue";
-    channel.assertQueue(queue, {
-      exclusive: true,
+    const rps_queue = "search_rps_queue";
+    const cor_id = "a29a5dec-fd24-4db4-83f1-db6dbefdaa6b";
+    await channel.assertQueue(queue, {
+      exclusive: false,
+      durable: false,
     });
-    channel.sendToQueue(queue, Buffer.from(search));
+    await channel.sendToQueue(queue, Buffer.from(search), {
+      replyTo: rps_queue,
+      correlationId: cor_id,
+    });
     console.log(search);
     res.send("<p>Results</p>");
+    await channel.close();
   } catch (err) {
     const error = err as Error;
     console.error(error.message);
