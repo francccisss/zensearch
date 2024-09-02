@@ -65,8 +65,8 @@ async function handle_channels(...args: Array<amqp.Channel>) {
       try {
         if (data === null) throw new Error("No data was pushed.");
         console.log(data.properties.replyTo);
-        console.log(data.content.toString());
-        query_channel.sendToQueue(
+        console.log(data.content.toString("utf8"));
+        await query_channel.sendToQueue(
           data.properties.replyTo,
           Buffer.from("Success Query"),
         );
@@ -74,8 +74,6 @@ async function handle_channels(...args: Array<amqp.Channel>) {
         const error = err as Error;
         console.error(error.message);
         console.error(error.stack);
-      } finally {
-        query_channel.close();
       }
     },
     { noAck: false },
