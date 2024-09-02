@@ -9,21 +9,21 @@ import (
 
 func main() {
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
-	fail_on_error(err, "Failed to create a new TCP Connection")
+	failOnError(err, "Failed to create a new TCP Connection")
 	fmt.Printf("Established TCP Connection with RabbitMQ\n")
 
 	channel, err := conn.Channel()
-	fail_on_error(err, "Failed to create a new Channel")
+	failOnError(err, "Failed to create a new Channel")
 	defer channel.Close()
 
 	queryChannel, err := conn.Channel()
-	fail_on_error(err, "Failed to create a new Channel")
+	failOnError(err, "Failed to create a new Channel")
 
 	const searchQueue = "search_queue"
 	sQueue, err := channel.QueueDeclare(searchQueue,
 		false, false, false, false, nil,
 	)
-	fail_on_error(err, "Failed to create search queue")
+	failOnError(err, "Failed to create search queue")
 
 	const queryQueue = "database_query_queue"
 	queryChannel.QueueDeclare(
@@ -34,7 +34,7 @@ func main() {
 		false,      // no-wait
 		nil,        // arguments
 	)
-	fail_on_error(err, "Failed to create query queue")
+	failOnError(err, "Failed to create query queue")
 	msgs, err := channel.Consume(
 		sQueue.Name,
 		"",
@@ -44,25 +44,26 @@ func main() {
 		false,
 		nil,
 	)
-	fail_on_error(err, "Failed to register a consumer")
+	failOnError(err, "Failed to register a consumer")
 
 	for d := range msgs {
 		go processSearchQuery(string(d.Body), queryChannel)
-		log.Printf("Consumed %s", d.Body)
+		// log.Printf("Consumed %s", d.Body)
 	}
+	defer queryChannel.Close()
 }
 
 func processSearchQuery(searchQuery string, ch *amqp.Channel) {
 	const rpcQueue = "rpc_database_queue"
 	const queryQueue = "database_query_queue"
-	database.QueryDatabase(ch)
-	// fmt.Printf("Queried Data: %+v", data)
-	// defer ch.Close()
-	fmt.Printf("Close Thread")
+	log.Printf("queried data: %s\n", rpcQueue)
+	data := <-database.QueryDatabase(ch)
+	log.Printf("queried data: %s\n", data.Body)
+
 }
 
-func fail_on_error(err error, msg string) {
+func failOnError(err error, msg string) {
 	if err != nil {
-		log.Panicf("%s: %s", msg, err)
+		log.Panicf("%s: %s", msg, err.Error())
 	}
 }

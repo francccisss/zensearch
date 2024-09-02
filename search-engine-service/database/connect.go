@@ -1,16 +1,18 @@
 package database
 
 import (
-	"log"
-
 	amqp "github.com/rabbitmq/amqp091-go"
-	// "log"
+	"log"
 )
 
 func QueryDatabase(ch *amqp.Channel) <-chan amqp.Delivery {
 	const queryQueue = "database_query_queue"
 	const rpcQueue = "rpc_database_queue"
 	const corID = "f8123727-50ac-4655-aefc-3defcbc695d0"
+
+	ch.QueueDeclare(queryQueue, false, false, false, false, nil)
+	ch.QueueDeclare(rpcQueue, false, false, false, false, nil)
+
 	err := ch.Publish(
 		"",
 		queryQueue,
@@ -23,7 +25,7 @@ func QueryDatabase(ch *amqp.Channel) <-chan amqp.Delivery {
 	)
 
 	if err != nil {
-		log.Panicf("Unable to Publish Query to database service.")
+		log.Panicf(err.Error())
 	}
 	queriedData, err := ch.Consume(
 		rpcQueue,
@@ -35,7 +37,8 @@ func QueryDatabase(ch *amqp.Channel) <-chan amqp.Delivery {
 		nil,
 	)
 	if err != nil {
-		log.Panicf("Unable to retrieve queried data from database service.")
+		log.Panicf(err.Error())
 	}
+
 	return queriedData
 }
