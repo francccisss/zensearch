@@ -16,12 +16,28 @@ export type data_t = {
 const db = init_database();
 (async () => {
   const connection = await amqp.connect("amqp://localhost");
-  const channel = await connection.createChannel();
-  const queue = "database_push_queue";
+  const push_channel = await connection.createChannel();
+  const query_channel = await connection.createChannel();
 
-  channel.assertQueue(queue, { exclusive: true });
-  channel.consume(
-    queue,
+  await handle_channels(push_channel, query_channel);
+})();
+
+async function handle_channels(...args: Array<amqp.Channel>) {
+  const push_queue = "database_push_queue";
+  const query_queue = "database_query_queue";
+  const [push_channel, query_channel] = args;
+
+  await push_channel.assertQueue(push_queue, {
+    exclusive: false,
+    durable: false,
+  });
+  await query_channel.assertQueue(query_queue, {
+    exclusive: false,
+    durable: false,
+  });
+
+  push_channel.consume(
+    push_queue,
     async (data) => {
       if (data === null) throw new Error("No data was pushed.");
       console.log(data);
@@ -42,7 +58,29 @@ const db = init_database();
 
     { noAck: false },
   );
-})();
+
+  query_channel.consume(
+    query_queue,
+    async (data) => {
+      try {
+        if (data === null) throw new Error("No data was pushed.");
+        console.log(data.properties.replyTo);
+        console.log(data.content.toString());
+        query_channel.sendToQueue(
+          data.properties.replyTo,
+          Buffer.from("Success Query"),
+        );
+      } catch (err) {
+        const error = err as Error;
+        console.error(error.message);
+        console.error(error.stack);
+      } finally {
+        query_channel.close();
+      }
+    },
+    { noAck: false },
+  );
+}
 
 function index_webpages(data: data_t) {
   if (db == null) {
