@@ -4,7 +4,7 @@ import (
 	"fmt"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
-	// "search-engine-service/database"
+	"search-engine-service/database"
 )
 
 func main() {
@@ -18,7 +18,6 @@ func main() {
 
 	queryChannel, err := conn.Channel()
 	fail_on_error(err, "Failed to create a new Channel")
-	defer queryChannel.Close()
 
 	const searchQueue = "search_queue"
 	sQueue, err := channel.QueueDeclare(searchQueue,
@@ -31,12 +30,11 @@ func main() {
 		queryQueue, // name
 		false,      // durable
 		false,      // delete when unused
-		true,       // exclusive
+		false,      // exclusive
 		false,      // no-wait
 		nil,        // arguments
 	)
 	fail_on_error(err, "Failed to create query queue")
-
 	msgs, err := channel.Consume(
 		sQueue.Name,
 		"",
@@ -49,38 +47,19 @@ func main() {
 	fail_on_error(err, "Failed to register a consumer")
 
 	for d := range msgs {
-		// processSearchQuery(string(d.Body), query_ch)
-		// const rpcQueue = "rpc_database_queue"
-		// queryChannel.Publish(
-		// 	rpcQueue,
-		// 	qQueue.Name,
-		// 	false, false, amqp.Publishing{
-		// 		ContentType: "text/plain",
-		// 		Body:        []byte("queryWebpages"),
-		// 	},
-		// )
-		defer queryChannel.Close()
-		log.Printf("Consumed %p", d.Body)
+		go processSearchQuery(string(d.Body), queryChannel)
+		log.Printf("Consumed %s", d.Body)
 	}
 }
 
-// func processSearchQuery(msg string, ch *amqp.Channel) {
-// 	const rpcQueue = "rpc_database_queue"
-// 	log.Printf("Consumed %s", msg)
-// 	// database.QueryDatabase(ch)
-//
-// 	ch.Publish(
-// 		rpcQueue,
-// 		reposponse.Name,
-// 		false, false, amqp.Publishing{
-// 			ContentType: "text/plain",
-// 			Body:        []byte("queryWebpages"),
-// 		},
-// 	)
-// 	defer ch.Close()
-//
-// 	fmt.Printf("Close Thread")
-// }
+func processSearchQuery(searchQuery string, ch *amqp.Channel) {
+	const rpcQueue = "rpc_database_queue"
+	const queryQueue = "database_query_queue"
+	database.QueryDatabase(ch)
+	// fmt.Printf("Queried Data: %+v", data)
+	// defer ch.Close()
+	fmt.Printf("Close Thread")
+}
 
 func fail_on_error(err error, msg string) {
 	if err != nil {

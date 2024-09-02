@@ -1,43 +1,41 @@
 package database
 
 import (
-	"fmt"
 	"log"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+	// "log"
 )
 
-func CreateDatabaseChannel(TCPCon *amqp.Connection) (*amqp.Channel, error) {
-	ch, err := TCPCon.Channel()
-	if err != nil {
-		log.Panicf("Unable to create a database channel.")
-		return ch, nil
-	}
-	return ch, nil
-}
-
-func QueryDatabase(ch *amqp.Channel) {
-	const queue = "database_query_queue"
+func QueryDatabase(ch *amqp.Channel) <-chan amqp.Delivery {
+	const queryQueue = "database_query_queue"
 	const rpcQueue = "rpc_database_queue"
-	response, err := ch.QueueDeclare(
-		queue, // name
-		false, // durable
-		false, // delete when unused
-		true,  // exclusive
-		false, // no-wait
-		nil,   // arguments
+	const corID = "f8123727-50ac-4655-aefc-3defcbc695d0"
+	err := ch.Publish(
+		"",
+		queryQueue,
+		false, false, amqp.Publishing{
+			CorrelationId: corID,
+			ReplyTo:       rpcQueue,
+			ContentType:   "text/plain",
+			Body:          []byte("queryWebpages"),
+		},
+	)
+
+	if err != nil {
+		log.Panicf("Unable to Publish Query to database service.")
+	}
+	queriedData, err := ch.Consume(
+		rpcQueue,
+		"",
+		true,
+		false,
+		false,
+		false,
+		nil,
 	)
 	if err != nil {
-		log.Panicf("Unable to declare a queue.")
+		log.Panicf("Unable to retrieve queried data from database service.")
 	}
-	fmt.Printf(response.Name)
-	// ch.Publish(
-	// 	rpcQueue,
-	// 	reposponse.Name,
-	// 	false, false, amqp.Publishing{
-	// 		ContentType: "text/plain",
-	// 		Body:        []byte("queryWebpages"),
-	// 	},
-	// )
-
+	return queriedData
 }
