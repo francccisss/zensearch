@@ -1,8 +1,10 @@
 package database
 
 import (
-	amqp "github.com/rabbitmq/amqp091-go"
+	"fmt"
 	"log"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 func CreateDatabaseChannel(TCPCon *amqp.Connection) (*amqp.Channel, error) {
@@ -15,26 +17,27 @@ func CreateDatabaseChannel(TCPCon *amqp.Connection) (*amqp.Channel, error) {
 }
 
 func QueryDatabase(ch *amqp.Channel) {
-	const queue = "query_database"
+	const queue = "database_query_queue"
 	const rpcQueue = "rpc_database_queue"
-	reposponse, err := ch.QueueDeclare(
+	response, err := ch.QueueDeclare(
 		queue, // name
 		false, // durable
-		true,  // delete when unused
-		false, // exclusive
+		false, // delete when unused
+		true,  // exclusive
 		false, // no-wait
 		nil,   // arguments
 	)
-	err = ch.Publish(
-		"",
-		reposponse.Name,
-		false, false, amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        []byte("queryWebpages"),
-		},
-	)
 	if err != nil {
-		log.Panicf("Unable to push message to database service.")
+		log.Panicf("Unable to declare a queue.")
 	}
+	fmt.Printf(response.Name)
+	// ch.Publish(
+	// 	rpcQueue,
+	// 	reposponse.Name,
+	// 	false, false, amqp.Publishing{
+	// 		ContentType: "text/plain",
+	// 		Body:        []byte("queryWebpages"),
+	// 	},
+	// )
 
 }
