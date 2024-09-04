@@ -1,17 +1,7 @@
 import sqlite3 from "sqlite3";
 import path from "path";
 import amqp from "amqplib";
-
-export type data_t = {
-  webpages: Array<{
-    header: { title: string; webpage_url: string };
-    contents: string;
-  }>;
-  header: {
-    title: string;
-    url: string;
-  };
-};
+import database_operations from "./database_operations";
 
 const db = init_database();
 (async () => {
@@ -47,7 +37,7 @@ async function handle_channels(...args: Array<amqp.Channel>) {
       const sliced_object = decoded_data.slice(0, last_brace_index) + "}"; // Buh
       try {
         const deserialize_data = JSON.parse(sliced_object);
-        index_webpages(deserialize_data);
+        database_operations.index_webpages(db, deserialize_data);
       } catch (err) {
         const error = err as Error;
         console.log("LOG: Decoder was unable to deserialized indexed data.");
@@ -78,66 +68,6 @@ async function handle_channels(...args: Array<amqp.Channel>) {
     },
     { noAck: false },
   );
-}
-
-function index_webpages(data: data_t) {
-  if (db == null) {
-    throw new Error("Database is not connected.");
-  }
-  console.log("INDEX PAGES");
-  db.serialize(() => {
-    // this.db.run("PRAGMA foreign_keys = ON;");
-    db.run(
-      "INSERT OR IGNORE INTO known_sites (url, last_added) VALUES ($url, $last_added);",
-      {
-        $url: new URL("/", data.header.url).hostname,
-        $last_added: Date.now(),
-      },
-    );
-    const insert_indexed_sites_stmt = db.prepare(
-      "INSERT OR IGNORE INTO indexed_sites (primary_url, last_indexed) VALUES ($primary_url, $last_indexed);",
-    );
-    const insert_webpages_stmt = db.prepare(
-      "INSERT INTO webpages (webpage_url, title, contents, parent) VALUES ($webpage_url, $title, $contents, $parent);",
-    );
-    insert_indexed_sites_stmt.run(
-      {
-        $primary_url: new URL("/", data.header.url).hostname,
-        $last_indexed: Date.now(),
-      },
-      function (err) {
-        if (err) {
-          console.error("Unable to add last indexed site:", err.message);
-          return;
-        }
-        const parentId = this.lastID;
-        data.webpages.forEach((el) => {
-          if (el === undefined) return;
-          const {
-            header: { title, webpage_url },
-            contents,
-          } = el;
-
-          insert_webpages_stmt.run(
-            {
-              $webpage_url: webpage_url,
-              $title: title,
-              $contents: contents,
-              $parent: parentId,
-            },
-            (err) => {
-              if (err) {
-                console.error("Error inserting webpage:", err.message);
-              }
-            },
-          );
-        });
-        insert_webpages_stmt.finalize();
-      },
-    );
-    insert_indexed_sites_stmt.finalize();
-  });
-  console.log("DONE INDEXING");
 }
 
 function init_database(): sqlite3.Database {
