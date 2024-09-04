@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
 	"search-engine-service/database"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 func main() {
@@ -56,10 +57,7 @@ func main() {
 func processSearchQuery(searchQuery string, ch *amqp.Channel) {
 	const rpcQueue = "rpc_database_queue"
 	const queryQueue = "database_query_queue"
-	log.Printf("queried data: %s\n", rpcQueue)
 	data := <-database.QueryDatabase(ch)
-	log.Printf("queried data: %s\n", data.Body)
-
 }
 
 func failOnError(err error, msg string) {

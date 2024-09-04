@@ -51,6 +51,7 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
         await query_channel.sendToQueue(
           data.properties.replyTo,
           Buffer.from(JSON.stringify({ data_query })),
+          {},
         );
       } catch (err) {
         const error = err as Error;
