@@ -48,12 +48,9 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
         console.log(data.properties.replyTo);
         console.log(data.content.toString("utf8"));
         const data_query = await database_operations.query_webpages(db);
-        const serialize_to_array_buffer = data_serializer.serialize(data_query);
-        const convert_32bit_8bit = new Int32Array(serialize_to_array_buffer);
-        console.log(convert_32bit_8bit);
         await query_channel.sendToQueue(
           data.properties.replyTo,
-          Buffer.from("Success Query"),
+          Buffer.from(JSON.stringify({ data_query })),
         );
       } catch (err) {
         const error = err as Error;
