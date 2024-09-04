@@ -8,3 +8,9 @@ export type data_t = {
     url: string;
   };
 };
+
+export type webpage_t = {
+  contents: string;
+  title: string;
+  webpage_url: string;
+};

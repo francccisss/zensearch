@@ -1,5 +1,5 @@
 import { Database } from "sqlite3";
-import { data_t } from "./utils/types";
+import { data_t, webpage_t } from "./utils/types";
 
 function index_webpages(db: Database, data: data_t) {
   if (db == null) {
@@ -61,4 +61,29 @@ function index_webpages(db: Database, data: data_t) {
   console.log("DONE INDEXING");
 }
 
-export default { index_webpages };
+async function query_webpages(db: Database): Promise<Array<webpage_t>> {
+  return await new Promise(function (resolved, reject) {
+    const sql_query = "SELECT webpage_url, contents, title FROM webpages";
+    db.all<webpage_t>(sql_query, (err, row) => {
+      try {
+        if (err) {
+          throw new Error(
+            "Something went wrong whil querying webpages for search query.",
+          );
+        }
+        if (row.length === 0) {
+          console.log("There are 0 webpages.\n");
+          console.log("Please Crawl the web. \n");
+        }
+        resolved(row);
+      } catch (err) {
+        const error = err as Error;
+        console.log("LOG: Error while querying webpages in database service.");
+        console.error(error.message);
+        reject(error.message);
+      }
+    });
+  });
+}
+
+export default { index_webpages, query_webpages };
