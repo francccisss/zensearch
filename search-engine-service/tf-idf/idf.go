@@ -1,7 +1,6 @@
 package tfidf
 
 import (
-	"fmt"
 	"math"
 	"search-engine-service/utilities"
 	"strings"
@@ -11,10 +10,6 @@ func CalculateIDF(searchQuery string, webpages *[]utilities.WebpageTFIDF) float6
 
 	totalWords := float64(wordCountInCorpa(webpages))
 	totalTermsInDocument := float64(termCountInCorpa(searchQuery, webpages))
-
-	fmt.Printf("Total words in corpa: %f\n", totalWords)
-	fmt.Printf("Total terms in corpa: %f\n", totalTermsInDocument)
-	fmt.Printf("Calculated IDF: %f\n", math.Log2(totalWords/totalTermsInDocument))
 
 	return math.Log2(totalWords / totalTermsInDocument)
 }
