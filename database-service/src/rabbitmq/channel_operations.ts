@@ -7,6 +7,7 @@ import { stringify } from "querystring";
 async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
   const push_queue = "database_push_queue";
   const query_queue = "database_query_queue";
+  const db_response_queue = "database_response_queue";
   const [push_channel, query_channel] = args;
 
   await push_channel.assertQueue(push_queue, {
@@ -22,7 +23,6 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
     push_queue,
     async (data) => {
       if (data === null) throw new Error("No data was pushed.");
-      console.log(data);
       const decoder = new TextDecoder();
       const decoded_data = decoder.decode(data.content as ArrayBuffer);
       const last_brace_index = decoded_data.lastIndexOf("}");
@@ -35,30 +35,30 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
         console.log("LOG: Decoder was unable to deserialized indexed data.");
         console.error(error.message);
         console.error(error.stack);
+        query_channel.nack(data); // Optionally, nack the message if processing fails
       }
     },
 
     { noAck: false },
   );
-
   query_channel.consume(
     query_queue,
     async (data) => {
       try {
         if (data === null) throw new Error("No data was pushed.");
-        console.log(data.properties.replyTo);
-        console.log(data.content.toString("utf8"));
         const data_query: {
           contents: string;
           title: string;
           webpage_url: string;
         }[] = await database_operations.query_webpages(db);
-        console.log(JSON.stringify(data_query));
         await query_channel.sendToQueue(
-          data.properties.replyTo,
+          db_response_queue,
           Buffer.from(JSON.stringify(data_query)),
-          {},
+          {
+            correlationId: data.properties.correlationId,
+          },
         );
+        query_channel.ack(data);
       } catch (err) {
         const error = err as Error;
         console.error(error.message);

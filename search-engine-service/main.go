@@ -6,13 +6,12 @@ import (
 	"log"
 	// "search-engine-service/database"
 	// tfidf "search-engine-service/tf-idf"
-	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"search-engine-service/utilities"
 )
 
 const QUERYQUEUE = "database_query_queue"
-const RPCQUEUE = "rpc_database_queue"
+const DB_RESPONSE_QUEUE = "database_response_queue"
 const SEARCHQUEUE = "search_queue"
 
 // subsequent requests are not being pushed
@@ -30,52 +29,17 @@ func main() {
 	// DECLARING CHANNELS
 
 	// DECLARING QUEUES
-	sQueue, err := consumerChannel.QueueDeclare(SEARCHQUEUE,
-		false, false, false, false, nil,
-	)
+	consumerChannel.QueueDeclare(SEARCHQUEUE,
+		false, false, false, false, nil)
 	failOnError(err, "Failed to create search queue")
 	dbQueryChannel.QueueDeclare(QUERYQUEUE, false, false, false, false, nil)
 	failOnError(err, "Failed to create query queue")
+	dbQueryChannel.QueueDeclare(DB_RESPONSE_QUEUE, false, false, false, false, nil)
+	failOnError(err, "Failed to create query queue")
 	// DECLARING QUEUES
 
-	msgs, err := consumerChannel.Consume(
-		sQueue.Name,
-		"",
-		true,
-		false,
-		false,
-		false,
-		nil,
-	)
-	failOnError(err, "Failed to register a consumer")
-
-	for d := range msgs {
-		corID := uuid.New().String()
-		err := dbQueryChannel.Publish(
-			"",
-			QUERYQUEUE,
-			false, false, amqp.Publishing{
-				CorrelationId: corID,
-				ReplyTo:       RPCQUEUE,
-				ContentType:   "text/plain",
-				Body:          []byte("queryWebpages"),
-			},
-		)
-		fmt.Printf("Push message to database service.\n")
-		if err != nil {
-			log.Panicf(err.Error())
-		}
-		processSearchQuery(string(d.Body), conn)
-		fmt.Print("Process Done.\n")
-	}
-	fmt.Print("Main Exit.")
-}
-
-func processSearchQuery(searchQuery string, conn *amqp.Connection) {
-
-	rpcQueryChannel, err := conn.Channel()
-	queriedData, err := rpcQueryChannel.Consume(
-		RPCQUEUE,
+	queriedData, err := dbQueryChannel.Consume(
+		DB_RESPONSE_QUEUE,
 		"",
 		true,
 		false,
@@ -86,9 +50,49 @@ func processSearchQuery(searchQuery string, conn *amqp.Connection) {
 	if err != nil {
 		log.Panicf(err.Error())
 	}
-	data := <-queriedData
+	msgs, err := consumerChannel.Consume(
+		SEARCHQUEUE,
+		"",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	failOnError(err, "Failed to register a consumer")
 
-	log.Printf("CorID response: %s\n", data.CorrelationId)
+	for {
+		select {
+		case searchQuery := <-msgs:
+			{
+				pushQuery(string(searchQuery.Body), dbQueryChannel)
+				fmt.Print("Process Done.\n")
+			}
+		case data := <-queriedData:
+			{
+				fmt.Print("Data from Database service retrieved\n")
+				fmt.Printf("Data %s\n", string(data.Body))
+				// parseWebpageQuery(data.Body)
+			}
+
+		}
+	}
+	fmt.Print("Main Exit.")
+}
+
+func pushQuery(searchQuery string, ch *amqp.Channel) {
+	err := ch.Publish(
+		"",
+		QUERYQUEUE,
+		false, false, amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        []byte("queryWebpages"),
+		},
+	)
+	fmt.Printf("Push message to database service.\n")
+	if err != nil {
+		log.Panicf(err.Error())
+	}
 	log.Printf("End of Query\n")
 }
 
