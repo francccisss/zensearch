@@ -1,12 +1,25 @@
 package tfidf
 
-import "search-engine-service/utilities"
+import (
+	"search-engine-service/utilities"
+	"sort"
+)
+
+type WebpageRanking struct {
+	Url    string
+	Rating float64
+}
 
 func RankTFIDFRatings(IDF float64, webpages *[]utilities.WebpageTFIDF) *[]utilities.WebpageTFIDF {
-	for _, webpage := range *webpages {
-		webpage.TFIDFRating = calculateTFIDF(IDF, webpage)
+	for i := range *webpages {
+		(*webpages)[i].TFIDFRating = calculateTFIDF(IDF, (*webpages)[i])
 	}
-	return webpages
+
+	webpagesSlice := (*webpages)[:]
+	sort.Slice(webpagesSlice, func(i, j int) bool {
+		return webpagesSlice[i].TFIDFRating > webpagesSlice[j].TFIDFRating
+	})
+	return &webpagesSlice
 }
 
 func calculateTFIDF(IDF float64, webpage utilities.WebpageTFIDF) float64 {
