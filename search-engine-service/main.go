@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"search-engine-service/database"
+	tfidf "search-engine-service/tf-idf"
 	"search-engine-service/utilities"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -60,15 +61,14 @@ func processSearchQuery(searchQuery string, ch *amqp.Channel) {
 	const rpcQueue = "rpc_database_queue"
 	const queryQueue = "database_query_queue"
 	data := <-database.QueryDatabase(ch)
-	parseWebpageQuery(data.Body)
+	webpages := parseWebpageQuery(data.Body)
+	tfidf.CalculateTF(searchQuery, &webpages[0])
 }
 
 func parseWebpageQuery(data []byte) []utilities.WebpageTFIDF {
-	fmt.Printf("%s", data)
 	var webpages []utilities.WebpageTFIDF // I dont know why it doesnt work
 	err := json.Unmarshal(data, &webpages)
 	failOnError(err, "Unable to Decode json data from database.")
-	fmt.Printf("Decoded Data: %+v\n", webpages)
 	return webpages
 }
 

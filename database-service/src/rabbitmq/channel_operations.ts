@@ -2,6 +2,7 @@ import amqp from "amqplib";
 import database_operations from "../database_operations";
 import { Database } from "sqlite3";
 import data_serializer from "../utils/32bit_serializer";
+import { stringify } from "querystring";
 
 async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
   const push_queue = "database_push_queue";
@@ -47,10 +48,15 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
         if (data === null) throw new Error("No data was pushed.");
         console.log(data.properties.replyTo);
         console.log(data.content.toString("utf8"));
-        const data_query = await database_operations.query_webpages(db);
+        const data_query: {
+          contents: string;
+          title: string;
+          webpage_url: string;
+        }[] = await database_operations.query_webpages(db);
+        console.log(JSON.stringify(data_query));
         await query_channel.sendToQueue(
           data.properties.replyTo,
-          Buffer.from(JSON.stringify({ data_query })),
+          Buffer.from(JSON.stringify(data_query)),
           {},
         );
       } catch (err) {
