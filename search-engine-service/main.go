@@ -64,7 +64,12 @@ func processSearchQuery(searchQuery string, ch *amqp.Channel) {
 	webpages := parseWebpageQuery(data.Body)
 	tfidf.CalculateTF(searchQuery, &webpages)
 	IDF := tfidf.CalculateIDF(searchQuery, &webpages)
-	tfidf.RankTFIDFRatings(IDF, &webpages)
+	rankings := tfidf.RankTFIDFRatings(IDF, &webpages)
+	for i := range *rankings {
+		fmt.Printf("URl: %s\n", (*rankings)[i].Webpage_url)
+		fmt.Printf("Webpage TFScore: %f\n", (*rankings)[i].TFScore)
+		fmt.Printf("Rankings: %f\n", (*rankings)[i].TFIDFRating)
+	}
 }
 
 func parseWebpageQuery(data []byte) []utilities.WebpageTFIDF {
