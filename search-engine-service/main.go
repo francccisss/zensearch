@@ -62,8 +62,9 @@ func processSearchQuery(searchQuery string, ch *amqp.Channel) {
 	const queryQueue = "database_query_queue"
 	data := <-database.QueryDatabase(ch)
 	webpages := parseWebpageQuery(data.Body)
-	tfidf.CalculateTF(searchQuery, &webpages[0])
-	tfidf.CalculateIDF(searchQuery, webpages)
+	tfidf.CalculateTF(searchQuery, &webpages)
+	IDF := tfidf.CalculateIDF(searchQuery, &webpages)
+	tfidf.RankTFIDFRatings(IDF, &webpages)
 }
 
 func parseWebpageQuery(data []byte) []utilities.WebpageTFIDF {

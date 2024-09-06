@@ -6,18 +6,21 @@ import (
 	"strings"
 )
 
-// test this
-func CalculateTF(searchQuery string, webpage *utilities.WebpageTFIDF) float32 {
+func CalculateTF(searchQuery string, webpages *[]utilities.WebpageTFIDF) *[]utilities.WebpageTFIDF {
 
-	currentDocument := webpage.Contents
-	totalWords := utilities.DocumentWordCount(currentDocument)
-	termCount := strings.Count(strings.ToLower(currentDocument), strings.ToLower(searchQuery))
-	webpage.TFScore = float32(termCount) / float32(totalWords)
+	for _, webpage := range *webpages {
 
-	fmt.Printf("Term to look for: %s\n", searchQuery)
-	fmt.Printf("Total terms from search query: %d\n", termCount)
-	fmt.Printf("Total words from current document: %d\n", totalWords)
-	fmt.Printf("TF Score: %f\n", webpage.TFScore)
+		currentDocument := webpage.Contents
+		totalWords := utilities.DocumentWordCount(currentDocument)
+		termCount := strings.Count(strings.ToLower(currentDocument), strings.ToLower(searchQuery))
+		webpage.TFScore = float64(termCount) / float64(totalWords)
 
-	return webpage.TFScore
+		fmt.Printf("Term to look for: %s\n", searchQuery)
+		fmt.Printf("Current Document URL: %s\n", webpage.Webpage_url)
+		fmt.Printf("Total terms from search query: %d\n", termCount)
+		fmt.Printf("Total words from current document: %d\n", totalWords)
+		fmt.Printf("TF Score: %f\n", webpage.TFScore)
+	}
+
+	return webpages
 }
