@@ -1,14 +1,16 @@
 package database
 
 import (
-	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
+
+	"github.com/google/uuid"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-func QueryDatabase(ch *amqp.Channel) <-chan amqp.Delivery {
+func QueryDatabase(ch *amqp.Channel) amqp.Delivery {
 	const queryQueue = "database_query_queue"
 	const rpcQueue = "rpc_database_queue"
-	const corID = "f8123727-50ac-4655-aefc-3defcbc695d0"
+	corID := uuid.New().String()
 
 	ch.QueueDeclare(queryQueue, false, false, false, false, nil)
 	ch.QueueDeclare(rpcQueue, false, false, false, false, nil)
@@ -23,7 +25,6 @@ func QueryDatabase(ch *amqp.Channel) <-chan amqp.Delivery {
 			Body:          []byte("queryWebpages"),
 		},
 	)
-
 	if err != nil {
 		log.Panicf(err.Error())
 	}
@@ -39,6 +40,9 @@ func QueryDatabase(ch *amqp.Channel) <-chan amqp.Delivery {
 	if err != nil {
 		log.Panicf(err.Error())
 	}
+	data := <-queriedData
 
-	return queriedData
+	log.Printf("CorID response: %s\n", data.CorrelationId)
+	log.Printf("End of Query\n")
+	return data
 }

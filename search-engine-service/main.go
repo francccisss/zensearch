@@ -4,42 +4,41 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"search-engine-service/database"
-	tfidf "search-engine-service/tf-idf"
-	"search-engine-service/utilities"
-
+	// "search-engine-service/database"
+	// tfidf "search-engine-service/tf-idf"
+	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"search-engine-service/utilities"
 )
 
+const QUERYQUEUE = "database_query_queue"
+const RPCQUEUE = "rpc_database_queue"
+const SEARCHQUEUE = "search_queue"
+
+// subsequent requests are not being pushed
 func main() {
+
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	failOnError(err, "Failed to create a new TCP Connection")
 	fmt.Printf("Established TCP Connection with RabbitMQ\n")
 
-	channel, err := conn.Channel()
+	// DECLARING CHANNELS
+	consumerChannel, err := conn.Channel()
 	failOnError(err, "Failed to create a new Channel")
-	defer channel.Close()
-
-	queryChannel, err := conn.Channel()
+	dbQueryChannel, err := conn.Channel()
 	failOnError(err, "Failed to create a new Channel")
+	// DECLARING CHANNELS
 
-	const searchQueue = "search_queue"
-	sQueue, err := channel.QueueDeclare(searchQueue,
+	// DECLARING QUEUES
+	sQueue, err := consumerChannel.QueueDeclare(SEARCHQUEUE,
 		false, false, false, false, nil,
 	)
 	failOnError(err, "Failed to create search queue")
-
-	const queryQueue = "database_query_queue"
-	queryChannel.QueueDeclare(
-		queryQueue, // name
-		false,      // durable
-		false,      // delete when unused
-		false,      // exclusive
-		false,      // no-wait
-		nil,        // arguments
-	)
+	dbQueryChannel.QueueDeclare(QUERYQUEUE, false, false, false, false, nil)
 	failOnError(err, "Failed to create query queue")
-	msgs, err := channel.Consume(
+	// DECLARING QUEUES
+
+	msgs, err := consumerChannel.Consume(
 		sQueue.Name,
 		"",
 		true,
@@ -51,25 +50,46 @@ func main() {
 	failOnError(err, "Failed to register a consumer")
 
 	for d := range msgs {
-		go processSearchQuery(string(d.Body), queryChannel)
-		// log.Printf("Consumed %s", d.Body)
+		corID := uuid.New().String()
+		err := dbQueryChannel.Publish(
+			"",
+			QUERYQUEUE,
+			false, false, amqp.Publishing{
+				CorrelationId: corID,
+				ReplyTo:       RPCQUEUE,
+				ContentType:   "text/plain",
+				Body:          []byte("queryWebpages"),
+			},
+		)
+		fmt.Printf("Push message to database service.\n")
+		if err != nil {
+			log.Panicf(err.Error())
+		}
+		processSearchQuery(string(d.Body), conn)
+		fmt.Print("Process Done.\n")
 	}
-	defer queryChannel.Close()
+	fmt.Print("Main Exit.")
 }
 
-func processSearchQuery(searchQuery string, ch *amqp.Channel) {
-	const rpcQueue = "rpc_database_queue"
-	const queryQueue = "database_query_queue"
-	data := <-database.QueryDatabase(ch)
-	webpages := parseWebpageQuery(data.Body)
-	tfidf.CalculateTF(searchQuery, &webpages)
-	IDF := tfidf.CalculateIDF(searchQuery, &webpages)
-	rankings := tfidf.RankTFIDFRatings(IDF, &webpages)
-	for i := range *rankings {
-		fmt.Printf("URl: %s\n", (*rankings)[i].Webpage_url)
-		fmt.Printf("Webpage TFScore: %f\n", (*rankings)[i].TFScore)
-		fmt.Printf("Rankings: %f\n", (*rankings)[i].TFIDFRating)
+func processSearchQuery(searchQuery string, conn *amqp.Connection) {
+
+	rpcQueryChannel, err := conn.Channel()
+	queriedData, err := rpcQueryChannel.Consume(
+		RPCQUEUE,
+		"",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		log.Panicf(err.Error())
 	}
+	data := <-queriedData
+
+	log.Printf("CorID response: %s\n", data.CorrelationId)
+	log.Printf("End of Query\n")
 }
 
 func parseWebpageQuery(data []byte) []utilities.WebpageTFIDF {
