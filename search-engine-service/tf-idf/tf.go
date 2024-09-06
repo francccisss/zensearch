@@ -10,7 +10,7 @@ import (
 func CalculateTF(searchQuery string, webpage *utilities.WebpageTFIDF) float32 {
 
 	currentDocument := webpage.Contents
-	totalWords := documentWordCount(currentDocument)
+	totalWords := utilities.DocumentWordCount(currentDocument)
 	termCount := strings.Count(strings.ToLower(currentDocument), strings.ToLower(searchQuery))
 	webpage.TFScore = float32(termCount) / float32(totalWords)
 
@@ -20,19 +20,4 @@ func CalculateTF(searchQuery string, webpage *utilities.WebpageTFIDF) float32 {
 	fmt.Printf("TF Score: %f\n", webpage.TFScore)
 
 	return webpage.TFScore
-}
-
-func documentWordCount(contents string) int {
-	totalWords := 0
-	currentWord := ""
-	for char, i := range contents {
-		curChar := string(char)
-		nextChar := string(contents[i+1])
-		if nextChar == " " || contents[i+1] == 0 {
-			totalWords++
-			continue
-		}
-		currentWord += curChar
-	}
-	return totalWords
 }
