@@ -123,10 +123,7 @@ app.post("/search", async (req: Request, res: Response, next: NextFunction) => {
       exclusive: false,
       durable: false,
     });
-    await channel.sendToQueue(queue, Buffer.from(search), {
-      replyTo: rps_queue,
-      correlationId: cor_id,
-    });
+    await channel.sendToQueue(queue, Buffer.from(search));
     console.log(search);
     res.send("<p>Results</p>");
     await channel.close();
