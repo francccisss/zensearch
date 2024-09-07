@@ -3,10 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
-	// "search-engine-service/database"
-	// tfidf "search-engine-service/tf-idf"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"log"
+	tfidf "search-engine-service/tf-idf"
 	"search-engine-service/utilities"
 )
 
@@ -16,6 +15,7 @@ const SEARCHQUEUE = "search_queue"
 
 // subsequent requests are not being pushed
 func main() {
+	searchQuery := ""
 
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	failOnError(err, "Failed to create a new TCP Connection")
@@ -29,8 +29,7 @@ func main() {
 	// DECLARING CHANNELS
 
 	// DECLARING QUEUES
-	consumerChannel.QueueDeclare(SEARCHQUEUE,
-		false, false, false, false, nil)
+	consumerChannel.QueueDeclare(SEARCHQUEUE, false, false, false, false, nil)
 	failOnError(err, "Failed to create search queue")
 	dbQueryChannel.QueueDeclare(QUERYQUEUE, false, false, false, false, nil)
 	failOnError(err, "Failed to create query queue")
@@ -63,30 +62,46 @@ func main() {
 
 	for {
 		select {
-		case searchQuery := <-msgs:
+		case userSearch := <-msgs:
 			{
-				pushQuery(string(searchQuery.Body), dbQueryChannel)
+				searchQuery = string(userSearch.Body)
+				if searchQuery == "" {
+					fmt.Print("Search Query is empty\n")
+					continue
+				}
+				queryDatabase(string(userSearch.Body), dbQueryChannel)
 				fmt.Print("Process Done.\n")
 			}
 		case data := <-queriedData:
 			{
+				if searchQuery == "" {
+					fmt.Print("Search Query is empty\n")
+					continue
+				}
 				fmt.Print("Data from Database service retrieved\n")
-				fmt.Printf("Data %s\n", string(data.Body))
-				// parseWebpageQuery(data.Body)
+				webpages := parseWebpageQuery(data.Body)
+				tfidf.CalculateTF(searchQuery, &webpages)
+				IDF := tfidf.CalculateIDF(searchQuery, &webpages)
+				rankedWebpages := tfidf.RankTFIDFRatings(IDF, &webpages)
+				for _, webpage := range *rankedWebpages {
+					fmt.Printf("Query: %s\n", searchQuery)
+					fmt.Printf("Rank: %f\n", webpage.TFIDFRating)
+					fmt.Printf("TFScore: %f\n", webpage.TFScore)
+					fmt.Printf("URL: %s\n", webpage.Webpage_url)
+				}
 			}
-
 		}
 	}
-	fmt.Print("Main Exit.")
 }
 
-func pushQuery(searchQuery string, ch *amqp.Channel) {
+// maybe use message for cache validation later on for optimization
+func queryDatabase(message string, ch *amqp.Channel) {
 	err := ch.Publish(
 		"",
 		QUERYQUEUE,
 		false, false, amqp.Publishing{
 			ContentType: "text/plain",
-			Body:        []byte("queryWebpages"),
+			Body:        []byte(message),
 		},
 	)
 	fmt.Printf("Push message to database service.\n")
