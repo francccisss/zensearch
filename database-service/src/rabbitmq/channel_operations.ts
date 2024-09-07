@@ -51,6 +51,7 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
           title: string;
           webpage_url: string;
         }[] = await database_operations.query_webpages(db);
+        console.log(data.content);
         await query_channel.sendToQueue(
           db_response_queue,
           Buffer.from(JSON.stringify(data_query)),
