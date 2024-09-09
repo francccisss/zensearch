@@ -1,0 +1,218 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Your Search Engine</title>
+    <script type="module" defer src="scripts/index.js"></script>
+    <script
+      src="https://unpkg.com/htmx.org@2.0.2"
+      integrity="sha384-Y7hw+L/jvKeWIRRkqWYfPcvVxHzVzn5REgzbawhxAuQGwX1XWe70vji+VSeHOThJ"
+      crossorigin="anonymous"
+    ></script>
+    <link href="stylesheets/search_page.css" rel="stylesheet" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <main id="index-page">
+      <nav id="title-search-bar">
+        <div id="logo">
+          <h1>ExploreZen</h1>
+        </div>
+        <div class="search-crawl-container">
+          <div id="search-container">
+            <input
+              class="form-control"
+              type="search"
+              name="search"
+              placeholder="Start your search..."
+              hx-post="/search"
+              hx-target="#search-results"
+              hx-indicator=".htmx-indicator"
+            />
+          </div>
+        </div>
+      </nav>
+      <section id="search-results">
+        <li class="searched-item">
+            <a href="#">Understanding Closures in JavaScript: A Deep Dive</a>
+            <span
+              >Closures are an essential concept in JavaScript that allow
+              functions to retain access to their lexical scope, even after the
+              function has completed execution. This means that a function
+              defined within another function can still access variables from
+              its parent scope, enabling powerful patterns such as data
+              encapsulation and function factories. By mastering closures,
+              developers can write more flexible and maintainable code, as they
+              facilitate the creation of private variables and methods that are
+              protected from the outside world.</span
+            >
+          </li>
+        <li class="searched-item">
+            <a href="#"
+              >The Rise of Functional Programming in Modern Languages</a
+            >
+            <span
+              >Functional programming has gained significant traction in recent
+              years, especially with the advent of languages like Haskell,
+              Scala, and the functional features in JavaScript and Python. This
+              programming paradigm emphasizes immutability, higher-order
+              functions, and pure functions, which can help developers write
+              code that is more predictable and easier to debug. By avoiding
+              side effects and focusing on the transformation of data,
+              functional programming promotes a declarative approach to coding,
+              which can lead to cleaner and more robust software design.</span
+            >
+          </li>
+        <li class="searched-item">
+            <a href="#"
+              >How Asynchronous Programming Enhances Performance and User
+              Experience</a
+            >
+            <span
+              >Asynchronous programming is crucial for building high-performance
+              blocking the main execution thread. Techniques such as callbacks,
+              promises, and async/await syntax in JavaScript allow developers to
+              perform operations like file I/O, network requests, and database
+              interactive, even while background operations are ongoing.</span
+            >
+          </li>
+        <li class="searched-item">
+            <a href="#"
+              >A Comprehensive Guide to Object-Oriented Programming
+              Principles</a
+            >
+            <span
+              >Object-oriented programming (OOP) is a paradigm that organizes
+              software design around objects and classes rather than functions
+              and logic. Core principles of OOP include encapsulation,
+              inheritance, polymorphism, and abstraction. Encapsulation allows
+              for bundling data and methods that operate on the data into a
+              single unit, while inheritance enables new classes to inherit
+              properties and methods from existing ones. Polymorphism allows
+              objects to be treated as instances of their parent class, leading
+              to more flexible and reusable code. Understanding and applying
+              these principles can significantly enhance code organization and
+              maintainability.</span
+            >
+          </li>
+        <li class="searched-item">
+            <a href="#"
+              >Exploring RESTful APIs and Their Uses in Modern Web
+              Development</a
+            >
+            <span
+              >RESTful APIs (Representational State Transfer) have become a
+              cornerstone of modern web development, providing a standardized
+              way for applications to communicate over HTTP. By adhering to REST
+              principles, APIs can offer a consistent and scalable approach to
+              exposing data and services. Key concepts include stateless
+              communication, resource-based URIs, and the use of standard HTTP
+              methods such as GET, POST, PUT, and DELETE. RESTful APIs
+              facilitate the integration of various services and platforms,
+              enabling developers to build robust and interoperable web
+              applications that can interact seamlessly with external
+              systems.</span
+            >
+          </li>
+        <li class="searched-item">
+            <a href="#"
+              >The Impact of Type Systems on Code Quality and Developer
+              Productivity</a
+            >
+            <span
+              >Type systems play a crucial role in enhancing code quality by
+              providing a way to define and enforce data types in programming
+              languages. Static type systems, such as those found in languages
+              like TypeScript or Java, help catch errors at compile-time, which
+              can prevent runtime issues and reduce debugging time. Strong
+              typing and type inference can also serve as a form of
+              documentation, making code easier to understand and maintain. By
+              leveraging type systems effectively, developers can improve the
+              reliability and clarity of their code, leading to increased
+              productivity and fewer bugs in production.</span
+            >
+          </li>
+        <li class="searched-item">
+            <a href="#"
+              >Introduction to Data Structures: Arrays, Linked Lists, and
+              Beyond</a
+            >
+            <span
+              >Data structures are fundamental to computer science and play a
+              crucial role in optimizing the performance of algorithms. Arrays
+              and linked lists are two basic yet essential structures, each with
+              its own set of advantages and trade-offs. Arrays provide
+              constant-time access to elements but require resizing if the
+              number of elements changes. Linked lists, on the other hand, allow
+              for efficient insertions and deletions but offer linear-time
+              access. Understanding these and other data structures, such as
+              trees, graphs, and hash tables, is vital for designing efficient
+              algorithms and solving complex computational problems.</span
+            >
+          </li>
+        <li class="searched-item">
+            <a href="#"
+              >Understanding Recursion: Theory, Benefits, and Common Pitfalls</a
+            >
+            <span
+              >Recursion is a programming technique where a function calls
+              itself in order to solve a problem by breaking it down into
+              smaller instances of the same problem. This method is particularly
+              useful for tasks that can be defined in terms of similar subtasks,
+              such as tree traversal or factorial computation. While recursion
+              can lead to elegant and concise solutions, it also comes with
+              potential pitfalls, such as excessive memory use or stack overflow
+              errors. Understanding how to implement recursion effectively,
+              along with techniques for optimizing recursive algorithms, is key
+              to leveraging this powerful tool in software development.</span
+            >
+          </li>
+        <li class="searched-item">
+            <a href="#"
+              >The Evolution of JavaScript Frameworks: From jQuery to React and
+              Beyond</a
+            >
+            <span
+              >JavaScript frameworks have evolved significantly over the years,
+              reflecting changes in web development practices and technological
+              advancements. Early frameworks like jQuery revolutionized DOM
+              manipulation and event handling, simplifying cross-browser
+              compatibility issues. As web applications grew more complex,
+              frameworks such as Angular and Vue.js introduced more structured
+              approaches to building dynamic user interfaces. React, developed
+              by Facebook, has further pushed the boundaries with its
+              component-based architecture and virtual DOM, leading to
+              significant improvements in performance and development
+              efficiency. Understanding the evolution of these frameworks helps
+              developers make informed choices about the tools they use in their
+              projects.</span
+            >
+          </li>
+        <li class="searched-item">
+            <a href="#"
+              >Best Practices for Writing Clean, Maintainable, and Efficient
+              Code</a
+            >
+            <span
+              >Writing clean and maintainable code is crucial for ensuring the
+              long-term success of software projects. Best practices include
+              using meaningful variable and function names, adhering to
+              consistent coding conventions, and avoiding code duplication
+              through modular design. Additionally, writing comments that
+              explain the intent behind complex code, using version control
+              systems, and applying principles like DRY (Don't Repeat Yourself)
+              and SOLID can greatly enhance code quality. By following these
+              practices, developers can create code that is not only functional
+              but also easier to understand, extend, and maintain, ultimately
+              leading to more robust and reliable software.</span
+            >
+          </li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>
