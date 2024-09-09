@@ -80,6 +80,7 @@ func main() {
 				}
 				fmt.Print("Data from Database service retrieved\n")
 				webpages := parseWebpageQuery(data.Body)
+				// assign tfscore to each webpages
 				tfidf.CalculateTF(searchQuery, &webpages)
 				IDF := tfidf.CalculateIDF(searchQuery, &webpages)
 				rankedWebpages := tfidf.RankTFIDFRatings(IDF, &webpages)

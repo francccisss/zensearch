@@ -6,20 +6,26 @@ import (
 	"strings"
 )
 
-func CalculateIDF(searchQuery string, webpages *[]utilities.WebpageTFIDF) float64 {
+func CalculateIDF(term string, webpages *[]utilities.WebpageTFIDF) float64 {
 
-	totalWords := float64(wordCountInCorpa(webpages))
-	totalTermsInDocument := float64(termCountInCorpa(searchQuery, webpages))
-
-	return math.Log2(totalWords / totalTermsInDocument)
+	// totalWords := float64(wordCountInCorpa(webpages))
+	numberOfDocumentsInCorpa := float64(len(*webpages))
+	totalTermsInDocument := float64(termCountInCorpa(term, webpages))
+	return math.Log2(numberOfDocumentsInCorpa / totalTermsInDocument)
 }
 
 func termCountInCorpa(term string, corpa *[]utilities.WebpageTFIDF) int {
-	termCount := 0
+	documentCount := 0
+	// corpa is just all of the webpages from different websites
 	for i := range *corpa {
-		termCount += strings.Count((*corpa)[i].Contents, term)
+		// for every document in the corpa, count the documents
+		// containing the term within the document.
+		contains := strings.Contains((*corpa)[i].Contents, term)
+		if contains {
+			documentCount++
+		}
 	}
-	return termCount
+	return documentCount
 }
 
 func wordCountInCorpa(corpa *[]utilities.WebpageTFIDF) int {
