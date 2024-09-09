@@ -4,8 +4,9 @@ steps=('./database-service' './gateway/' './web-crawler-service/')
 for i in "${steps[@]}"; do
   cd "$i"
   echo "Processing"
+  echo "$i"
   npm i
   cd ../
-  echo "$i"
+  echo "Done."
 done
 echo "Done"
