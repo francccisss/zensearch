@@ -116,7 +116,6 @@ app.post("/search", async (req: Request, res: Response, next: NextFunction) => {
     if (connection === null) throw new Error("TCP Connection lost.");
     const { search } = req.body;
     const channel = await connection.createChannel();
-    // Create a websocket connection
     const queue = "search_queue";
     const rps_queue = "search_rps_queue";
     const cor_id = "a29a5dec-fd24-4db4-83f1-db6dbefdaa6b";
@@ -135,6 +134,9 @@ app.post("/search", async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
+app.get("/search", (req: Request, res: Response) => {
+  res.sendFile(path.join(__dirname, "public", "search.html"));
+});
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack);
   res.status(500).send("Something went wrong!");
@@ -151,8 +153,3 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 // and not push any data to the client unless the client request's something from the server.
 //
 // Websocket? but the client needs to upgrade to a websocket connection
-// Once a user sends a query, create a new websocket connection, create a spinner,
-// and once the websocket pushes a message to the client with the ranked webpages,
-// close websocket tcp connection, so we can go back to using https
-//
-// http for search query, websocket for push the search engine data to the client.

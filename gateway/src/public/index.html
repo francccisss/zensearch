@@ -18,32 +18,47 @@
   </head>
   <body>
     <main id="index-page">
-      <div>
-        <div id="index-page-header">
-          <p>A distributed search engine.</p>
-          <h1>Crawl before you search.</h1>
-          <small>Every Query is yours.</small>
-        </div>
-        <div class="search-crawl-container">
-          <div class="" id="crawl-data-submission">
-            <button id="crawl-btn">Crawl Websites</button>
-            <span id="spinner" class="process-spinner"></span>
+      <section>
+        <div id="title-search-bar">
+          <div id="index-page-header">
+            <p>A distributed search engine.</p>
+            <h1>Crawl before you search.</h1>
+            <small>Every Query is yours.</small>
           </div>
-          <div id="search-container">
-            <input
-              class="form-control"
-              type="search"
-              name="search"
-              placeholder="Start your search..."
-              hx-post="/search"
-              hx-trigger="input changed delay:500ms, search"
-              hx-target="#search-results"
-              hx-indicator=".htmx-indicator"
-            />
+          <div class="search-crawl-container">
+            <div class="" id="crawl-data-submission">
+              <button id="search-btn">Crawl Websites</button>
+              <span id="spinner" class="process-spinner"></span>
+            </div>
+            <div id="search-container">
+              <input
+                class="form-control"
+                type="search"
+                name="search"
+                placeholder="Start your search..."
+                hx-post="/search"
+                hx-trigger="input changed delay:500ms, search"
+                hx-target="#search-results"
+                hx-indicator=".htmx-indicator"
+              />
+            </div>
           </div>
         </div>
-      </div>
-      <div id="search-results"></div>
+        <div id="search-results">
+          <li class="searched-item">
+            <a>For Loops for some Language</a>
+            <span>Description of the link</span>
+          </li>
+          <li class="searched-item">
+            <a>Golang Mutex</a>
+            <span>Description of the link</span>
+          </li>
+          <li class="searched-item">
+            <a>Why rust is hard to understand compared to C</a>
+            <span>Description of the link</span>
+          </li>
+        </div>
+      </section>
     </main>
   </body>
 </html>
