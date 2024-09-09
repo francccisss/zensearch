@@ -3,13 +3,15 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
 	tfidf "search-engine-service/tf-idf"
 	"search-engine-service/utilities"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 const QUERYQUEUE = "database_query_queue"
+const PUBLISH_QUEUE = "publish_ranking_queue"
 const DB_RESPONSE_QUEUE = "database_response_queue"
 const SEARCHQUEUE = "search_queue"
 
@@ -22,14 +24,14 @@ func main() {
 	fmt.Printf("Established TCP Connection with RabbitMQ\n")
 
 	// DECLARING CHANNELS
-	consumerChannel, err := conn.Channel()
+	mainChannel, err := conn.Channel()
 	failOnError(err, "Failed to create a new Channel")
 	dbQueryChannel, err := conn.Channel()
 	failOnError(err, "Failed to create a new Channel")
 	// DECLARING CHANNELS
 
 	// DECLARING QUEUES
-	consumerChannel.QueueDeclare(SEARCHQUEUE, false, false, false, false, nil)
+	mainChannel.QueueDeclare(SEARCHQUEUE, false, false, false, false, nil)
 	failOnError(err, "Failed to create search queue")
 	dbQueryChannel.QueueDeclare(QUERYQUEUE, false, false, false, false, nil)
 	failOnError(err, "Failed to create query queue")
@@ -49,7 +51,7 @@ func main() {
 	if err != nil {
 		log.Panicf(err.Error())
 	}
-	msgs, err := consumerChannel.Consume(
+	msgs, err := mainChannel.Consume(
 		SEARCHQUEUE,
 		"",
 		true,
@@ -80,19 +82,35 @@ func main() {
 				}
 				fmt.Print("Data from Database service retrieved\n")
 				webpages := parseWebpageQuery(data.Body)
-				// assign tfscore to each webpages
+				// assign tfscore to each webpages.
 				tfidf.CalculateTF(searchQuery, &webpages)
 				IDF := tfidf.CalculateIDF(searchQuery, &webpages)
 				rankedWebpages := tfidf.RankTFIDFRatings(IDF, &webpages)
-				for _, webpage := range *rankedWebpages {
-					fmt.Printf("Query: %s\n", searchQuery)
-					fmt.Printf("Rank: %f\n", webpage.TFIDFRating)
-					fmt.Printf("TFScore: %f\n", webpage.TFScore)
-					fmt.Printf("URL: %s\n", webpage.Webpage_url)
-				}
+				PublishScoreRanking(rankedWebpages, mainChannel)
+				// for _, webpage := range *rankedWebpages {
+				// 	fmt.Printf("Query: %s\n", searchQuery)
+				// 	fmt.Printf("Rank: %f\n", webpage.TFIDFRating)
+				// 	fmt.Printf("TFScore: %f\n", webpage.TFScore)
+				// 	fmt.Printf("URL: %s\n", webpage.Webpage_url)
+				// }
 			}
 		}
 	}
+}
+
+func PublishScoreRanking(rankedWebpages *[]utilities.WebpageTFIDF, ch *amqp.Channel) {
+	ch.QueueDeclare(PUBLISH_QUEUE, false, false, false, false, nil)
+	encodedWebpages, err := json.Marshal(rankedWebpages)
+	failOnError(err, "Unable to encode or marshall ranked webpages.")
+	err = ch.Publish(
+		"",
+		QUERYQUEUE,
+		false, false, amqp.Publishing{
+			ContentType: "text/plain",
+			Body:        encodedWebpages,
+		})
+	failOnError(err, "Unable to publish ranked webpages.")
+
 }
 
 // maybe use message for cache validation later on for optimization

@@ -116,6 +116,7 @@ app.post("/search", async (req: Request, res: Response, next: NextFunction) => {
     if (connection === null) throw new Error("TCP Connection lost.");
     const { search } = req.body;
     const channel = await connection.createChannel();
+    // Create a websocket connection
     const queue = "search_queue";
     const rps_queue = "search_rps_queue";
     const cor_id = "a29a5dec-fd24-4db4-83f1-db6dbefdaa6b";
@@ -138,3 +139,20 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack);
   res.status(500).send("Something went wrong!");
 });
+
+// User sends search query -> search_query message broker -> received by search engine service
+// send database_query to message broker -> database__search_query -> database parses message and queries
+// webpages from sqlite, callback queue sends back a new message to a new message queue -> database_response_queue
+// -> received by the search engine service, parse the webpage dataset to an array of webpages struct, process
+// the webpages by calculating tf-idf and rank them, pass message back to gateway service -> publish_queue -> ??
+//
+// How can the gateway service received the message from the message queue publish_queue?
+// since the gateway service is an express app and is obviosuly a server that would only take in Request
+// and not push any data to the client unless the client request's something from the server.
+//
+// Websocket? but the client needs to upgrade to a websocket connection
+// Once a user sends a query, create a new websocket connection, create a spinner,
+// and once the websocket pushes a message to the client with the ranked webpages,
+// close websocket tcp connection, so we can go back to using https
+//
+// http for search query, websocket for push the search engine data to the client.
