@@ -23,17 +23,16 @@
           <h1>ExploreZen</h1>
         </div>
         <div class="search-crawl-container">
-          <div id="search-container">
-            <input
-              class="form-control"
-              type="search"
-              name="search"
-              placeholder="Start your search..."
-              hx-post="/search"
-              hx-target="#search-results"
-              hx-indicator=".htmx-indicator"
-            />
-          </div>
+         <div id="search-container">
+           <form method="get" action="/search">
+             <input
+               class="form-control"
+               type="search"
+               name="q"
+               placeholder="Start your search..."
+             />
+           </form>
+         </div>
         </div>
       </nav>
       <section id="search-results">
