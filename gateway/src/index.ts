@@ -110,23 +110,23 @@ app.get("/job", async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-app.post("/search", async (req: Request, res: Response, next: NextFunction) => {
+app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const connection = await connect_rabbitmq();
     if (connection === null) throw new Error("TCP Connection lost.");
-    const { search } = req.body;
-    const channel = await connection.createChannel();
-    const queue = "search_queue";
-    const rps_queue = "search_rps_queue";
-    const cor_id = "a29a5dec-fd24-4db4-83f1-db6dbefdaa6b";
-    await channel.assertQueue(queue, {
-      exclusive: false,
-      durable: false,
-    });
-    await channel.sendToQueue(queue, Buffer.from(search));
-    console.log(search);
-    res.send("<p>Results</p>");
-    await channel.close();
+    const q = req.body.q ?? req.query.q;
+    //const channel = await connection.createChannel();
+    //const queue = "search_queue";
+    //const rps_queue = "search_rps_queue";
+    //const cor_id = "a29a5dec-fd24-4db4-83f1-db6dbefdaa6b";
+    //await channel.assertQueue(queue, {
+    //  exclusive: false,
+    //  durable: false,
+    //});
+    //await channel.sendToQueue(queue, Buffer.from(search));
+    //await channel.close();
+    console.log(q);
+    res.sendFile(path.join(__dirname, "public", "search.html"));
   } catch (err) {
     const error = err as Error;
     console.error(error.message);
@@ -134,22 +134,7 @@ app.post("/search", async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-app.get("/search", (req: Request, res: Response) => {
-  res.sendFile(path.join(__dirname, "public", "search.html"));
-});
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack);
   res.status(500).send("Something went wrong!");
 });
-
-// User sends search query -> search_query message broker -> received by search engine service
-// send database_query to message broker -> database__search_query -> database parses message and queries
-// webpages from sqlite, callback queue sends back a new message to a new message queue -> database_response_queue
-// -> received by the search engine service, parse the webpage dataset to an array of webpages struct, process
-// the webpages by calculating tf-idf and rank them, pass message back to gateway service -> publish_queue -> ??
-//
-// How can the gateway service received the message from the message queue publish_queue?
-// since the gateway service is an express app and is obviosuly a server that would only take in Request
-// and not push any data to the client unless the client request's something from the server.
-//
-// Websocket? but the client needs to upgrade to a websocket connection
