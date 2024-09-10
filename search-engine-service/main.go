@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"search-engine-service/rabbitmq"
 	tfidf "search-engine-service/tf-idf"
 	"search-engine-service/utilities"
 
@@ -71,7 +72,7 @@ func main() {
 					fmt.Print("Search Query is empty\n")
 					continue
 				}
-				queryDatabase(string(userSearch.Body), dbQueryChannel)
+				rabbitmq.QueryDatabase(string(userSearch.Body), dbQueryChannel)
 				fmt.Print("Process Done.\n")
 			}
 		case data := <-queriedData:
@@ -86,49 +87,13 @@ func main() {
 				tfidf.CalculateTF(searchQuery, &webpages)
 				IDF := tfidf.CalculateIDF(searchQuery, &webpages)
 				rankedWebpages := tfidf.RankTFIDFRatings(IDF, &webpages)
-				PublishScoreRanking(rankedWebpages, mainChannel)
-				// for _, webpage := range *rankedWebpages {
-				// 	fmt.Printf("Query: %s\n", searchQuery)
-				// 	fmt.Printf("Rank: %f\n", webpage.TFIDFRating)
-				// 	fmt.Printf("TFScore: %f\n", webpage.TFScore)
-				// 	fmt.Printf("URL: %s\n", webpage.Webpage_url)
-				// }
+				rabbitmq.PublishScoreRanking(rankedWebpages, mainChannel)
 			}
 		}
 	}
 }
 
-func PublishScoreRanking(rankedWebpages *[]utilities.WebpageTFIDF, ch *amqp.Channel) {
-	ch.QueueDeclare(PUBLISH_QUEUE, false, false, false, false, nil)
-	encodedWebpages, err := json.Marshal(rankedWebpages)
-	failOnError(err, "Unable to encode or marshall ranked webpages.")
-	err = ch.Publish(
-		"",
-		QUERYQUEUE,
-		false, false, amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        encodedWebpages,
-		})
-	failOnError(err, "Unable to publish ranked webpages.")
-
-}
-
 // maybe use message for cache validation later on for optimization
-func queryDatabase(message string, ch *amqp.Channel) {
-	err := ch.Publish(
-		"",
-		QUERYQUEUE,
-		false, false, amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        []byte(message),
-		},
-	)
-	fmt.Printf("Push message to database service.\n")
-	if err != nil {
-		log.Panicf(err.Error())
-	}
-	log.Printf("End of Query\n")
-}
 
 func parseWebpageQuery(data []byte) []utilities.WebpageTFIDF {
 	var webpages []utilities.WebpageTFIDF // I dont know why it doesnt work

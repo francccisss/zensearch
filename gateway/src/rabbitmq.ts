@@ -1,5 +1,9 @@
 import amqp, { Connection, Channel } from "amqplib";
 let connection: Connection | null = null;
+
+const CRAWL_QUEUE = "crawl_queue";
+const CRAWL_QUEUE_CB = "crawl_poll_queue";
+
 async function connect(): Promise<Connection | null> {
   if (connection) {
     return connection;
@@ -80,16 +84,20 @@ async function crawl_job(
 ) {
   const message = "Start Crawl";
   try {
-    // let the other end to reply back to this asserted queue
-    // called polling_worker_queue
-    const response_queue = await chan.assertQueue("polling_worker_queue", {
+    await chan.assertQueue(CRAWL_QUEUE, {
       exclusive: false,
+      durable: false,
+    });
+
+    await chan.assertQueue(CRAWL_QUEUE_CB, {
+      exclusive: false,
+      durable: false,
     });
     const success = await chan.sendToQueue(
-      job.queue,
+      CRAWL_QUEUE,
       Buffer.from(websites.buffer),
       {
-        replyTo: response_queue.queue,
+        replyTo: CRAWL_QUEUE_CB,
         correlationId: job.id,
       },
     );

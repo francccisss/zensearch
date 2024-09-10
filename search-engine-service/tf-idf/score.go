@@ -10,6 +10,7 @@ type WebpageRanking struct {
 	Rating float64
 }
 
+// WHY DOES LOG RETURN NAN ON BOTH floats
 func RankTFIDFRatings(IDF float64, webpages *[]utilities.WebpageTFIDF) *[]utilities.WebpageTFIDF {
 	for i := range *webpages {
 		(*webpages)[i].TFIDFRating = calculateTFIDF(IDF, (*webpages)[i])

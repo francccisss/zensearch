@@ -4,6 +4,8 @@ import WorkerHandler from "./WorkerHandler";
 import path from "path";
 import amqp, { Channel, Connection } from "amqplib";
 
+const CRAWL_QUEUE = "crawl_queue";
+
 const event = new EventEmitter();
 const MAX_THREADS = 2;
 console.log("Crawl start.");
@@ -11,15 +13,17 @@ console.log("Crawl start.");
 (async function () {
   const connection = await amqp.connect("amqp://localhost");
   const channel = await connection.createChannel();
-  var queue = "crawl_rpc_queue";
-  await channel.assertQueue(queue, {
+  await channel.assertQueue(CRAWL_QUEUE, {
     durable: false,
   });
-  console.log(" [*] Waiting for messages in %s. To exit press CTRL+C", queue);
+  console.log(
+    " [*] Waiting for messages in %s. To exit press CTRL+C",
+    CRAWL_QUEUE,
+  );
   const decoder = new TextDecoder();
 
   channel.consume(
-    queue,
+    CRAWL_QUEUE,
     async function (msg) {
       if (msg === null) throw new Error("No message");
       const decoded_array_buffer = decoder.decode(msg.content);

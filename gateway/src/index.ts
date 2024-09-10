@@ -41,7 +41,8 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
   const encoded_docs = encoder.encode(JSON.stringify({ docs }));
 
   console.log("Crawl");
-  const queue = "crawl_rpc_queue";
+  const queue = "crawl_queue";
+  const CRAWL_QUEUE_CB = "crawl_poll_queue";
   const corID = "f27ac58-7bee-4e90-93ef-8bc08a37e26c";
   try {
     const connection = await rabbitmq.connect();
@@ -55,12 +56,14 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     if (!success) {
       next("an Error occured while starting the crawl.");
     }
+
+    // set the queue to be polled by /job polling
     res.cookie("job_id", corID);
-    res.cookie("job_queue", queue);
+    res.cookie("job_queue", CRAWL_QUEUE_CB);
     res.send("<p>Crawling...</p>");
   } catch (err) {
     const error = err as Error;
-    console.log("LOG:Something went wrong with RPC queue");
+    console.log("LOG:Something went wrong with Crawl queue");
     console.error(error.message);
     next(err);
   }
