@@ -83,18 +83,19 @@ app.get("/job", async (req: Request, res: Response, next: NextFunction) => {
     const connection = await rabbitmq.connect();
     if (connection === null) throw new Error("TCP Connection lost.");
     const channel = await connection.createChannel();
-    const polling = await rabbitmq.poll_job(channel, {
+    const job = await rabbitmq.poll_job(channel, {
       id: job_id as string,
       queue: job_queue as string,
     });
-    if (!polling.done) {
+    if (!job.done) {
       res.send("Processing...");
       return;
     }
+    channel.close();
     res.clearCookie("job_id");
     res.clearCookie("job_queue");
     res.clearCookie("poll_type");
-    res.send("Success");
+    res.json(JSON.parse(job.data)).status(200);
   } catch (err) {
     const error = err as Error;
     console.log("LOG:Something went wrong with polling queue");
