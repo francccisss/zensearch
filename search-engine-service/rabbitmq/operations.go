@@ -24,7 +24,7 @@ func QueryDatabase(message string, ch *amqp.Channel) {
 	log.Printf("End of Query\n")
 }
 
-func PublishScoreRanking(rankedWebpages *[]utilities.WebpageTFIDF, ch *amqp.Channel) {
+func PublishScoreRanking(rankedWebpages *[]utilities.WebpageTFIDF, ch *amqp.Channel, jobID string) {
 	ch.QueueDeclare(PUBLISH_QUEUE, false, false, false, false, nil)
 	encodedWebpages, err := json.Marshal(rankedWebpages)
 	if err != nil {
@@ -34,8 +34,9 @@ func PublishScoreRanking(rankedWebpages *[]utilities.WebpageTFIDF, ch *amqp.Chan
 		"",
 		DB_QUERY_QUEUE,
 		false, false, amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        encodedWebpages,
+			ContentType:   "text/plain",
+			CorrelationId: jobID,
+			Body:          encodedWebpages,
 		})
 	if err != nil {
 		log.Panicf(err.Error())

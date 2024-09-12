@@ -14,6 +14,7 @@ import (
 // subsequent requests are not being pushed
 func main() {
 	searchQuery := ""
+	jobID := ""
 
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	failOnError(err, "Failed to create a new TCP Connection")
@@ -63,6 +64,7 @@ func main() {
 		case userSearch := <-msgs:
 			{
 				searchQuery = string(userSearch.Body)
+				jobID = userSearch.CorrelationId
 				if searchQuery == "" {
 					fmt.Print("Search Query is empty\n")
 					continue
@@ -82,7 +84,7 @@ func main() {
 				tfidf.CalculateTF(searchQuery, &webpages)
 				IDF := tfidf.CalculateIDF(searchQuery, &webpages)
 				rankedWebpages := tfidf.RankTFIDFRatings(IDF, &webpages)
-				rabbitmq.PublishScoreRanking(rankedWebpages, mainChannel)
+				rabbitmq.PublishScoreRanking(rankedWebpages, mainChannel, jobID)
 			}
 		}
 	}

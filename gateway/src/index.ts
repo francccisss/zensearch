@@ -83,17 +83,17 @@ app.get("/job", async (req: Request, res: Response, next: NextFunction) => {
     const connection = await rabbitmq.connect();
     if (connection === null) throw new Error("TCP Connection lost.");
     const channel = await connection.createChannel();
-    const is_polling = await rabbitmq.poll_job(channel, {
+    const polling = await rabbitmq.poll_job(channel, {
       id: job_id as string,
       queue: job_queue as string,
     });
-    if (!is_polling) {
+    if (!polling.done) {
       res.send("Processing...");
       return;
     }
     res.clearCookie("job_id");
     res.clearCookie("job_queue");
-    res.cookie("poll_type", "search");
+    res.clearCookie("poll_type");
     res.send("Success");
   } catch (err) {
     const error = err as Error;
@@ -110,7 +110,7 @@ app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
     if (connection === null) throw new Error("TCP Connection lost.");
     const q = req.body.q ?? req.query.q;
     if (q !== undefined) {
-      await rabbitmq.search_job(q, connection);
+      await rabbitmq.search_job({ q, job_id }, connection);
       res.cookie("job_id", job_id);
       res.cookie("job_queue", SEARCH_QUEUE_CB);
       res.cookie("poll_type", "search");
