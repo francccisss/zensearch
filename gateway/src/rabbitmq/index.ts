@@ -1,5 +1,10 @@
 import amqp, { Connection, Channel } from "amqplib";
-import { CRAWL_QUEUE, CRAWL_QUEUE_CB } from "./queues";
+import {
+  CRAWL_QUEUE,
+  CRAWL_QUEUE_CB,
+  SEARCH_QUEUE,
+  SEARCH_QUEUE_CB,
+} from "./queues";
 let connection: Connection | null = null;
 
 async function connect(): Promise<Connection | null> {
@@ -16,16 +21,19 @@ async function connect(): Promise<Connection | null> {
   }
 }
 
-async function search_job(search_query: string, conn: Connection) {
+async function search_job(
+  job: { q: string; job_id: string },
+  conn: Connection,
+) {
   const channel = await conn.createChannel();
-  const queue = "search_queue";
-  const rps_queue = "search_rps_queue";
-  const cor_id = "a29a5dec-fd24-4db4-83f1-db6dbefdaa6b";
-  await channel.assertQueue(queue, {
+  await channel.assertQueue(SEARCH_QUEUE, {
     exclusive: false,
     durable: false,
   });
-  const success = await channel.sendToQueue(queue, Buffer.from(search_query));
+  const success = await channel.sendToQueue(SEARCH_QUEUE, Buffer.from(job.q), {
+    correlationId: job.job_id,
+    replyTo: SEARCH_QUEUE_CB,
+  });
   if (!success) {
     throw new Error("Unable to send job to search queue.");
   }
@@ -35,7 +43,7 @@ async function search_job(search_query: string, conn: Connection) {
 async function poll_job(
   chan: Channel,
   job: { id: string; queue: string },
-): Promise<boolean> {
+): Promise<{ done: boolean; data: any }> {
   try {
     await chan.assertQueue(job.queue as string, {
       exclusive: false,
@@ -44,13 +52,11 @@ async function poll_job(
     const { queue, messageCount, consumerCount } = await chan.checkQueue(
       job.queue as string,
     );
-
-    // TODO INDEFINITE PROCESSING PHASE IF CRAWLING SERVICE CRASHES
-    // POLLING EVENT WILL KEEP RUNNING NEED TO CHECK IF SERVICE IS DOWN
-
+    console.log(queue);
     if (messageCount === 0) {
-      return false;
+      return { done: false, data: {} };
     }
+    let data: any;
     const consumer = await chan.consume(
       job.queue as string,
       async (response) => {
@@ -60,13 +66,14 @@ async function poll_job(
             "LOG: Response from Polled Job received: %s",
             response.content.toString(),
           );
+          data = response.content.toString();
           console.log("CONSUMED");
           await chan.close();
         }
       },
       { noAck: true },
     );
-    return true;
+    return { done: true, data };
   } catch (err) {
     const error = err as Error;
     console.log("LOG:Something went wrong while polling queue");
