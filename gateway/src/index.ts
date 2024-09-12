@@ -116,7 +116,6 @@ app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
       res.cookie("job_queue", SEARCH_QUEUE_CB);
       res.cookie("poll_type", "search");
     }
-    console.log(q);
     res.sendFile(path.join(__dirname, "public", "search.html"));
   } catch (err) {
     const error = err as Error;
