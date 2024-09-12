@@ -30,11 +30,25 @@ async function search_job(
     exclusive: false,
     durable: false,
   });
+
+  await channel.assertQueue(SEARCH_QUEUE_CB, {
+    exclusive: false,
+    durable: false,
+  });
   const success = await channel.sendToQueue(SEARCH_QUEUE, Buffer.from(job.q), {
     correlationId: job.job_id,
     replyTo: SEARCH_QUEUE_CB,
   });
+
+  await channel.consume(SEARCH_QUEUE, async (msg) => {
+    if (msg === null) throw new Error("Msg does not exist");
+    if (msg.properties.correlationId === job.job_id) {
+      return msg.content.toString();
+    }
+  });
+
   if (!success) {
+    await channel.close();
     throw new Error("Unable to send job to search queue.");
   }
   await channel.close();
