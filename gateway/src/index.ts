@@ -1,7 +1,13 @@
 import express, { Request, Response, NextFunction } from "express";
 import path from "path";
 import amqp, { Connection, Channel } from "amqplib";
-import rabbitmq from "./rabbitmq";
+import rabbitmq from "./rabbitmq/index";
+import { v4 as uuidv4 } from "uuid";
+import {
+  CRAWL_QUEUE_CB,
+  CRAWL_QUEUE,
+  SEARCH_QUEUE_CB,
+} from "./rabbitmq/queues";
 const cors = require("cors");
 const body_parser = require("body-parser");
 const app = express();
@@ -41,24 +47,22 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
   const encoded_docs = encoder.encode(JSON.stringify({ docs }));
 
   console.log("Crawl");
-  const queue = "crawl_queue";
-  const CRAWL_QUEUE_CB = "crawl_poll_queue";
-  const corID = "f27ac58-7bee-4e90-93ef-8bc08a37e26c";
+  const job_id = uuidv4();
   try {
     const connection = await rabbitmq.connect();
     if (connection === null)
       throw new Error("Unable to create a channel for crawl queue.");
     const channel = await connection.createChannel();
     const success = await rabbitmq.crawl_job(channel, encoded_docs, {
-      queue,
-      id: corID,
+      queue: CRAWL_QUEUE,
+      id: job_id,
     });
     if (!success) {
       next("an Error occured while starting the crawl.");
     }
 
     // set the queue to be polled by /job polling
-    res.cookie("job_id", corID);
+    res.cookie("job_id", job_id);
     res.cookie("job_queue", CRAWL_QUEUE_CB);
     res.send("<p>Crawling...</p>");
   } catch (err) {
@@ -98,12 +102,15 @@ app.get("/job", async (req: Request, res: Response, next: NextFunction) => {
 });
 
 app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
+  const job_id = uuidv4();
   try {
     const connection = await rabbitmq.connect();
     if (connection === null) throw new Error("TCP Connection lost.");
     const q = req.body.q ?? req.query.q;
     await rabbitmq.search_job(q, connection);
     console.log(q);
+    res.cookie("job_id", job_id);
+    res.cookie("job_queue", SEARCH_QUEUE_CB);
     res.sendFile(path.join(__dirname, "public", "search.html"));
   } catch (err) {
     const error = err as Error;
