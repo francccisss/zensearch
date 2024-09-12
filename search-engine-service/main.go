@@ -11,11 +11,6 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-const QUERYQUEUE = "database_query_queue"
-const PUBLISH_QUEUE = "publish_ranking_queue"
-const DB_RESPONSE_QUEUE = "database_response_queue"
-const SEARCHQUEUE = "search_queue"
-
 // subsequent requests are not being pushed
 func main() {
 	searchQuery := ""
@@ -32,16 +27,16 @@ func main() {
 	// DECLARING CHANNELS
 
 	// DECLARING QUEUES
-	mainChannel.QueueDeclare(SEARCHQUEUE, false, false, false, false, nil)
+	mainChannel.QueueDeclare(rabbitmq.SEARCH_QUEUE, false, false, false, false, nil)
 	failOnError(err, "Failed to create search queue")
-	dbQueryChannel.QueueDeclare(QUERYQUEUE, false, false, false, false, nil)
+	dbQueryChannel.QueueDeclare(rabbitmq.DB_QUERY_QUEUE, false, false, false, false, nil)
 	failOnError(err, "Failed to create query queue")
-	dbQueryChannel.QueueDeclare(DB_RESPONSE_QUEUE, false, false, false, false, nil)
-	failOnError(err, "Failed to create query queue")
+	dbQueryChannel.QueueDeclare(rabbitmq.DB_RESPONSE_QUEUE, false, false, false, false, nil)
+	failOnError(err, "Failed to create db response queue")
 	// DECLARING QUEUES
 
 	queriedData, err := dbQueryChannel.Consume(
-		DB_RESPONSE_QUEUE,
+		rabbitmq.DB_RESPONSE_QUEUE,
 		"",
 		true,
 		false,
@@ -53,7 +48,7 @@ func main() {
 		log.Panicf(err.Error())
 	}
 	msgs, err := mainChannel.Consume(
-		SEARCHQUEUE,
+		rabbitmq.SEARCH_QUEUE,
 		"",
 		true,
 		false,

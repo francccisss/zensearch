@@ -64,6 +64,7 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     // set the queue to be polled by /job polling
     res.cookie("job_id", job_id);
     res.cookie("job_queue", CRAWL_QUEUE_CB);
+    res.cookie("poll_type", "crawling");
     res.send("<p>Crawling...</p>");
   } catch (err) {
     const error = err as Error;
@@ -92,6 +93,7 @@ app.get("/job", async (req: Request, res: Response, next: NextFunction) => {
     }
     res.clearCookie("job_id");
     res.clearCookie("job_queue");
+    res.cookie("poll_type", "search");
     res.send("Success");
   } catch (err) {
     const error = err as Error;
@@ -107,10 +109,13 @@ app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
     const connection = await rabbitmq.connect();
     if (connection === null) throw new Error("TCP Connection lost.");
     const q = req.body.q ?? req.query.q;
-    await rabbitmq.search_job(q, connection);
+    if (q !== undefined) {
+      await rabbitmq.search_job(q, connection);
+      res.cookie("job_id", job_id);
+      res.cookie("job_queue", SEARCH_QUEUE_CB);
+      res.cookie("poll_type", "search");
+    }
     console.log(q);
-    res.cookie("job_id", job_id);
-    res.cookie("job_queue", SEARCH_QUEUE_CB);
     res.sendFile(path.join(__dirname, "public", "search.html"));
   } catch (err) {
     const error = err as Error;

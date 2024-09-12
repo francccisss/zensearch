@@ -30,6 +30,7 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
       try {
         const deserialize_data = JSON.parse(sliced_object);
         database_operations.index_webpages(db, deserialize_data);
+        push_channel.ack(data);
       } catch (err) {
         const error = err as Error;
         console.log("LOG: Decoder was unable to deserialized indexed data.");

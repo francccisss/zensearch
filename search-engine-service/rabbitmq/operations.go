@@ -3,20 +3,15 @@ package rabbitmq
 import (
 	"encoding/json"
 	"fmt"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
 	"search-engine-service/utilities"
-
-	amqp "github.com/rabbitmq/amqp091-go"
 )
-
-const QUERYQUEUE = "database_query_queue"
-const PUBLISH_QUEUE = "publish_ranking_queue"
 
 func QueryDatabase(message string, ch *amqp.Channel) {
 	err := ch.Publish(
-
 		"",
-		QUERYQUEUE,
+		DB_QUERY_QUEUE,
 		false, false, amqp.Publishing{
 			ContentType: "text/plain",
 			Body:        []byte(message),
@@ -37,7 +32,7 @@ func PublishScoreRanking(rankedWebpages *[]utilities.WebpageTFIDF, ch *amqp.Chan
 	}
 	err = ch.Publish(
 		"",
-		QUERYQUEUE,
+		DB_QUERY_QUEUE,
 		false, false, amqp.Publishing{
 			ContentType: "text/plain",
 			Body:        encodedWebpages,
