@@ -32,7 +32,7 @@ func PublishScoreRanking(rankedWebpages *[]utilities.WebpageTFIDF, ch *amqp.Chan
 	}
 	err = ch.Publish(
 		"",
-		DB_QUERY_QUEUE,
+		PUBLISH_QUEUE,
 		false, false, amqp.Publishing{
 			ContentType:   "text/plain",
 			CorrelationId: jobID,
