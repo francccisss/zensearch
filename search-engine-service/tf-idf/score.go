@@ -1,6 +1,7 @@
 package tfidf
 
 import (
+	"math"
 	"search-engine-service/utilities"
 	"sort"
 )
@@ -13,7 +14,11 @@ type WebpageRanking struct {
 // WHY DOES LOG RETURN NAN ON BOTH floats
 func RankTFIDFRatings(IDF float64, webpages *[]utilities.WebpageTFIDF) *[]utilities.WebpageTFIDF {
 	for i := range *webpages {
-		(*webpages)[i].TFIDFRating = calculateTFIDF(IDF, (*webpages)[i])
+		tfidfRating := calculateTFIDF(IDF, (*webpages)[i])
+		if math.IsNaN(tfidfRating) {
+			tfidfRating = 0
+		}
+		(*webpages)[i].TFIDFRating = tfidfRating
 	}
 
 	webpagesSlice := (*webpages)[:]
