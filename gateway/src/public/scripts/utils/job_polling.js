@@ -8,8 +8,9 @@ async function poll_job() {
   const polling = await fetch(
     `http://localhost:8080/job?job_id=${job_id.job_id}&job_queue=${job_queue.job_queue}`,
   );
-  const polling_response = await polling.text();
-  console.log(polling_response);
+
+  const polling_response = polling.ok ? await polling.json() : null;
+  return polling_response;
 }
 
 async function loop() {
@@ -20,10 +21,14 @@ async function loop() {
       is_polling = false;
       break;
     }
+
+    const job = await poll_job();
+    if (job !== null) {
+      return job;
+    }
     // to block timeout
     await new Promise((resolved) => {
       setTimeout(async () => {
-        await poll_job();
         resolved("Next");
       }, 3 * 1000);
     });
@@ -34,8 +39,8 @@ async function init(polling, done) {
   if (document.cookie !== "") {
     polling();
   }
-  await loop();
-  done();
+  const job = await loop();
+  done(job);
 }
 
 export default { loop, poll_job, init };
