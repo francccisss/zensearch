@@ -1,8 +1,6 @@
 import amqp, { Connection, Channel } from "amqplib";
+import { CRAWL_QUEUE, CRAWL_QUEUE_CB } from "./queues";
 let connection: Connection | null = null;
-
-const CRAWL_QUEUE = "crawl_queue";
-const CRAWL_QUEUE_CB = "crawl_poll_queue";
 
 async function connect(): Promise<Connection | null> {
   if (connection) {
