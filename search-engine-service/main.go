@@ -39,7 +39,7 @@ func main() {
 	queriedData, err := dbQueryChannel.Consume(
 		rabbitmq.DB_RESPONSE_QUEUE,
 		"",
-		true,
+		false,
 		false,
 		false,
 		false,
@@ -51,7 +51,7 @@ func main() {
 	msgs, err := mainChannel.Consume(
 		rabbitmq.SEARCH_QUEUE,
 		"",
-		true,
+		false,
 		false,
 		false,
 		false,
@@ -70,6 +70,7 @@ func main() {
 					continue
 				}
 				rabbitmq.QueryDatabase(string(userSearch.Body), dbQueryChannel)
+				mainChannel.Ack(userSearch.DeliveryTag, true)
 				fmt.Print("Process Done.\n")
 			}
 		case data := <-queriedData:
@@ -80,11 +81,13 @@ func main() {
 				}
 				fmt.Print("Data from Database service retrieved\n")
 				webpages := parseWebpageQuery(data.Body)
-				fmt.Printf("\nWebpages: %+v\n", webpages)
+				fmt.Printf("\nWebpages: %+v\n", webpages[0])
+				fmt.Printf("\nCorID: %s\n", jobID)
 				// assign tfscore to each webpages.
 				tfidf.CalculateTF(searchQuery, &webpages)
 				IDF := tfidf.CalculateIDF(searchQuery, &webpages)
 				rankedWebpages := tfidf.RankTFIDFRatings(IDF, &webpages)
+				dbQueryChannel.Ack(data.DeliveryTag, true)
 				rabbitmq.PublishScoreRanking(rankedWebpages, mainChannel, jobID)
 			}
 		}

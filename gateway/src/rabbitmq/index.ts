@@ -75,17 +75,11 @@ async function poll_job(
       job.queue as string,
       async (response) => {
         if (response === null) throw new Error("No Response");
-        if (response.properties.correlationId === job.id) {
-          console.log(
-            "LOG: Response from Polled Job received: %s",
-            response.content.toString(),
-          );
-          data = response.content.toString();
-          console.log("CONSUMED");
-          await chan.close();
-        }
+        console.log("LOG: Response from Polled Job received");
+        data = response.content.toString();
+        console.log("CONSUMED");
       },
-      { noAck: true },
+      { noAck: false },
     );
     return { done: true, data };
   } catch (err) {
