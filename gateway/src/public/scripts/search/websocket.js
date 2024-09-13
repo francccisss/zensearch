@@ -1,10 +1,11 @@
 const ws = new WebSocket("ws://localhost:8080");
 
-// init connection
-
 ws.addEventListener("open", (event) => {
   console.log("Connected");
-  ws.send("Hello Server!");
+});
+
+ws.addEventListener("message", (event) => {
+  console.log("Message from server: %s", event.data);
 });
 
 export default ws;

@@ -1,10 +1,8 @@
+import extract_cookies from "./extract_cookies.js";
+
 async function poll_job() {
   console.log("Poll Job");
-  let cookies = {};
-  document.cookie.split("; ").forEach((c) => {
-    const entries = c.split("=");
-    cookies[entries[0]] = entries[1];
-  });
+  let cookies = extract_cookies();
   const polling = await fetch(
     `http://localhost:8080/job?job_id=${cookies.job_id}&job_queue=${cookies.job_queue}`,
   );

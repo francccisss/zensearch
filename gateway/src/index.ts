@@ -114,17 +114,11 @@ app.get("/job", async (req: Request, res: Response, next: NextFunction) => {
 app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
   const job_id = uuidv4();
   try {
-    const connection = await rabbitmq.connect();
-    if (connection === null) throw new Error("TCP Connection lost.");
-    const q = req.body.q ?? req.query.q;
-    if (q !== undefined) {
-      await rabbitmq.search_job({ q, job_id }, connection);
-      res.setHeader("Connection", "Upgrade");
-      res.setHeader("Upgrade", "Websocket");
-      res.cookie("job_id", job_id);
-      res.cookie("job_queue", SEARCH_QUEUE_CB);
-      res.cookie("poll_type", "search");
-    }
+    res.setHeader("Connection", "Upgrade");
+    res.setHeader("Upgrade", "Websocket");
+    res.cookie("job_id", job_id);
+    res.cookie("job_queue", SEARCH_QUEUE_CB);
+    res.cookie("poll_type", "search");
     res.sendFile(path.join(__dirname, "public", "search.html"));
   } catch (err) {
     const error = err as Error;
