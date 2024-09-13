@@ -25,7 +25,7 @@ async function message_handler(data: Data, client_ws: WebSocket) {
   console.log(message);
   try {
     if (connection === null) throw new Error("TCP Connection lost.");
-    //await rabbitmq.search_job({ q: message.q, job_id: message.id }, connection);
+    await rabbitmq.search_job({ q: message.q, job_id: message.id }, connection);
     console.log("Message received from client: %s", message.toString());
   } catch (err) {
     const error = err as Error;
