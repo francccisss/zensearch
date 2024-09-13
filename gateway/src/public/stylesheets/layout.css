@@ -68,6 +68,12 @@ button {
     "Helvetica Neue",
     sans-serif;
 }
+a:link, a:visited,  a:active {
+  text-decoration: none;  color: inherit;
+}
+a:hover{
+  text-decoration: underline;
+}
 button {
   cursor: pointer;
 }
