@@ -35,11 +35,9 @@ app.get("/", (req: Request, res: Response) => {
 // TODO use Websockets for crawling instead of polling like a biiiitchh
 app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
   const docs = [
-    "https://fzaid.vercel.app/",
-    "https://docs.python.o3/",
-    "https://developer.mozilla.org/en-US/docs/Web/JavaScript",
-    "https://go.dev/doc/",
+    "https://www.rabbitmq.com/docs/consumers#acknowledgement-modes",
     "https://motherfuckingwebsite.com/",
+    "https://go.dev/doc/",
   ];
   const encoder = new TextEncoder();
   const encoded_docs = encoder.encode(JSON.stringify({ docs }));
@@ -86,14 +84,14 @@ app.get("/job", async (req: Request, res: Response, next: NextFunction) => {
       queue: job_queue as string,
     });
     if (!job.done) {
-      res.send("Processing...");
+      res.json({ message: "Processing..." });
       return;
     }
     channel.close();
     res.clearCookie("job_id");
     res.clearCookie("job_queue");
     res.clearCookie("poll_type");
-    res.json(JSON.parse(job.data)).status(200);
+    res.json({ message: job.data }).status(200);
   } catch (err) {
     const error = err as Error;
     console.log("LOG:Something went wrong with polling queue");

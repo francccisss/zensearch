@@ -8,8 +8,7 @@ const shared_buffer = new Int32Array(workerData.shared_buffer);
 (async function () {
   try {
     const data = await crawler.start_crawl(process.argv[2]);
-    if (data === null)
-      throw new Error(`Unable to crawl current website: ${process.argv[2]}`);
+    // null because an error occured, but i dont want to trash the accumulated dataset
     const serialize_obj = JSON.stringify(crawler.data);
     const encoder = new TextEncoder();
     const encoded_array = encoder.encode(serialize_obj);

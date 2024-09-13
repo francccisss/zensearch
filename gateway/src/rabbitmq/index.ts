@@ -78,12 +78,9 @@ async function poll_job(
         if (response === null) throw new Error("No Response");
         console.log("LOG: Response from Polled Job received");
         data = response.content.toString();
-        for (let page of JSON.parse(data)) {
-          console.log(page.Title);
-          console.log({ TFIDFRating: page.TFIDFRating, TFScore: page.TFScore });
-        }
         console.log("CONSUMED");
         chan.ack(response);
+        return { done: true, data };
       },
     );
     return { done: true, data };

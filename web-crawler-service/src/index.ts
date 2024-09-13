@@ -22,19 +22,20 @@ console.log("Crawl start.");
   );
   const decoder = new TextDecoder();
 
-  channel.consume(
-    CRAWL_QUEUE,
-    async function (msg) {
+  try {
+    await channel.consume(CRAWL_QUEUE, async function (msg) {
       if (msg === null) throw new Error("No message");
       const decoded_array_buffer = decoder.decode(msg.content);
       const to_json: { docs: Array<string> } = JSON.parse(decoded_array_buffer);
       console.log(to_json);
+      channel.ack(msg);
       const handler = await crawl(to_json.docs);
       let available_threads = handler.current_threads;
       await thread_polling(
         available_threads,
         handler.check_threads.bind(handler),
       );
+      // cant send ack after crawling is done, because it can take a long while before it finishes
       channel.sendToQueue(
         msg.properties.replyTo,
         Buffer.from(
@@ -44,11 +45,12 @@ console.log("Crawl start.");
           correlationId: msg.properties.correlationId,
         },
       );
-    },
-    {
-      noAck: true,
-    },
-  );
+    });
+  } catch (err) {
+    const error = err as Error;
+    console.log("LOG: Something went wrong with the channel consumer");
+    console.error(error.message);
+  }
 })();
 
 async function thread_polling(
