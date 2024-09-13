@@ -1,4 +1,5 @@
 import express, { Request, Response, NextFunction } from "express";
+import http from "http";
 import path from "path";
 import amqp, { Connection, Channel } from "amqplib";
 import rabbitmq from "./rabbitmq/index";
@@ -8,14 +9,20 @@ import {
   CRAWL_QUEUE,
   SEARCH_QUEUE_CB,
 } from "./rabbitmq/queues";
+import websocket from "./websocket";
+import { WebSocketServer } from "ws";
 const cors = require("cors");
 const body_parser = require("body-parser");
 const app = express();
 const PORT = 8080;
 
-app.listen(PORT, () => {
+const server = http.createServer(app);
+const wss: WebSocketServer = new WebSocketServer({ server });
+server.listen(PORT, () => {
   console.log("Listening to Port:", PORT);
 });
+
+websocket.handler(wss);
 
 app.use(body_parser.urlencoded({ extended: false }));
 app.use(body_parser.json());
@@ -112,6 +119,8 @@ app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
     const q = req.body.q ?? req.query.q;
     if (q !== undefined) {
       await rabbitmq.search_job({ q, job_id }, connection);
+      res.setHeader("Connection", "Upgrade");
+      res.setHeader("Upgrade", "Websocket");
       res.cookie("job_id", job_id);
       res.cookie("job_queue", SEARCH_QUEUE_CB);
       res.cookie("poll_type", "search");

@@ -87,7 +87,7 @@ func main() {
 				tfidf.CalculateTF(searchQuery, &webpages)
 				IDF := tfidf.CalculateIDF(searchQuery, &webpages)
 				rankedWebpages := tfidf.RankTFIDFRatings(IDF, &webpages)
-				for _, page := range webpages {
+				for _, page := range *rankedWebpages {
 					fmt.Printf("Search Query: %s\n", searchQuery)
 					fmt.Printf("Webpage: %s\n", page.Title)
 					fmt.Printf("TFScore: %f\n", page.TFScore)
