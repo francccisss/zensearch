@@ -40,8 +40,9 @@ async function search_job(
     replyTo: SEARCH_QUEUE_CB,
   });
 
-  await channel.consume(SEARCH_QUEUE, async (msg) => {
+  await channel.consume(SEARCH_QUEUE_CB, async (msg) => {
     if (msg === null) throw new Error("Msg does not exist");
+    console.log(msg.toString());
     if (msg.properties.correlationId === job.job_id) {
       return msg.content.toString();
     }

@@ -9,10 +9,10 @@ const cookies = extract_cookies();
 
 form.addEventListener("submit", (e) => {
   e.preventDefault();
-  console.log(cookies);
   const input_value = search_input.value;
   client_websocket.send(
     JSON.stringify({ q: input_value, job_id: cookies.job_id }),
   );
-  console.log("Submit query");
+  console.log("Search query: %s", input_value);
+  console.log("Fetching searched items");
 });
