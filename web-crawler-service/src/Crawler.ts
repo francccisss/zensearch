@@ -63,46 +63,46 @@ class Crawler {
       webpages: [],
     };
   }
+
+  // TODO Need to handle premature failure on browser launch
+  // and scrap data since its empty.
   async start_crawl(link: string) {
     try {
       this.scraper.set(link);
       this.browser = await this.scraper.launch_browser();
+
+      // TODO ndle these premature exits
       if (this.browser == null)
         throw new Error("Unable to create browser page.");
-      this.page = await this.browser.newPage();
       if (this.page === null) throw new Error("Unable to create browser page.");
-      const data = await this.crawl(link);
-      return data;
+
+      // But if successfully created page and browser, return data and NOT if null
+      this.page = await this.browser.newPage();
+      await this.crawl(link);
+      return this.data;
     } catch (err) {
       const error = err as Error;
-      this.browser?.close();
-      console.log("LOG: Something went wrong with the crawler.");
+      console.log(
+        "LOG: Crawler Closed down, it could be because of too much server load and or puppeteer threw an error.",
+      );
+      console.error(`Crawler Exit: ${process.argv[2]}`);
       console.error(error.message);
-      return null;
+      return this.data;
+    } finally {
+      this.browser?.close();
     }
   }
 
   private async crawl(link: string) {
-    try {
-      if (this.page === null) throw new Error("Unable to create browser page.");
-      await this.page.goto(link);
-      this.data.header = { title: await this.page.title(), url: link };
-      await this.traverse_pages(link);
-      this.browser?.close();
-      console.log(`End of Crawl`);
-      return this.data;
-    } catch (err) {
-      const error = err as Error;
-      this.browser?.close();
-      console.log("LOG: Something went wrong while initializing crawler");
-      console.error(error.message);
-      return null;
-    } finally {
-      console.log("LOG: Close Browser");
-      this.browser?.close();
-    }
+    // error will be caught and handled by caller
+    if (this.page === null) throw new Error("Unable to create browser page.");
+    await this.page.goto(link);
+    this.data.header = { title: await this.page.title(), url: link };
+    await this.traverse_pages(link); // recursive
+    console.log(`End of Crawl`);
   }
 
+  //TODO Build Variable throttling
   private async throttle_visits() {
     const DEC_INC = 70;
     if (
@@ -121,11 +121,14 @@ class Crawler {
     });
   }
 
+  // TODO Use External loop instead of recursion
+  // Recursion might take too much memory and
+  // result into an overflow
+
   private async traverse_pages(link: string) {
     const current_page = remove_hash_url(link);
     try {
-      if (this.browser == null)
-        throw new Error("Unable to create browser page.");
+      if (this.browser == null) throw new Error("Unable to create browser.");
       if (this.page == null) throw new Error("Unable to create browser page.");
 
       if (this.visited_stack.has(current_page)) {
@@ -133,7 +136,7 @@ class Crawler {
         return this.page;
       }
       this.visited_stack.add(current_page);
-      await this.throttle_visits();
+      //await this.throttle_visits();
       await this.page.goto(current_page);
       await this.index_page(this.page, current_page);
       const css_selector =
@@ -160,9 +163,9 @@ class Crawler {
       }
     } catch (err) {
       const error = err as Error;
-      this.browser?.close();
       console.log("LOG: Something went wrong when crawling the website");
-      console.error(error.message);
+      this.visited_stack.clear();
+      throw new Error(error.message);
     }
   }
   private async index_page(current_page: Page, link: string) {

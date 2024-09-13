@@ -22,7 +22,8 @@ polling.init(
     crawl_btn.textContent = "Crawling...";
   },
   // done()
-  () => {
+  (message) => {
+    console.log(message);
     crawl_btn.disabled = false;
     crawl_btn_container.classList.remove("polling");
   },
