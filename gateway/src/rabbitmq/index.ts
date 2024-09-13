@@ -1,4 +1,4 @@
-import amqp, { Connection, Channel } from "amqplib";
+import amqp, { Connection, Channel, ConsumeMessage } from "amqplib";
 import {
   CRAWL_QUEUE,
   CRAWL_QUEUE_CB,
@@ -6,6 +6,7 @@ import {
   SEARCH_QUEUE_CB,
 } from "./queues";
 let connection: Connection | null = null;
+let search_channel: Channel;
 
 async function connect(): Promise<Connection | null> {
   if (connection) {
@@ -21,40 +22,37 @@ async function connect(): Promise<Connection | null> {
   }
 }
 
-async function search_job(
-  job: { q: string; job_id: string },
-  conn: Connection,
-) {
-  const channel = await conn.createChannel();
-  await channel.assertQueue(SEARCH_QUEUE, {
+async function init_search_channel_queues() {
+  const connection = await connect();
+  if (connection === null) throw new Error("TCP Connection lost.");
+  search_channel = await connection.createChannel();
+  await search_channel.assertQueue(SEARCH_QUEUE, {
     exclusive: false,
     durable: false,
   });
-
-  await channel.assertQueue(SEARCH_QUEUE_CB, {
+  await search_channel.assertQueue(SEARCH_QUEUE_CB, {
     exclusive: false,
     durable: false,
   });
-  const success = await channel.sendToQueue(SEARCH_QUEUE, Buffer.from(job.q), {
+}
+async function search_job(job: { q: string; job_id: string }) {
+  await search_channel.sendToQueue(SEARCH_QUEUE, Buffer.from(job.q), {
     correlationId: job.job_id,
     replyTo: SEARCH_QUEUE_CB,
   });
-
-  await channel.consume(SEARCH_QUEUE_CB, async (msg) => {
-    if (msg === null) throw new Error("Msg does not exist");
-    console.log(msg.toString());
-    if (msg.properties.correlationId === job.job_id) {
-      return msg.content.toString();
-    }
-  });
-
-  if (!success) {
-    await channel.close();
-    throw new Error("Unable to send job to search queue.");
-  }
-  await channel.close();
 }
 
+async function search_listener(cb: (data: ConsumeMessage | null) => void) {
+  await search_channel.consume(
+    SEARCH_QUEUE_CB,
+    async (msg: ConsumeMessage | null) => {
+      if (msg === null) throw new Error("Msg does not exist");
+      console.log(msg);
+      cb(msg);
+      search_channel.ack(msg);
+    },
+  );
+}
 async function poll_job(
   chan: Channel,
   job: { id: string; queue: string },
@@ -135,4 +133,11 @@ async function crawl_job(
   }
 }
 
-export default { connect, search_job, poll_job, crawl_job };
+export default {
+  search_listener,
+  connect,
+  search_job,
+  poll_job,
+  crawl_job,
+  init_search_channel_queues,
+};
