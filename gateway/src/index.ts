@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from "express";
 import http from "http";
 import path from "path";
-import amqp, { Connection, Channel } from "amqplib";
+import amqp, { Connection, Channel, ConsumeMessage } from "amqplib";
 import rabbitmq from "./rabbitmq/index";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -9,21 +9,29 @@ import {
   CRAWL_QUEUE,
   SEARCH_QUEUE_CB,
 } from "./rabbitmq/queues";
-import websocket from "./websocket";
+import WebsocketService from "./websocket";
 import { WebSocketServer } from "ws";
 const cors = require("cors");
 const body_parser = require("body-parser");
 const app = express();
 const PORT = 8080;
 
-const server = http.createServer(app);
-const wss: WebSocketServer = new WebSocketServer({ server });
-server.listen(PORT, () => {
-  console.log("Listening to Port:", PORT);
-});
+async function start_server() {
+  const server = http.createServer(app);
+  const wss: WebSocketServer = new WebSocketServer({ server });
+  const message_broker = await rabbitmq.connect();
+  const ws_service = new WebsocketService(wss);
+  ws_service.handler();
+  await rabbitmq.init_search_channel_queues();
+  await rabbitmq.search_listener((data) => {
+    ws_service.send_results_to_client(data);
+  });
+  server.listen(PORT, () => {
+    console.log("Listening to Port:", PORT);
+  });
+}
 
-websocket.handler(wss);
-
+start_server().catch(console.error);
 app.use(body_parser.urlencoded({ extended: false }));
 app.use(body_parser.json());
 app.use(cors());
@@ -42,6 +50,7 @@ app.get("/", (req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+// TODO use Websockets for crawling instead of polling like a biiiitchh
 app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
   const docs = [
     "https://fzaid.vercel.app/",
