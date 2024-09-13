@@ -1,12 +1,12 @@
 async function poll_job() {
   console.log("Poll Job");
-  const [job_id, job_queue] = document.cookie.split("; ").map((c) => {
+  let cookies = {};
+  document.cookie.split("; ").forEach((c) => {
     const entries = c.split("=");
-    const cookie_obj = { [entries[0]]: entries[1] };
-    return cookie_obj;
+    cookies[entries[0]] = entries[1];
   });
   const polling = await fetch(
-    `http://localhost:8080/job?job_id=${job_id.job_id}&job_queue=${job_queue.job_queue}`,
+    `http://localhost:8080/job?job_id=${cookies.job_id}&job_queue=${cookies.job_queue}`,
   );
 
   const polling_response = polling.ok ? await polling.json() : null;
