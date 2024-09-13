@@ -67,6 +67,8 @@ async function poll_job(
       job.queue as string,
     );
     console.log(queue);
+    console.log(messageCount);
+    console.log(consumerCount);
     if (messageCount === 0) {
       return { done: false, data: {} };
     }
@@ -77,9 +79,13 @@ async function poll_job(
         if (response === null) throw new Error("No Response");
         console.log("LOG: Response from Polled Job received");
         data = response.content.toString();
+        for (let page of JSON.parse(data)) {
+          console.log(page.Title);
+          console.log({ TFIDFRating: page.TFIDFRating, TFScore: page.TFScore });
+        }
         console.log("CONSUMED");
+        chan.ack(response);
       },
-      { noAck: false },
     );
     return { done: true, data };
   } catch (err) {
