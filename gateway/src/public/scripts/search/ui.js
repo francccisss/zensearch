@@ -7,7 +7,16 @@ function search_item_component(item) {
     <span>${Contents}</span>
     </li>`;
   const parser = new DOMParser();
-  return parser.parseFromString(html_string, "text/html").documentElement;
+  return parser
+    .parseFromString(html_string, "text/html")
+    .documentElement.querySelector("li.searched-item");
 }
 
-export default { search_item_component, results_container };
+function render_webpages(webpages) {
+  results_container.replaceChildren();
+  webpages.forEach((page) => {
+    results_container.append(search_item_component(page));
+  });
+}
+
+export default { search_item_component, results_container, render_webpages };

@@ -1,7 +1,7 @@
 import polling from "../utils/job_polling.js";
 import client_websocket from "./websocket.js";
-import searchui from "./ui.js";
 import extract_cookies from "../utils/extract_cookies.js";
+import searchui from "./ui.js";
 
 const search_input = document.getElementById("search-input");
 const form = document.querySelector("form");
