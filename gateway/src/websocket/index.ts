@@ -9,8 +9,7 @@ const EVENTS = {
 };
 
 function handler(wss: WebSocketServer) {
-  wss.on(EVENTS.connection, (socket: WebSocket, req: InstanceType<any>) => {
-    console.log(req.remoteAddress);
+  wss.on(EVENTS.connection, (socket: WebSocket) => {
     console.log("connected");
   });
 }
