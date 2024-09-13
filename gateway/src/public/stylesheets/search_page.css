@@ -54,15 +54,23 @@ nav {
   margin-bottom: 1em !important;
   max-width: 700px;
   & > :first-child {
+    width: fit-content;
+    margin-bottom:.3em;
+    a{
     display: -webkit-box;
-    -webkit-line-clamp: 2; /* Truncate text to 2 lines */
-    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1; /* Truncate text to 2 lines */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: normal;
-
     font-weight: bold;
     font-size: 1.2rem;
+    }
+
+  small{
+    display:block;
+    font-weight: 500;
+    font-size: .6rem;
+  }
   }
   & > :first-child:hover {
     white-space: normal;
@@ -75,5 +83,7 @@ nav {
     -webkit-box-orient: vertical;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-size: .7rem;
+    font-weight:500;
   }
 }

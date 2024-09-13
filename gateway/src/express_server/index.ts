@@ -102,6 +102,8 @@ app.get("/job", async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
+// TODO Cache the most previous search results from client
+
 app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
   const job_id = uuidv4();
   try {
