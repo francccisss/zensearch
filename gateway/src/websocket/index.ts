@@ -43,8 +43,9 @@ class WebsocketService {
   async send_results_to_client(data: ConsumeMessage | null) {
     this.wss.clients.forEach((ws) => {
       if (ws.OPEN && data !== null) {
-        console.log(data);
-        ws.send(data?.content, (err) => {
+        const webpages = data.content.toString();
+        console.log(webpages);
+        ws.send(webpages, (err) => {
           if (err) throw new Error("Unable to send search results to client.");
         });
       }

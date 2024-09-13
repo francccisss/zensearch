@@ -5,7 +5,9 @@ ws.addEventListener("open", (event) => {
 });
 
 ws.addEventListener("message", (event) => {
-  console.log("Message from server: %s", event.data);
+  const parsed_webpages = JSON.parse(event.data);
+  console.log("Message from server: ");
+  console.log(parsed_webpages);
 });
 
 export default ws;
