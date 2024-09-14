@@ -19,56 +19,48 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
     durable: false,
   });
 
-  push_channel.consume(
-    push_queue,
-    async (data) => {
-      if (data === null) throw new Error("No data was pushed.");
-      const decoder = new TextDecoder();
-      const decoded_data = decoder.decode(data.content as ArrayBuffer);
-      const last_brace_index = decoded_data.lastIndexOf("}");
-      const sliced_object = decoded_data.slice(0, last_brace_index) + "}"; // Buh
-      try {
-        const deserialize_data = JSON.parse(sliced_object);
-        database_operations.index_webpages(db, deserialize_data);
-        push_channel.ack(data);
-      } catch (err) {
-        const error = err as Error;
-        console.log("LOG: Decoder was unable to deserialized indexed data.");
-        console.error(error.message);
-        console.error(error.stack);
-        query_channel.nack(data); // Optionally, nack the message if processing fails
-      }
-    },
-
-    { noAck: false },
-  );
-  query_channel.consume(
-    query_queue,
-    async (data) => {
-      try {
-        if (data === null) throw new Error("No data was pushed.");
-        const data_query: {
-          contents: string;
-          title: string;
-          webpage_url: string;
-        }[] = await database_operations.query_webpages(db);
-        console.log(data.content);
-        await query_channel.sendToQueue(
-          db_response_queue,
-          Buffer.from(JSON.stringify(data_query)),
-          {
-            correlationId: data.properties.correlationId,
-          },
-        );
-        query_channel.ack(data);
-      } catch (err) {
-        const error = err as Error;
-        console.error(error.message);
-        console.error(error.stack);
-      }
-    },
-    { noAck: false },
-  );
+  push_channel.consume(push_queue, async (data) => {
+    if (data === null) throw new Error("No data was pushed.");
+    const decoder = new TextDecoder();
+    const decoded_data = decoder.decode(data.content as ArrayBuffer);
+    const last_brace_index = decoded_data.lastIndexOf("}");
+    const sliced_object = decoded_data.slice(0, last_brace_index) + "}"; // Buh
+    try {
+      const deserialize_data = JSON.parse(sliced_object);
+      database_operations.index_webpages(db, deserialize_data);
+      push_channel.ack(data);
+    } catch (err) {
+      const error = err as Error;
+      console.log("LOG: Decoder was unable to deserialized indexed data.");
+      console.error(error.message);
+      console.error(error.stack);
+      query_channel.nack(data, false, false); // Optionally, nack the message if processing fails
+    }
+  });
+  query_channel.consume(query_queue, async (data) => {
+    if (data === null) throw new Error("No data was pushed.");
+    try {
+      const data_query: {
+        contents: string;
+        title: string;
+        webpage_url: string;
+      }[] = await database_operations.query_webpages(db);
+      console.log(data.content);
+      await query_channel.sendToQueue(
+        db_response_queue,
+        Buffer.from(JSON.stringify(data_query)),
+        {
+          correlationId: data.properties.correlationId,
+        },
+      );
+      query_channel.ack(data);
+    } catch (err) {
+      const error = err as Error;
+      console.error(error.message);
+      console.error(error.stack);
+      query_channel.nack(data, false, false);
+    }
+  });
 }
 
 export default { channel_handler };

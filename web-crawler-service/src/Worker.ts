@@ -7,8 +7,11 @@ const FRAME_SIZE = 1024;
 const shared_buffer = new Int32Array(workerData.shared_buffer);
 (async function () {
   try {
+    // if crawler crashes, its because of page or browser closing prematurely
+    // need to save current dataset.
     const data = await crawler.start_crawl(process.argv[2]);
-    // null because an error occured, but i dont want to trash the accumulated dataset
+    if (data === null) throw new Error("Browser closed undexpectedly.");
+
     const serialize_obj = JSON.stringify(crawler.data);
     const encoder = new TextEncoder();
     const encoded_array = encoder.encode(serialize_obj);
@@ -16,13 +19,12 @@ const shared_buffer = new Int32Array(workerData.shared_buffer);
     const padded_rray = new Uint8Array(encoded_data_buffer.byteLength * 4); // padding for 32 bit.
     const offset = 4;
     for (let i = 0; i < encoded_array.length; i++) {
-      // add the value at every offset
       padded_rray[i * offset] = encoded_array[i];
-      // basically leading zeros after the encoded value [<utf-8 value>,0,0,0]
-      // if your cpu is using big endianess.. well goodluch xd
     }
     const view = new Int32Array(padded_rray.buffer);
     let current_index = 0;
+
+    // TODO Fix Atomic operation, for mutliple threads to work with shared buffer
 
     while (current_index < view.length) {
       const chunk_size = Math.min(FRAME_SIZE, view.length - current_index);
@@ -46,7 +48,7 @@ const shared_buffer = new Int32Array(workerData.shared_buffer);
     });
   } catch (err) {
     const error = err as Error;
-    console.error("LOG: Something went wrong with the current thread.");
+    console.error("LOG: Current Thread closed unexpectedly.");
     console.error(error.message);
     parentPort!.postMessage({ type: "error", text: error.message });
   }
