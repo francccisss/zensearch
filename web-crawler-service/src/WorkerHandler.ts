@@ -115,10 +115,11 @@ export default class ThreadHandler {
       );
     } catch (err) {
       const error = err as Error;
-      this.current_threads++;
       console.log("LOG: Decoder was unable to deserialized indexed data.");
       console.error(error.message);
       console.error(error.stack);
+    } finally {
+      this.current_threads++;
     }
   }
   public check_threads() {
@@ -160,16 +161,18 @@ export default class ThreadHandler {
     channel.consume(response_queue.queue, function (data) {
       if (data === null) throw new Error("No Data in message queue");
       try {
-        if (data.properties.correlationId !== cor_id) return;
-        console.log("Successfully indexed pages.");
+        if (data.properties.correlationId !== cor_id) {
+          console.log("Successfully indexed pages.");
+          channel.ack(data);
+        }
       } catch (err) {
         const error = err as Error;
         console.log("LOG: Unable to consume messae from %s", reply_to_queue);
         console.error(error.message);
+        channel.nack(data, false, false);
       }
     });
-    // if db disconnects it is still considered success, need to check for message first in the queue that is to be sent to the consumer
     this.successful_thread_count++;
-    this.current_threads++;
+    // if db disconnects it is still considered success, need to check for message first in the queue that is to be sent to the consumer
   }
 }

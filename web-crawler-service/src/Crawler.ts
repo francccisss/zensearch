@@ -71,13 +71,14 @@ class Crawler {
       this.scraper.set(link);
       this.browser = await this.scraper.launch_browser();
 
-      // TODO ndle these premature exits
+      // TODO handle these premature exits
       if (this.browser == null)
         throw new Error("Unable to create browser page.");
+
+      this.page = await this.browser.newPage();
       if (this.page === null) throw new Error("Unable to create browser page.");
 
       // But if successfully created page and browser, return data and NOT if null
-      this.page = await this.browser.newPage();
       await this.crawl(link);
       return this.data;
     } catch (err) {
@@ -87,6 +88,11 @@ class Crawler {
       );
       console.error(`Crawler Exit: ${process.argv[2]}`);
       console.error(error.message);
+      console.error(error.stack);
+      // TODO what if the browser or page closes after the fact? and not on init?
+      if (this.browser === null || this.page === null) {
+        return null;
+      }
       return this.data;
     } finally {
       this.browser?.close();
@@ -141,6 +147,8 @@ class Crawler {
       await this.index_page(this.page, current_page);
       const css_selector =
         'a:not([href$=".zip"]):not([href$=".pdf"]):not([href$=".exe"]):not([href$=".jpg"]):not([href$=".png"]):not([href$=".tar.gz"]):not([href$=".rar"]):not([href$=".7z"]):not([href$=".mp3"]):not([href$=".mp4"]):not([href$=".mkv"]):not([href$=".tar"]):not([href$=".xz"]):not([href$=".msi"])';
+
+      // Puppeteer can throw an error that will be caught
       const extracted_links = await this.page.$$eval(css_selector, (links) =>
         links.map((link) => link.href),
       );
@@ -164,6 +172,7 @@ class Crawler {
     } catch (err) {
       const error = err as Error;
       console.log("LOG: Something went wrong when crawling the website");
+      console.error(error.stack);
       this.visited_stack.clear();
       throw new Error(error.message);
     }
