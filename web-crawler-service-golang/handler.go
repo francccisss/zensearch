@@ -1,4 +1,4 @@
-package crawler
+package main
 
 import "context"
 
@@ -12,7 +12,7 @@ import "context"
  x - Makes sure that crawlers dont interleave in a context switch when passing data into the channel array buffer.
 */
 
-type Webpage struct {
+type webpage struct {
 	Title       string
 	Contents    string
 	Webpage_url string
@@ -20,10 +20,10 @@ type Webpage struct {
 
 const threadPool = 4
 
-var IndexedList map[string]Webpage
+var indexedList map[string]Webpage
 
 func Handler(docs []string) {
-	aggregateChan := make(chan Webpage)
+	aggregateChan := make(chan webpage)
 	var docIndex int // init to 0 anyways
 	threadCount := threadPool
 
@@ -44,11 +44,11 @@ func Handler(docs []string) {
 	}
 }
 
-func save(w Webpage) {
+func save(w webpage) {
 
 }
 
-func spawnCrawler(w string, bufferChannel chan Webpage) {
+func spawnCrawler(w string, bufferChannel chan webpage) {
 
 	/*
 	 each crawler returns an array of webpages?
