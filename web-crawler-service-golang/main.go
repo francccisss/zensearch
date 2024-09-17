@@ -2,10 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	"log"
-	"web-crawler-service-golang/crawler"
-
 	amqp "github.com/rabbitmq/amqp091-go"
+	"log"
 )
 
 const crawlQueue = "crawl_queue"
@@ -64,7 +62,7 @@ func main() {
 func channelHandler(msg amqp.Delivery, chann *amqp.Channel) {
 	webpageIndex := parseIncomingData(msg.Body)
 	chann.Ack(msg.DeliveryTag, false)
-	go crawler.Handler(webpageIndex.docs)
+	go Handler(webpageIndex.docs)
 }
 
 func parseIncomingData(data []byte) CrawlList {
