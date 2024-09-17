@@ -3,14 +3,20 @@ package main
 import (
 	"context"
 	"encoding/json"
-	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
+	"web-crawler-service/crawler"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 const crawlQueue = "crawl_queue"
 
-type Webpages struct {
+type IndexedList struct {
 	Webpages []Webpage
+}
+
+type CrawlList struct {
+	docs []string
 }
 
 type Webpage struct {
@@ -20,10 +26,6 @@ type Webpage struct {
 }
 
 func main() {
-
-	var (
-		ctx context.Context
-	)
 
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	if err != nil {
@@ -35,27 +37,44 @@ func main() {
 	if err != nil {
 		log.Panicf("Unable to create a crawl channel.")
 	}
+
 	crawlChannel.QueueDeclare(crawlQueue, false, false, false, false, nil)
-
-	aliveMainThread := make(chan struct{})
-	go channelHandler(ctx, crawlChannel)
-	<-aliveMainThread
-}
-
-func channelHandler(ctx context.Context, chann *amqp.Channel) {
-
-	_, err := chann.Consume("", crawlQueue, false, false, false, false, nil)
+	delivery, err := crawlChannel.Consume("", crawlQueue, false, false, false, false, nil)
+	defer crawlChannel.Close()
 	if err != nil {
 		log.Panicf("Unable to create a crawl channel.")
 	}
 
-	for {
-		// select demultiplexing inputs
-		// exit go routine when some error occurs
-	}
+	/*
+	 rabbitmq library creates a new go routine for listening
+	 this function is for handling incoming messages from
+	 the rabbitmq listener
+	*/
 
+	go func() {
+		// body will be an array of webpages to crawl
+		for msg := range delivery {
+			go channelHandler(msg, crawlChannel)
+		}
+	}()
+
+	aliveMainThread := make(chan struct{})
+	<-aliveMainThread
 }
 
-func parseIncomingData(data []byte) {
+func channelHandler(msg amqp.Delivery, chann *amqp.Channel) {
+	docs := []string{"https://fzaid.vercel.app"}
+	testJson, err := json.Marshal(docs)
+	if err != nil {
+		log.Print("Unable to encode test doc array.\n")
+	}
+	webpageIndex := parseIncomingData(testJson)
+	chann.Ack(msg.DeliveryTag, false)
+	go crawler.Handler(webpageIndex.docs)
+}
 
+func parseIncomingData(data []byte) CrawlList {
+	webpages := CrawlList{}
+	json.Unmarshal(data, &webpages)
+	return webpages
 }
