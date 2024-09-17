@@ -1,10 +1,9 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"log"
-	"web-crawler-service/crawler"
+	"web-crawler-service-golang/crawler"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -63,12 +62,7 @@ func main() {
 }
 
 func channelHandler(msg amqp.Delivery, chann *amqp.Channel) {
-	docs := []string{"https://fzaid.vercel.app"}
-	testJson, err := json.Marshal(docs)
-	if err != nil {
-		log.Print("Unable to encode test doc array.\n")
-	}
-	webpageIndex := parseIncomingData(testJson)
+	webpageIndex := parseIncomingData(msg.Body)
 	chann.Ack(msg.DeliveryTag, false)
 	go crawler.Handler(webpageIndex.docs)
 }

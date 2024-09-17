@@ -2,13 +2,15 @@ package crawler
 
 import "context"
 
-// TODO do this
-// Responsible for handling crawler and webpage indexing
-// x - Should handle the invocation of multple crawl jobs.
-// - Handle errors from crawlers.
-// - Killing and spawning crawlers.
-// x - Responsible for aggregating and passing data to and from channel buffer.
-// x - Makes sure that crawlers dont interleave in a context switch when passing data into the channel array buffer.
+/*
+ TODO do this
+ Responsible for handling crawler and webpage indexing
+ x - Should handle the invocation of multple crawl jobs.
+ - Handle errors from crawlers.
+ - Killing and spawning crawlers.
+ x - Responsible for aggregating and passing data to and from channel buffer.
+ x - Makes sure that crawlers dont interleave in a context switch when passing data into the channel array buffer.
+*/
 
 type Webpage struct {
 	Title       string
