@@ -1,4 +1,4 @@
-module web-crawler-service
+module web-crawler-service-golang
 
 go 1.22.4
 
