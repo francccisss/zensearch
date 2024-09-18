@@ -10,17 +10,18 @@ const Pool = 1
 
 func TestHandler(t *testing.T) {
 	docs := []string{"https://fzaid.vercel.app/"}
-	handlerThreads := handler(docs)
+	handlerThreads := Testhandler(docs)
 	if handlerThreads != 1 {
 		t.Errorf("Result was incorrect, got %d , want %d.", handlerThreads, Pool)
 	}
 }
 
-func handler(docs []string) int {
+func Testhandler(docs []string) int {
 	aggregateChan := make(chan string)
 	var wg sync.WaitGroup
 	// block loop until there is more space in the pool
-	go crawler(docs, aggregateChan, Pool, &wg)
+
+	go Testcrawler(docs, aggregateChan, Pool, &wg) // creates threads by Pool size
 	go func() {
 		wg.Wait()
 		close(aggregateChan)
@@ -31,7 +32,7 @@ func handler(docs []string) int {
 	return 1
 }
 
-func crawler(docs []string, aggregateChan chan string, threadCount int, wg *sync.WaitGroup) {
+func Testcrawler(docs []string, aggregateChan chan string, threadCount int, wg *sync.WaitGroup) {
 	threadPoolChan := make(chan struct{}, threadCount)
 	go func() {
 		for _, doc := range docs {
@@ -42,12 +43,12 @@ func crawler(docs []string, aggregateChan chan string, threadCount int, wg *sync
 				defer wg.Done()
 				// release/decrement pool
 				defer func() { <-threadPoolChan }()
-				crawl(doc, aggregateChan)
+				Testcrawl(doc, aggregateChan)
 			}()
 		}
 	}()
 }
 
-func crawl(w string, bufferChannel chan string) {
+func Testcrawl(w string, bufferChannel chan string) {
 	bufferChannel <- w
 }
