@@ -2,8 +2,9 @@ package main
 
 import (
 	"encoding/json"
-	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 const crawlQueue = "crawl_queue"
@@ -13,7 +14,7 @@ type IndexedList struct {
 }
 
 type CrawlList struct {
-	docs []string
+	Docs []string
 }
 
 type Webpage struct {
@@ -62,11 +63,11 @@ func main() {
 func channelHandler(msg amqp.Delivery, chann *amqp.Channel) {
 	webpageIndex := parseIncomingData(msg.Body)
 	chann.Ack(msg.DeliveryTag, false)
-	go Handler(webpageIndex.docs)
+	go Crawler(webpageIndex.Docs)
 }
 
 func parseIncomingData(data []byte) CrawlList {
-	webpages := CrawlList{}
+	var webpages CrawlList
 	json.Unmarshal(data, &webpages)
 	return webpages
 }
