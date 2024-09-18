@@ -2,9 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	"log"
-
 	amqp "github.com/rabbitmq/amqp091-go"
+	"log"
 )
 
 const crawlQueue = "crawl_queue"

@@ -32,7 +32,7 @@ polling.init(
 async function handle_on_crawl() {
   try {
     console.log("crawl");
-    const crawl = await fetch("http://localhost:8080/crawl", {
+    const crawl = await fetch("http://192.168.1.20:8080/crawl", {
       method: "POST",
     });
     await polling.loop();

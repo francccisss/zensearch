@@ -34,8 +34,10 @@ app.get("/", (req: Request, res: Response) => {
 
 // TODO use Websockets for crawling instead of polling like a biiiitchh
 app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
-  const Docs = ["https://go.dev/doc/"];
-  //const docs = ["https://www.rabbitmq.com/docs/confirms"];
+  const Docs = [
+    "https://fzaid.vercel.app/",
+    "https://www.rabbitmq.com/docs/confirms",
+  ];
 
   const encoder = new TextEncoder();
   const encoded_docs = encoder.encode(JSON.stringify({ Docs }));
