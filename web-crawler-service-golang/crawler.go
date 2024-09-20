@@ -22,6 +22,8 @@ const (
 var indexedList map[string]Webpage
 
 func Crawler(docs []string) int {
+
+	// Start Web Driver Server
 	selenium.CreateWebDriverServer()
 	aggregateChan := make(chan string)
 	var wg sync.WaitGroup
@@ -60,9 +62,14 @@ func Crawler(docs []string) int {
 	return 1
 }
 
-func crawl(ctx context.Context, w string) string {
+func crawl(ctx context.Context, w string) (string, error) {
+	wd, err := selenium.CreateClient()
+	if err != nil {
+		fmt.Errorf(err.Error())
+		return "", err
+	}
+
 	defer log.Printf("Finished Crawling\n")
 	log.Printf("Start Crawling %s\n", w)
-	time.Sleep(2 * time.Second)
-	return w
+	return "", nil
 }

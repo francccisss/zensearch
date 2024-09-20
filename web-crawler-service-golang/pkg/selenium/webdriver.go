@@ -41,10 +41,10 @@ func CreateWebDriverServer() error {
 	defer service.Stop()
 	if err != nil {
 		fmt.Printf(err.Error())
-		return fmt.Errorf("Unable to create a Web driver server.")
+		return fmt.Errorf("ERROR: Unable to create a Web driver server.")
 	}
-	log.Printf("Web Driver Server Created.\n")
-	return fmt.Errorf("Unable to create a Web driver server.")
+	log.Printf("INFO: Web Driver Server Created.\n")
+	return nil
 }
 
 /*
@@ -64,6 +64,6 @@ func CreateClient() (*selenium.WebDriver, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ERROR: Unable to create a new remote client session with web driver server.")
 	}
-	log.Printf("Connected to Web Driver Server\n")
+	log.Printf("INFO: Connected to Web Driver Server\n")
 	return &wd, nil
 }
