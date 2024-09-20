@@ -2,8 +2,9 @@ package main
 
 import (
 	"encoding/json"
-	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 const crawlQueue = "crawl_queue"
@@ -43,7 +44,7 @@ func main() {
 	}
 
 	/*
-	 rabbitmq library creates a new go routine for listening
+	 rabbitmq library creates a new go routine for listening to new requests,
 	 this function is for handling incoming messages from
 	 the rabbitmq listener
 	*/
@@ -70,7 +71,7 @@ func main() {
 
 func channelHandler(msg amqp.Delivery, chann *amqp.Channel) {
 	webpageIndex := parseIncomingData(msg.Body)
-	chann.Ack(msg.DeliveryTag, false)
+	defer chann.Ack(msg.DeliveryTag, false)
 	go Crawler(webpageIndex.Docs)
 }
 
