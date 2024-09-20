@@ -7,3 +7,10 @@ I've been studying about operating systems through Modern Operating Systems 4th 
 ## What does it do
 Basically a simple distributed search engine, developers can crawl and index websites, process them and then store them in an sqlite database, I'm still planning if whether or not I should build this as a microservice or a monolithic project, the reason why is that I wanted to separate CRAWLERS/INDEXING, DATABASE CRUD OPERATIONS, SEARCH ENGINE functionality because NodeJs is a single threaded runtime environment for yavascript, so its much more efficient to use it I/O-Bound operations, so I might use Golang for querying and searching through huge datasets from indexed websites so It would be a good idea to use a more CPU-bound runtime and also make it much more easier to handle race conditions and threads.
 
+
+
+# Tools and Dependencies
+#### Selenium Driver Dependencies
+[Chrome Driver Docs](https://developer.chrome.com/docs/chromedriver)
+[Chrome Browser](https://www.google.com/chrome/)
+[XFVB virtual frame buffer](https://www.x.org/releases/X11R7.6/doc/man/man1/Xvfb.1.xhtml)
