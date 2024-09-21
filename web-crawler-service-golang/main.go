@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
-	"web-crawler-service-golang/pkg/selenium"
+	webdriver "web-crawler-service-golang/pkg"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -45,7 +45,7 @@ func main() {
 		log.Panicf("Unable to assert crawl message queue.")
 	}
 
-	service, err := selenium.CreateWebDriverServer()
+	service, err := webdriver.CreateWebDriverServer()
 	defer (*service).Stop()
 	if err != nil {
 		log.Print("INFO: Retry web driver server or the application.\n")
@@ -81,7 +81,7 @@ func main() {
 func channelHandler(msg amqp.Delivery, chann *amqp.Channel) {
 	webpageIndex := parseIncomingData(msg.Body)
 	defer chann.Ack(msg.DeliveryTag, false)
-	go Crawler(webpageIndex.Docs)
+	go CrawlHandler(webpageIndex.Docs)
 }
 
 func parseIncomingData(data []byte) CrawlList {

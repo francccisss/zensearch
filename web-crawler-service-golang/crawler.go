@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log"
 	"sync"
-	"web-crawler-service-golang/pkg/selenium"
+	webdriver "web-crawler-service-golang/pkg"
+
+	"github.com/tebeka/selenium"
 )
 
 type webpage struct {
@@ -20,7 +22,7 @@ const (
 
 var indexedList map[string]Webpage
 
-func Crawler(docs []string) int {
+func CrawlHandler(docs []string) int {
 
 	// Start Web Driver Server
 	aggregateChan := make(chan string)
@@ -45,7 +47,7 @@ func Crawler(docs []string) int {
 				<-semaphore
 				log.Printf("NOTIF: Semaphore token release\n")
 			}()
-			st, err := crawl(ctx, doc)
+			st, err := Crawl(ctx, doc)
 
 			// need to get out if an error occurs
 			if err != nil {
@@ -70,18 +72,14 @@ func Crawler(docs []string) int {
 	return 1
 }
 
-func crawl(ctx context.Context, w string) (string, error) {
+func Crawl(ctx context.Context, w string) (string, error) {
 	defer log.Printf("NOTIF: Finished Crawling\n")
-
-	wd, err := selenium.CreateClient()
+	wd, err := webdriver.CreateClient()
 	if err != nil {
 		return "", err
 	}
-
 	// need to close this on timeout
-
 	err = (*wd).Get(w)
-
 	log.Printf("NOTIF: Start Crawling %s\n", w)
 	if err != nil {
 		return "", err
@@ -90,6 +88,81 @@ func crawl(ctx context.Context, w string) (string, error) {
 	if err != nil {
 		log.Printf("ERROR: No title for this page")
 	}
+	IndexPage(wd)
 	// just return the data from crawl activity
 	return title, nil
+}
+
+var indexSelector = []string{
+	"a",
+	"p",
+	"span",
+	// "code",
+	// "pre",
+	"h1",
+	// "h2",
+	// "h3",
+	// "h4",
+}
+
+func IndexPage(wd *selenium.WebDriver) {
+	// need to create multiple requests for each element
+	elChan := make(chan []string)
+	var wg sync.WaitGroup
+
+	// extracting a single page which means, we can concat all of the strings,
+	// each running on separate go routines, and return all of the concated elements, and do a final concatenation
+
+	go func() {
+		for elementContents := range elChan {
+			fmt.Println(elementContents)
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer func() {
+			wg.Done()
+			log.Println("NOTIF: Indexing Done.")
+		}()
+		for _, selector := range indexSelector {
+			wg.Add(1)
+			go func(selector string) {
+				defer wg.Done()
+				contents, err := extractElements(wd, selector)
+				defer fmt.Printf("NOTIF: Selector: %s done\n", selector)
+				if err != nil {
+					elChan <- []string{}
+					wg.Done()
+					// empty string
+				}
+				elChan <- contents
+			}(selector)
+		}
+	}()
+
+	fmt.Println("NOTIF: Waiting for page indexer")
+	wg.Wait()
+	close(elChan)
+	fmt.Println("NOTIF: Page indexed")
+}
+
+func extractElements(wd *selenium.WebDriver, selector string) ([]string, error) {
+	elementTextContents := make([]string, 0, 10)
+	elements, err := (*wd).FindElements(selenium.ByCSSSelector, selector)
+	if err != nil {
+		log.Printf("ERROR: Elements does not satisfy css selector: %s", selector)
+		return nil, err
+	}
+	for _, el := range elements {
+		text, err := el.Text()
+		if err != nil {
+			continue
+		}
+		// out of range if using this, need to create a new slice to point to
+		elementTextContents = append(elementTextContents, text)
+		// bruh why overcomplicate things
+	}
+	fmt.Println(elementTextContents)
+	return elementTextContents, nil
 }
