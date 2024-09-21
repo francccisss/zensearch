@@ -31,7 +31,7 @@ const (
 Starts up new Chrome Driver server to handle requests via http from a remote
 client (this program) to the Web browser's devtools using WebDriver protocol.
 */
-func CreateWebDriverServer() error {
+func CreateWebDriverServer() (*selenium.Service, error) {
 	opts := []selenium.ServiceOption{
 		selenium.StartFrameBuffer(),
 		selenium.ChromeDriver(chromeDriverPath),
@@ -41,10 +41,10 @@ func CreateWebDriverServer() error {
 	if err != nil {
 		log.Print(err.Error())
 		service.Stop()
-		return fmt.Errorf("ERROR: Unable to create a Web driver server")
+		return nil, fmt.Errorf("ERROR: Unable to create a Web driver server")
 	}
 	log.Printf("INFO: Web Driver Server Created.\n")
-	return nil
+	return service, nil
 }
 
 /*

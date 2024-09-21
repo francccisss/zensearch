@@ -23,7 +23,6 @@ var indexedList map[string]Webpage
 func Crawler(docs []string) int {
 
 	// Start Web Driver Server
-	selenium.CreateWebDriverServer()
 	aggregateChan := make(chan string)
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, threadPool)
@@ -78,7 +77,11 @@ func crawl(ctx context.Context, w string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	// need to close this on timeout
+
 	err = (*wd).Get(w)
+
 	log.Printf("NOTIF: Start Crawling %s\n", w)
 	if err != nil {
 		return "", err
