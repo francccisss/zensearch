@@ -34,7 +34,10 @@ app.get("/", (req: Request, res: Response) => {
 
 // TODO use Websockets for crawling instead of polling like a biiiitchh
 app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
-  const Docs = ["https://fzaid.vercel.app/"];
+  const Docs = [
+    "https://fzaid.vercel.app/",
+    "https://www.mcconeproperties.com/",
+  ];
 
   const encoder = new TextEncoder();
   const encoded_docs = encoder.encode(JSON.stringify({ Docs }));

@@ -10,25 +10,36 @@ import (
 	"github.com/tebeka/selenium"
 )
 
-type webpage struct {
+type Header struct {
 	Title       string
-	Contents    string
 	Webpage_url string
 }
+type webpage struct {
+	Header
+	Contents string
+}
 
-const (
-	threadPool = 10
-)
+type CrawlHandler struct {
+	URLs []string
+}
+
+type Crawler struct {
+	URL string
+	ctx context.Context
+}
+
+const threadPool = 10
 
 var indexedList map[string]Webpage
 
-func CrawlHandler(docs []string) int {
-
+func (c CrawlHandler) CrawlHandler() int {
 	// Start Web Driver Server
 	aggregateChan := make(chan string)
-	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, threadPool)
-	var ctx context.Context
+	var (
+		wg  sync.WaitGroup
+		ctx context.Context
+	)
 
 	go func() {
 		for data := range aggregateChan {
@@ -36,18 +47,19 @@ func CrawlHandler(docs []string) int {
 		}
 	}()
 
-	for _, doc := range docs {
+	for _, doc := range c.URLs {
 		wg.Add(1)
 		semaphore <- struct{}{}
 		log.Printf("NOTIF: Semaphore token insert\n")
 		go func(doc string) {
 			fmt.Printf("Doc: %s\n", doc)
+			crawler := Crawler{ctx: ctx, URL: doc}
 			defer wg.Done()
 			defer func() {
 				<-semaphore
 				log.Printf("NOTIF: Semaphore token release\n")
 			}()
-			st, err := Crawl(ctx, doc)
+			st, err := crawler.Crawl()
 
 			// need to get out if an error occurs
 			if err != nil {
@@ -72,15 +84,15 @@ func CrawlHandler(docs []string) int {
 	return 1
 }
 
-func Crawl(ctx context.Context, w string) (string, error) {
+func (c Crawler) Crawl() (string, error) {
 	defer log.Printf("NOTIF: Finished Crawling\n")
 	wd, err := webdriver.CreateClient()
 	if err != nil {
 		return "", err
 	}
 	// need to close this on timeout
-	err = (*wd).Get(w)
-	log.Printf("NOTIF: Start Crawling %s\n", w)
+	err = (*wd).Get(c.URL)
+	log.Printf("NOTIF: Start Crawling %s\n", c.URL)
 	if err != nil {
 		return "", err
 	}
@@ -88,7 +100,7 @@ func Crawl(ctx context.Context, w string) (string, error) {
 	if err != nil {
 		log.Printf("ERROR: No title for this page")
 	}
-	IndexPage(wd)
+	Index(wd)
 	// just return the data from crawl activity
 	return title, nil
 }
@@ -97,28 +109,22 @@ var indexSelector = []string{
 	"a",
 	"p",
 	"span",
-	// "code",
-	// "pre",
+	"code",
+	"pre",
 	"h1",
-	// "h2",
-	// "h3",
-	// "h4",
+	"h2",
+	"h3",
+	"h4",
 }
 
-func IndexPage(wd *selenium.WebDriver) {
-	// need to create multiple requests for each element
+func Index(wd *selenium.WebDriver) {
 	elChan := make(chan []string)
 	var wg sync.WaitGroup
-
-	// extracting a single page which means, we can concat all of the strings,
-	// each running on separate go routines, and return all of the concated elements, and do a final concatenation
-
 	go func() {
 		for elementContents := range elChan {
 			fmt.Println(elementContents)
 		}
 	}()
-
 	wg.Add(1)
 	go func() {
 		defer func() {
@@ -134,7 +140,6 @@ func IndexPage(wd *selenium.WebDriver) {
 				if err != nil {
 					elChan <- []string{}
 					wg.Done()
-					// empty string
 				}
 				elChan <- contents
 			}(selector)
@@ -159,10 +164,12 @@ func extractElements(wd *selenium.WebDriver, selector string) ([]string, error) 
 		if err != nil {
 			continue
 		}
-		// out of range if using this, need to create a new slice to point to
 		elementTextContents = append(elementTextContents, text)
-		// bruh why overcomplicate things
 	}
 	fmt.Println(elementTextContents)
 	return elementTextContents, nil
+}
+
+func joinContents(wc []string) (string, error) {
+	return "", nil
 }
