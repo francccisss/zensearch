@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	webdriver "web-crawler-service-golang/pkg"
 
@@ -46,6 +47,8 @@ func (c CrawlHandler) CrawlHandler() int {
 			log.Printf("CRAWLED: %s\n", data)
 		}
 	}()
+
+	// Why do we limit go routines to save resource by throttling threads?
 
 	for _, doc := range c.URLs {
 		wg.Add(1)
@@ -118,41 +121,54 @@ var indexSelector = []string{
 }
 
 func Index(wd *selenium.WebDriver) {
-	elChan := make(chan []string)
+
+	/*
+		Iterating through the indexSelector, where each selector, we create
+		a new go routine, so using a buffered channel with the exact length of
+		the indexSelector would make more sense.
+
+		If ever we want to throttle the operation we can create a semaphore by
+		limiting the buffered channel, if resource is an issue.
+	*/
+
+	textContentChan := make(chan string, len(indexSelector))
 	var wg sync.WaitGroup
+
 	go func() {
-		for elementContents := range elChan {
+		for elementContents := range textContentChan {
 			fmt.Println(elementContents)
 		}
 	}()
+
+	// Start wait group after go routine is processed on a different thread
 	wg.Add(1)
 	go func() {
 		defer func() {
 			wg.Done()
-			log.Println("NOTIF: Indexing Done.")
+			log.Println("NOTIF: Text Extracted from elements.")
 		}()
 		for _, selector := range indexSelector {
 			wg.Add(1)
 			go func(selector string) {
 				defer wg.Done()
-				contents, err := extractElements(wd, selector)
 				defer fmt.Printf("NOTIF: Selector: %s done\n", selector)
+				textContents, err := textContentByIndexSelector(wd, selector)
 				if err != nil {
-					elChan <- []string{}
+					textContentChan <- ""
 					wg.Done()
 				}
-				elChan <- contents
+				textContentChan <- joinContents(textContents)
 			}(selector)
 		}
 	}()
 
 	fmt.Println("NOTIF: Waiting for page indexer")
 	wg.Wait()
-	close(elChan)
+	close(textContentChan)
 	fmt.Println("NOTIF: Page indexed")
 }
 
-func extractElements(wd *selenium.WebDriver, selector string) ([]string, error) {
+func textContentByIndexSelector(wd *selenium.WebDriver, selector string) ([]string, error) {
 	elementTextContents := make([]string, 0, 10)
 	elements, err := (*wd).FindElements(selenium.ByCSSSelector, selector)
 	if err != nil {
@@ -167,9 +183,10 @@ func extractElements(wd *selenium.WebDriver, selector string) ([]string, error) 
 		elementTextContents = append(elementTextContents, text)
 	}
 	fmt.Println(elementTextContents)
+
 	return elementTextContents, nil
 }
 
-func joinContents(wc []string) (string, error) {
-	return "", nil
+func joinContents(tc []string) string {
+	return strings.Join(tc, " ")
 }
