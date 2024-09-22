@@ -80,8 +80,9 @@ func main() {
 
 func channelHandler(msg amqp.Delivery, chann *amqp.Channel) {
 	webpageIndex := parseIncomingData(msg.Body)
+	crawler := Crawler{URLs: webpageIndex.Docs}
 	defer chann.Ack(msg.DeliveryTag, false)
-	go CrawlHandler(webpageIndex.Docs)
+	go crawler.Start()
 }
 
 func parseIncomingData(data []byte) CrawlList {

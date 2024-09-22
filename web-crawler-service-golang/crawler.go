@@ -20,11 +20,11 @@ type webpage struct {
 	Contents string
 }
 
-type CrawlHandler struct {
+type Crawler struct {
 	URLs []string
 }
 
-type Crawler struct {
+type CrawlTask struct {
 	URL string
 	ctx context.Context
 }
@@ -33,7 +33,7 @@ const threadPool = 10
 
 var indexedList map[string]Webpage
 
-func (c CrawlHandler) CrawlHandler() int {
+func (c Crawler) Start() int {
 	// Start Web Driver Server
 	aggregateChan := make(chan string)
 	semaphore := make(chan struct{}, threadPool)
@@ -56,7 +56,7 @@ func (c CrawlHandler) CrawlHandler() int {
 		log.Printf("NOTIF: Semaphore token insert\n")
 		go func(doc string) {
 			fmt.Printf("Doc: %s\n", doc)
-			crawler := Crawler{ctx: ctx, URL: doc}
+			crawler := CrawlTask{ctx: ctx, URL: doc}
 			defer wg.Done()
 			defer func() {
 				<-semaphore
@@ -87,15 +87,15 @@ func (c CrawlHandler) CrawlHandler() int {
 	return 1
 }
 
-func (c Crawler) Crawl() (string, error) {
+func (ct CrawlTask) Crawl() (string, error) {
 	defer log.Printf("NOTIF: Finished Crawling\n")
 	wd, err := webdriver.CreateClient()
 	if err != nil {
 		return "", err
 	}
 	// need to close this on timeout
-	err = (*wd).Get(c.URL)
-	log.Printf("NOTIF: Start Crawling %s\n", c.URL)
+	err = (*wd).Get(ct.URL)
+	log.Printf("NOTIF: Start Crawling %s\n", ct.URL)
 	if err != nil {
 		return "", err
 	}
@@ -134,14 +134,10 @@ func Index(wd *selenium.WebDriver) {
 	textContentChan := make(chan string, len(indexSelector))
 	var wg sync.WaitGroup
 
-	go func() {
-		for elementContents := range textContentChan {
-			fmt.Println(elementContents)
-		}
-	}()
-
 	// Start wait group after go routine is processed on a different thread
 	wg.Add(1)
+
+	// Go routine generator
 	go func() {
 		defer func() {
 			wg.Done()
@@ -155,7 +151,13 @@ func Index(wd *selenium.WebDriver) {
 				textContents, err := textContentByIndexSelector(wd, selector)
 				if err != nil {
 					textContentChan <- ""
+					/*
+					 TODO think do we need to defer this and return?
+					 since this only continues through the control flow
+					 despite being an error
+					*/
 					wg.Done()
+					return
 				}
 				textContentChan <- joinContents(textContents)
 			}(selector)
@@ -165,6 +167,12 @@ func Index(wd *selenium.WebDriver) {
 	fmt.Println("NOTIF: Waiting for page indexer")
 	wg.Wait()
 	close(textContentChan)
+	textChanSlice := make([]string, 0, 100)
+	for elementContents := range textContentChan {
+		textChanSlice = append(textChanSlice, elementContents)
+	}
+	pageContents := joinContents(textChanSlice)
+	fmt.Printf("PAGE CONTENTS: %s\n", pageContents)
 	fmt.Println("NOTIF: Page indexed")
 }
 
