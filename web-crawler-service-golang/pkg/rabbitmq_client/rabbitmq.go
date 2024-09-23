@@ -1,0 +1,5 @@
+package rabbitmqclient
+
+func MessageHandler() {
+
+}
