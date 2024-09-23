@@ -69,7 +69,7 @@ type PageResult struct {
 	crawlStatus int
 }
 
-func (c Crawler) Start() *Results {
+func (c Crawler) Start() Results {
 	aggregateChan := make(chan PageResult, len(c.URLs))
 	semaphore := make(chan struct{}, threadPool)
 
@@ -114,7 +114,7 @@ func (c Crawler) Start() *Results {
 
 	log.Println("NOTIF: All Process have finished.")
 
-	return &Results{
+	return Results{
 		Message:     "Crawled and indexed webpages",
 		ThreadsUsed: threadPool,
 		URLCount:    len(c.URLs),
