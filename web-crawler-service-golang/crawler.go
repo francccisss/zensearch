@@ -6,7 +6,7 @@ import (
 	"log"
 	"strings"
 	"sync"
-	webdriver "web-crawler-service-golang/pkg"
+	webdriver "web-crawler-service-golang/pkg/webdriver"
 
 	"github.com/tebeka/selenium"
 )
@@ -49,6 +49,7 @@ func (c Crawler) Start() int {
 	}()
 
 	// Why do we limit go routines to save resource by throttling threads?
+	// maybe we can let users control how many threads to crawl list of webpages
 
 	for _, doc := range c.URLs {
 		wg.Add(1)
@@ -152,11 +153,10 @@ func Index(wd *selenium.WebDriver) {
 				if err != nil {
 					textContentChan <- ""
 					/*
-					 TODO think do we need to defer this and return?
-					 since this only continues through the control flow
-					 despite being an error
+					   Idiomatic way is to call defer beforehand,
+					   once this error checker is true, we can return
+					   and defer function is called wg.Done() in particular
 					*/
-					wg.Done()
 					return
 				}
 				textContentChan <- joinContents(textContents)
