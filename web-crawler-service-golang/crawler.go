@@ -46,13 +46,38 @@ type PageIndexer struct {
 	wd *selenium.WebDriver
 }
 
+type Results struct {
+	URLCount    int
+	URLsFailed  []string
+	Message     string
+	ThreadsUsed int
+}
+
 const threadPool = 10
 
 var indexedList map[string]IndexedWebpage
 
-func (c Crawler) Start() int {
-	aggregateChan := make(chan string)
+// send response back to express server through rabbitmq
+// that crawling is done.
+
+// if we were to send a response back to the server, might as
+// give them the results from the crawl.
+
+const (
+	crawlFail    = 0
+	crawlSuccess = 1
+)
+
+type PageResult struct {
+	URL         string
+	Message     string
+	crawlStatus int
+}
+
+func (c Crawler) Start() *Results {
+	aggregateChan := make(chan PageResult)
 	semaphore := make(chan struct{}, threadPool)
+
 	var (
 		wg  sync.WaitGroup
 		ctx context.Context
@@ -60,36 +85,36 @@ func (c Crawler) Start() int {
 
 	go func() {
 		for data := range aggregateChan {
-			log.Printf("CRAWLED: %s\n", data)
+			log.Printf("CRAWLED: %v\n", data)
 		}
 	}()
 
-	for _, doc := range c.URLs {
-		wg.Add(1)
-		semaphore <- struct{}{}
-		log.Printf("NOTIF: Semaphore token insert\n")
-		go func(doc string) {
-			fmt.Printf("Doc: %s\n", doc)
-			crawler := CrawlTask{ctx: ctx, URL: doc}
-			defer wg.Done()
-			defer func() {
-				<-semaphore
-				log.Printf("NOTIF: Semaphore token release\n")
-			}()
-			st, err := crawler.Crawl()
-			// exits out of go routine and restores semaphore token if an error occurs.
-			if err != nil {
+	// initialize wait group
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for _, doc := range c.URLs {
+			wg.Add(1)
+			semaphore <- struct{}{}
+			log.Printf("NOTIF: Semaphore token insert\n")
+			go func(doc string) {
+				fmt.Printf("Doc: %s\n", doc)
+				crawler := CrawlTask{ctx: ctx, URL: doc}
+				defer wg.Done()
 				defer func() {
 					<-semaphore
+					log.Printf("NOTIF: Semaphore token release\n")
 				}()
-				defer wg.Done()
-				log.Print(err.Error())
-				log.Printf("NOTIF: Semaphore token release due to error.\n")
-			}
-
-			aggregateChan <- st
-		}(doc)
-	}
+				status, err := crawler.Crawl()
+				if err != nil {
+					log.Print(err.Error())
+					log.Printf("NOTIF: Semaphore token release due to error.\n")
+					return
+				}
+				aggregateChan <- status
+			}(doc)
+		}
+	}()
 
 	log.Printf("NOTIF: Wait for crawlers\n")
 	wg.Wait()
@@ -97,30 +122,31 @@ func (c Crawler) Start() int {
 	close(aggregateChan)
 	<-aggregateChan
 
-	return 1
+	return &Results{
+		Message:     "Crawled and indexed webpages",
+		ThreadsUsed: threadPool,
+		URLCount:    len(c.URLs)}
 }
 
-func (ct CrawlTask) Crawl() (string, error) {
+// 0 error
+// 1 done
+
+func (ct CrawlTask) Crawl() (PageResult, error) {
 	defer log.Printf("NOTIF: Finished Crawling\n")
 	wd, err := webdriver.CreateClient()
 	if err != nil {
-		return "", err
+		return PageResult{URL: ct.URL, crawlStatus: crawlFail, Message: "Unable to connect client to Chrome Web Driver server."}, err
 	}
 	// need to close this on timeout
 	err = (*wd).Get(ct.URL)
 	log.Printf("NOTIF: Start Crawling %s\n", ct.URL)
 	if err != nil {
-		return "", err
+		return PageResult{URL: ct.URL, crawlStatus: crawlFail, Message: "Unable to establish a tcp connection with the provided URL."}, err
 	}
-	title, err := (*wd).Title()
-	if err != nil {
-		log.Printf("ERROR: No title for this page")
-	}
-
 	indexer := PageIndexer{wd: wd}
 	indexer.Index()
 	// just return the data from crawl activity
-	return title, nil
+	return PageResult{URL: ct.URL, crawlStatus: crawlSuccess, Message: "Crawled and Indexed."}, nil
 }
 
 func (p PageIndexer) Index() (IndexedWebpage, error) {
