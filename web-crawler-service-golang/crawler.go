@@ -16,6 +16,11 @@ type Header struct {
 	Webpage_url string
 }
 
+type WebpageEntry struct {
+	Title           string
+	URL             string
+	IndexedWebpages []IndexedWebpage
+}
 type IndexedWebpage struct {
 	Header
 	Contents string
@@ -26,9 +31,10 @@ type Crawler struct {
 }
 
 type CrawlTask struct {
-	URL string
-	ctx context.Context
-	wd  *selenium.WebDriver
+	URL    string
+	ctx    context.Context
+	wd     *selenium.WebDriver
+	docLen int
 }
 
 var indexSelector = []string{
@@ -99,7 +105,7 @@ func (c Crawler) Start() Results {
 					log.Printf("ERROR: Unable to create a new connection with Chrome Web Driver.\n")
 					return
 				}
-				crawler := CrawlTask{ctx: ctx, URL: doc, wd: wd}
+				crawler := CrawlTask{ctx: ctx, URL: doc, wd: wd, docLen: len(c.URLs)}
 				status, err := crawler.Crawl()
 				if err != nil {
 					log.Print(err.Error())
@@ -157,13 +163,50 @@ func (ct CrawlTask) Crawl() (PageResult, error) {
 			Message:     "Unable to establish a tcp connection with the provided URL.",
 		}, err
 	}
+
+	// Setting up entry point data
+	entry := WebpageEntry{
+		URL:             ct.URL,
+		Title:           "",
+		IndexedWebpages: make([]IndexedWebpage, 0, ct.docLen),
+	}
+
+	title, err := (*ct.wd).Title()
+	if err != nil {
+		log.Println("ERROR: Unable to get title of entry point.")
+	}
+	entry.Title = title
+	// Setting up entry point data
+
 	indexer := PageIndexer{wd: ct.wd}
-	indexer.Index()
+	// traversePages(&entry, &indexer)
+	/*
+	 append new indexed webpage into the array
+	 this should be called for every page that is visited
+	*/
+
 	return PageResult{
 		URL:         ct.URL,
 		crawlStatus: crawlSuccess,
-		Message:     "Crawled and Indexed."}, nil
+		Message:     "Crawled and Indexed.",
+	}, nil
 }
+
+// func traversePages(entry *WebpageEntry, indexer *PageIndexer) error {
+// 	links, err := (*indexer.wd).FindElements(selenium.ByCSSSelector, "a")
+// 	if err != nil {
+// 		log.Println("ERROR: Unable to find elements of type `a`.")
+// 		return fmt.Errorf("ERROR: Unable to find elements of type `a`.")
+// 	}
+// 	// filter links that does not have a secion link
+//
+// 	indexedWebpage, err := indexer.Index()
+// 	if err != nil {
+// 		log.Println("ERROR: Not handled yet")
+// 	}
+// 	entry.IndexedWebpages = append(entry.IndexedWebpages, indexedWebpage)
+// 	return nil
+// }
 
 func (p PageIndexer) Index() (IndexedWebpage, error) {
 
