@@ -51,17 +51,12 @@ type Results struct {
 	URLsFailed  []string
 	Message     string
 	ThreadsUsed int
+	PageResult  <-chan PageResult
 }
 
 const threadPool = 10
 
 var indexedList map[string]IndexedWebpage
-
-// send response back to express server through rabbitmq
-// that crawling is done.
-
-// if we were to send a response back to the server, might as
-// give them the results from the crawl.
 
 const (
 	crawlFail    = 0
@@ -75,7 +70,7 @@ type PageResult struct {
 }
 
 func (c Crawler) Start() *Results {
-	aggregateChan := make(chan PageResult)
+	aggregateChan := make(chan PageResult, len(c.URLs))
 	semaphore := make(chan struct{}, threadPool)
 
 	var (
@@ -83,13 +78,7 @@ func (c Crawler) Start() *Results {
 		ctx context.Context
 	)
 
-	go func() {
-		for data := range aggregateChan {
-			log.Printf("CRAWLED: %v\n", data)
-		}
-	}()
-
-	// initialize wait group
+	// create crawlers
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -98,13 +87,12 @@ func (c Crawler) Start() *Results {
 			semaphore <- struct{}{}
 			log.Printf("NOTIF: Semaphore token insert\n")
 			go func(doc string) {
-				fmt.Printf("Doc: %s\n", doc)
-				crawler := CrawlTask{ctx: ctx, URL: doc}
-				defer wg.Done()
 				defer func() {
 					<-semaphore
 					log.Printf("NOTIF: Semaphore token release\n")
 				}()
+				defer wg.Done()
+				crawler := CrawlTask{ctx: ctx, URL: doc}
 				status, err := crawler.Crawl()
 				if err != nil {
 					log.Print(err.Error())
@@ -118,14 +106,20 @@ func (c Crawler) Start() *Results {
 
 	log.Printf("NOTIF: Wait for crawlers\n")
 	wg.Wait()
-	log.Printf("NOTIF: All Process has finished\n")
 	close(aggregateChan)
-	<-aggregateChan
+
+	for crawler := range aggregateChan {
+		log.Printf("CRAWLED: %+v\n", crawler)
+	}
+
+	log.Println("NOTIF: All Process have finished.")
 
 	return &Results{
 		Message:     "Crawled and indexed webpages",
 		ThreadsUsed: threadPool,
-		URLCount:    len(c.URLs)}
+		URLCount:    len(c.URLs),
+		PageResult:  aggregateChan,
+	}
 }
 
 // 0 error
@@ -180,11 +174,6 @@ func (p PageIndexer) Index() (IndexedWebpage, error) {
 				textContents, err := textContentByIndexSelector(p.wd, selector)
 				if err != nil {
 					textContentChan <- ""
-					/*
-					   Idiomatic way is to call defer beforehand,
-					   once this error checker is true, we can return
-					   and defer function is called wg.Done() in particular
-					*/
 					return
 				}
 				textContentChan <- joinContents(textContents)
