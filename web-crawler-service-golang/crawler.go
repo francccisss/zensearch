@@ -28,6 +28,7 @@ type Crawler struct {
 type CrawlTask struct {
 	URL string
 	ctx context.Context
+	wd  *selenium.WebDriver
 }
 
 var indexSelector = []string{
@@ -92,7 +93,13 @@ func (c Crawler) Start() Results {
 					log.Printf("NOTIF: Semaphore token release\n")
 				}()
 				defer wg.Done()
-				crawler := CrawlTask{ctx: ctx, URL: doc}
+				wd, err := webdriver.CreateClient()
+				if err != nil {
+					log.Print(err.Error())
+					log.Printf("ERROR: Unable to create a new connection with Chrome Web Driver.\n")
+					return
+				}
+				crawler := CrawlTask{ctx: ctx, URL: doc, wd: wd}
 				status, err := crawler.Crawl()
 				if err != nil {
 					log.Print(err.Error())
@@ -125,22 +132,37 @@ func (c Crawler) Start() Results {
 // 0 error
 // 1 done
 
+/*
+TODO
+Implement a tree search algorithm, where every link on the current visited webpage
+represents a node in a tree.
+
+Should use recursion or stack to keep track of the nodes that the crawler is traversing.
+
+For every webpage that we successfully crawl, we need to index each page using Index
+and every indexed page should be stored in a data structure / Array of type T where T is an IndexedWebpage type.
+
+*/
+
 func (ct CrawlTask) Crawl() (PageResult, error) {
+
 	defer log.Printf("NOTIF: Finished Crawling\n")
-	wd, err := webdriver.CreateClient()
-	if err != nil {
-		return PageResult{URL: ct.URL, crawlStatus: crawlFail, Message: "Unable to connect client to Chrome Web Driver server."}, err
-	}
 	// need to close this on timeout
-	err = (*wd).Get(ct.URL)
+	err := (*ct.wd).Get(ct.URL)
 	log.Printf("NOTIF: Start Crawling %s\n", ct.URL)
 	if err != nil {
-		return PageResult{URL: ct.URL, crawlStatus: crawlFail, Message: "Unable to establish a tcp connection with the provided URL."}, err
+		return PageResult{
+			URL:         ct.URL,
+			crawlStatus: crawlFail,
+			Message:     "Unable to establish a tcp connection with the provided URL.",
+		}, err
 	}
-	indexer := PageIndexer{wd: wd}
+	indexer := PageIndexer{wd: ct.wd}
 	indexer.Index()
-	// just return the data from crawl activity
-	return PageResult{URL: ct.URL, crawlStatus: crawlSuccess, Message: "Crawled and Indexed."}, nil
+	return PageResult{
+		URL:         ct.URL,
+		crawlStatus: crawlSuccess,
+		Message:     "Crawled and Indexed."}, nil
 }
 
 func (p PageIndexer) Index() (IndexedWebpage, error) {
