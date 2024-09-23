@@ -15,7 +15,8 @@ type Header struct {
 	Title       string
 	Webpage_url string
 }
-type webpage struct {
+
+type IndexedWebpage struct {
 	Header
 	Contents string
 }
@@ -29,12 +30,27 @@ type CrawlTask struct {
 	ctx context.Context
 }
 
+var indexSelector = []string{
+	"a",
+	"p",
+	"span",
+	"code",
+	"pre",
+	"h1",
+	"h2",
+	"h3",
+	"h4",
+}
+
+type PageIndexer struct {
+	wd *selenium.WebDriver
+}
+
 const threadPool = 10
 
-var indexedList map[string]Webpage
+var indexedList map[string]IndexedWebpage
 
 func (c Crawler) Start() int {
-	// Start Web Driver Server
 	aggregateChan := make(chan string)
 	semaphore := make(chan struct{}, threadPool)
 	var (
@@ -47,9 +63,6 @@ func (c Crawler) Start() int {
 			log.Printf("CRAWLED: %s\n", data)
 		}
 	}()
-
-	// Why do we limit go routines to save resource by throttling threads?
-	// maybe we can let users control how many threads to crawl list of webpages
 
 	for _, doc := range c.URLs {
 		wg.Add(1)
@@ -64,8 +77,7 @@ func (c Crawler) Start() int {
 				log.Printf("NOTIF: Semaphore token release\n")
 			}()
 			st, err := crawler.Crawl()
-
-			// need to get out if an error occurs
+			// exits out of go routine and restores semaphore token if an error occurs.
 			if err != nil {
 				defer func() {
 					<-semaphore
@@ -104,24 +116,14 @@ func (ct CrawlTask) Crawl() (string, error) {
 	if err != nil {
 		log.Printf("ERROR: No title for this page")
 	}
-	Index(wd)
+
+	indexer := PageIndexer{wd: wd}
+	indexer.Index()
 	// just return the data from crawl activity
 	return title, nil
 }
 
-var indexSelector = []string{
-	"a",
-	"p",
-	"span",
-	"code",
-	"pre",
-	"h1",
-	"h2",
-	"h3",
-	"h4",
-}
-
-func Index(wd *selenium.WebDriver) {
+func (p PageIndexer) Index() (IndexedWebpage, error) {
 
 	/*
 		Iterating through the indexSelector, where each selector, we create
@@ -149,7 +151,7 @@ func Index(wd *selenium.WebDriver) {
 			go func(selector string) {
 				defer wg.Done()
 				defer fmt.Printf("NOTIF: Selector: %s done\n", selector)
-				textContents, err := textContentByIndexSelector(wd, selector)
+				textContents, err := textContentByIndexSelector(p.wd, selector)
 				if err != nil {
 					textContentChan <- ""
 					/*
@@ -168,12 +170,38 @@ func Index(wd *selenium.WebDriver) {
 	wg.Wait()
 	close(textContentChan)
 	textChanSlice := make([]string, 0, 100)
+
+	/*
+		create a select statement to catch an error returned by
+		invdividual go routine element selectors
+	*/
+
 	for elementContents := range textContentChan {
 		textChanSlice = append(textChanSlice, elementContents)
 	}
+
 	pageContents := joinContents(textChanSlice)
+	title, err := (*p.wd).Title()
+	if err != nil {
+		log.Printf("ERROR: No title for this page")
+	}
+
+	url, err := (*p.wd).CurrentURL()
+	if err != nil {
+		log.Printf("ERROR: No url for this page")
+	}
+
 	fmt.Printf("PAGE CONTENTS: %s\n", pageContents)
 	fmt.Println("NOTIF: Page indexed")
+
+	newIndexedPage := IndexedWebpage{
+		Contents: pageContents,
+		Header: Header{
+			Webpage_url: url,
+			Title:       title,
+		},
+	}
+	return newIndexedPage, nil
 }
 
 func textContentByIndexSelector(wd *selenium.WebDriver, selector string) ([]string, error) {

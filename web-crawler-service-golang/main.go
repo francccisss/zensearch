@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
-	webdriver "web-crawler-service-golang/pkg"
+	webdriver "web-crawler-service-golang/pkg/webdriver"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -11,14 +11,14 @@ import (
 const crawlQueue = "crawl_queue"
 
 type IndexedList struct {
-	Webpages []Webpage
+	Webpages []site
 }
 
 type CrawlList struct {
 	Docs []string
 }
 
-type Webpage struct {
+type site struct {
 	Title       string
 	Contents    string
 	Webpage_url string
