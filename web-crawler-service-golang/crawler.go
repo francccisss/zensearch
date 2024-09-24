@@ -17,7 +17,6 @@ type Header struct {
 }
 
 type WebpageEntry struct {
-	Title           string
 	URL             string
 	IndexedWebpages []IndexedWebpage
 }
@@ -61,13 +60,14 @@ type Results struct {
 	PageResult  <-chan PageResult
 }
 
-const threadPool = 10
-
 var indexedList map[string]IndexedWebpage
 
 const (
+	threadPool   = 10
 	crawlFail    = 0
 	crawlSuccess = 1
+	// removes links to web objects that does not return an html page.
+	linkFilter = `a:not([href$=".zip"]):not([href$=".pdf"]):not([href$=".exe"]):not([href$=".jpg"]):not([href$=".png"]):not([href$=".tar.gz"]):not([href$=".rar"]):not([href$=".7z"]):not([href$=".mp3"]):not([href$=".mp4"]):not([href$=".mkv"]):not([href$=".tar"]):not([href$=".xz"]):not([href$=".msi"])`
 )
 
 type PageResult struct {
@@ -135,83 +135,105 @@ func (c Crawler) Start() Results {
 	}
 }
 
-// 0 error
-// 1 done
-
-/*
-TODO
-Implement a tree search algorithm, where every link on the current visited webpage
-represents a node in a tree.
-
-Should use recursion or stack to keep track of the nodes that the crawler is traversing.
-
-For every webpage that we successfully crawl, we need to index each page using Index
-and every indexed page should be stored in a data structure / Array of type T where T is an IndexedWebpage type.
-
-*/
-
 func (ct CrawlTask) Crawl() (PageResult, error) {
 
 	defer log.Printf("NOTIF: Finished Crawling\n")
-	// need to close this on timeout
-	err := (*ct.wd).Get(ct.URL)
 	log.Printf("NOTIF: Start Crawling %s\n", ct.URL)
-	if err != nil {
-		return PageResult{
-			URL:         ct.URL,
-			crawlStatus: crawlFail,
-			Message:     "Unable to establish a tcp connection with the provided URL.",
-		}, err
-	}
-
-	// Setting up entry point data
 	entry := WebpageEntry{
 		URL:             ct.URL,
-		Title:           "",
 		IndexedWebpages: make([]IndexedWebpage, 0, ct.docLen),
 	}
-
-	title, err := (*ct.wd).Title()
-	if err != nil {
-		log.Println("ERROR: Unable to get title of entry point.")
-	}
-	entry.Title = title
-	// Setting up entry point data
-
 	indexer := PageIndexer{wd: ct.wd}
-	// traversePages(&entry, &indexer)
-	/*
-	 append new indexed webpage into the array
-	 this should be called for every page that is visited
-	*/
-
-	return PageResult{
+	pageTraverser := PageTraverser{entry: &entry, currentUrl: ct.URL, indexer: &indexer}
+	err := pageTraverser.traversePages()
+	if err != nil {
+		fmt.Println("ERROR: Well something went wrong with the last stack.")
+	}
+	result := PageResult{
 		URL:         ct.URL,
-		crawlStatus: crawlSuccess,
-		Message:     "Crawled and Indexed.",
-	}, nil
+		crawlStatus: crawlFail,
+		Message:     "Unable to establish a tcp connection with the provided URL.",
+	}
+
+	return result, nil
+
 }
 
-// func traversePages(entry *WebpageEntry, indexer *PageIndexer) error {
-// 	links, err := (*indexer.wd).FindElements(selenium.ByCSSSelector, "a")
-// 	if err != nil {
-// 		log.Println("ERROR: Unable to find elements of type `a`.")
-// 		return fmt.Errorf("ERROR: Unable to find elements of type `a`.")
-// 	}
-// 	// filter links that does not have a secion link
-//
-// 	indexedWebpage, err := indexer.Index()
-// 	if err != nil {
-// 		log.Println("ERROR: Not handled yet")
-// 	}
-// 	entry.IndexedWebpages = append(entry.IndexedWebpages, indexedWebpage)
-// 	return nil
-// }
+type PageTraverser struct {
+	entry        *WebpageEntry
+	indexer      *PageIndexer
+	pagesVisited map[string]string
+	currentUrl   string
+}
 
+func (pt *PageTraverser) traversePages() error {
+
+	if _, visited := pt.pagesVisited[pt.currentUrl]; visited {
+		// its so that we can grab unique links and append to children of the current page
+		fmt.Println("NOTIF: Page already visited")
+		return nil
+	}
+	err := (*pt.indexer.wd).Get(pt.currentUrl)
+	if err != nil {
+		return fmt.Errorf("ERROR: Unable to visit the current link.")
+	}
+	pt.pagesVisited[pt.currentUrl] = pt.currentUrl
+
+	links, err := (*pt.indexer.wd).FindElements(selenium.ByCSSSelector, linkFilter)
+
+	// no children/error
+	if err != nil {
+		log.Println("ERROR: Unable to find elements of type `a`.")
+		return fmt.Errorf("ERROR: Unable to find elements of type `a`.")
+	}
+
+	/*
+		Need to check such that we can ignore the already visited links
+		and use the ones that doesnt exist and consider it
+		as the child of the currently visited link
+	*/
+
+	children := make([]string, 0)
+	for _, link := range links {
+		ref, _ := link.GetAttribute("href")
+		if _, ok := pt.pagesVisited[ref]; !ok {
+			// its so that we can grab unique links and append to children of the current page
+			children = append(children, ref)
+		}
+	}
+	/*
+		Start indexing the current page and pushing into the indexed webpages slice
+	*/
+	indexedWebpage, err := pt.indexer.Index()
+	if err != nil {
+		log.Println("ERROR: Not handled yet")
+	}
+	pt.entry.IndexedWebpages = append(pt.entry.IndexedWebpages, indexedWebpage)
+
+	/*
+	 no child to traverse to then return to caller, the caller function will
+	 then go to its next child in the children array.
+	*/
+
+	if len(children) == 0 {
+		return nil
+	}
+	for _, child := range children {
+		pt.currentUrl = child
+		err := pt.traversePages()
+		// if error occured from traversing or any error has occured
+		// just move to the next child
+		if err != nil {
+			continue
+		}
+
+	}
+	return nil
+}
 func (p PageIndexer) Index() (IndexedWebpage, error) {
 
 	/*
-		Iterating through the indexSelector, where each selector, we create
+		Iterating through the indexSelector, where each selector, we creates
 		a new go routine, so using a buffered channel with the exact length of
 		the indexSelector would make more sense.
 
