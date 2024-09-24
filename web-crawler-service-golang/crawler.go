@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	webdriver "web-crawler-service-golang/pkg/webdriver"
+	utilities "web-crawler-service-golang/utilities/links"
 
 	"github.com/tebeka/selenium"
 )
@@ -19,6 +20,7 @@ type Header struct {
 type WebpageEntry struct {
 	URL             string
 	IndexedWebpages []IndexedWebpage
+	hostname        string
 }
 type IndexedWebpage struct {
 	Header
@@ -122,7 +124,8 @@ func (c Crawler) Start() Results {
 	close(aggregateChan)
 
 	for crawler := range aggregateChan {
-		log.Printf("CRAWLED: %+v\n", crawler)
+		log.Printf("Crawled URL: %s\n", crawler.URL)
+		log.Printf("Crawl Message: %s\n", crawler.Message)
 	}
 
 	log.Println("NOTIF: All Process have finished.")
@@ -139,24 +142,30 @@ func (ct CrawlTask) Crawl() (PageResult, error) {
 
 	defer log.Printf("NOTIF: Finished Crawling\n")
 	log.Printf("NOTIF: Start Crawling %s\n", ct.URL)
+	indexer := PageIndexer{wd: ct.wd}
+	hostname, err := utilities.GetOrigin(ct.URL)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 	entry := WebpageEntry{
 		URL:             ct.URL,
 		IndexedWebpages: make([]IndexedWebpage, 0, ct.docLen),
+		hostname:        hostname,
 	}
-	indexer := PageIndexer{wd: ct.wd}
 	pageTraverser := PageTraverser{
-		entry: &entry, currentUrl: ct.URL,
+		entry:        &entry,
+		currentUrl:   ct.URL,
 		indexer:      &indexer,
 		pagesVisited: map[string]string{},
 	}
-	err := pageTraverser.traversePages()
+	err = pageTraverser.traversePages()
 	if err != nil {
 		fmt.Println("ERROR: Well something went wrong with the last stack.")
 	}
 	result := PageResult{
 		URL:         ct.URL,
 		crawlStatus: crawlFail,
-		Message:     "Unable to establish a tcp connection with the provided URL.",
+		Message:     "Successfully Crawled & Indexed website",
 	}
 
 	return result, nil
@@ -199,8 +208,15 @@ func (pt *PageTraverser) traversePages() error {
 
 	children := make([]string, 0)
 	for _, link := range links {
+		// need to filter out links that is not the same as origin
 		ref, _ := link.GetAttribute("href")
-		if _, ok := pt.pagesVisited[ref]; !ok {
+		childHostname, err := utilities.GetOrigin(ref)
+
+		if err != nil {
+			fmt.Println(err.Error())
+			continue
+		}
+		if _, visited := pt.pagesVisited[ref]; !visited && pt.entry.hostname == childHostname {
 			// its so that we can grab unique links and append to children of the current page
 			children = append(children, ref)
 		}
