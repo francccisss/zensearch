@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	webdriver "web-crawler-service-golang/pkg/webdriver"
 	utilities "web-crawler-service-golang/utilities/links"
 
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/tebeka/selenium"
 )
 
@@ -80,18 +82,24 @@ type PageResult struct {
 	TotalPages  int
 }
 
-func saveIndexedWebpages(webpages []IndexedWebpage) error {
+func saveIndexedWebpages(jobID string, webpages []IndexedWebpage) error {
 	conn, err := rabbitmqclient.GetConnection("receiverConn")
 	if err != nil {
-		fmt.Errorf(err.Error())
 		log.Panicln("ERROR: Unable to get connection.")
+		return fmt.Errorf(err.Error())
 	}
 	dbChannel, err := conn.Channel()
 	if err != nil {
-		fmt.Errorf(err.Error())
 		log.Printf("ERROR: Unable to create a database channel.")
+		return fmt.Errorf(err.Error())
 	}
-
+	dbChannel.QueueDeclare("database_push_queue", false, false, false, false, nil)
+	dataBuffer, err := json.Marshal(webpages)
+	dbChannel.Publish("database_push_queue", "", false, false, amqp.Publishing{
+		Type:          "text/plain",
+		Body:          []byte(dataBuffer), // TODO convert to buffer array / byte
+		CorrelationId: jobID,
+	})
 	return nil
 }
 
@@ -188,6 +196,12 @@ func (ct CrawlTask) Crawl() (PageResult, error) {
 		Message:     "Successfully Crawled & Indexed website",
 		TotalPages:  len(entry.IndexedWebpages),
 	}
+	// if > 1 threads a have finished processing
+	// and pass webpages into the save function, and both of them
+	// are being sent at the same time
+	// create differet correlation IDs
+
+	// saveIndexedWebpages(hostname, entry.IndexedWebpages)
 
 	return result, nil
 
