@@ -75,7 +75,8 @@ const (
 type PageResult struct {
 	URL         string
 	Message     string
-	crawlStatus int
+	CrawlStatus int
+	TotalPages  int
 }
 
 func (c Crawler) Start() Results {
@@ -102,7 +103,6 @@ func (c Crawler) Start() Results {
 				}()
 				defer wg.Done()
 				wd, err := webdriver.CreateClient()
-				defer (*wd).Close()
 				if err != nil {
 					log.Print(err.Error())
 					log.Printf("ERROR: Unable to create a new connection with Chrome Web Driver.\n")
@@ -140,8 +140,8 @@ func (c Crawler) Start() Results {
 }
 
 func (ct CrawlTask) Crawl() (PageResult, error) {
-
 	defer log.Printf("NOTIF: Finished Crawling\n")
+	defer (*ct.wd).Close()
 	log.Printf("NOTIF: Start Crawling %s\n", ct.URL)
 	indexer := PageIndexer{wd: ct.wd}
 	hostname, err := utilities.GetOrigin(ct.URL)
@@ -165,10 +165,10 @@ func (ct CrawlTask) Crawl() (PageResult, error) {
 	}
 	result := PageResult{
 		URL:         ct.URL,
-		crawlStatus: crawlFail,
+		CrawlStatus: crawlFail,
 		Message:     "Successfully Crawled & Indexed website",
+		TotalPages:  len(entry.IndexedWebpages),
 	}
-	fmt.Printf("Indexed Webpages Total: %d\n", len(entry.IndexedWebpages))
 
 	return result, nil
 
@@ -212,15 +212,16 @@ func (pt *PageTraverser) traversePages() error {
 	for _, link := range links {
 		// need to filter out links that is not the same as origin
 		ref, _ := link.GetAttribute("href")
-		childHostname, err := utilities.GetOrigin(ref)
+		cleanedRef, _, _ := strings.Cut(ref, "#")
+		childHostname, err := utilities.GetOrigin(cleanedRef)
 
 		if err != nil {
 			fmt.Println(err.Error())
 			continue
 		}
-		if _, visited := pt.pagesVisited[ref]; !visited && pt.entry.hostname == childHostname {
+		if _, visited := pt.pagesVisited[cleanedRef]; !visited && pt.entry.hostname == childHostname {
 			// its so that we can grab unique links and append to children of the current page
-			children = append(children, ref)
+			children = append(children, cleanedRef)
 		}
 	}
 	/*
