@@ -6,6 +6,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	rabbitmqclient "web-crawler-service-golang/pkg/rabbitmq_client"
 	webdriver "web-crawler-service-golang/pkg/webdriver"
 	utilities "web-crawler-service-golang/utilities/links"
 
@@ -79,6 +80,21 @@ type PageResult struct {
 	TotalPages  int
 }
 
+func saveIndexedWebpages(webpages []IndexedWebpage) error {
+	conn, err := rabbitmqclient.GetConnection("receiverConn")
+	if err != nil {
+		fmt.Errorf(err.Error())
+		log.Panicln("ERROR: Unable to get connection.")
+	}
+	dbChannel, err := conn.Channel()
+	if err != nil {
+		fmt.Errorf(err.Error())
+		log.Printf("ERROR: Unable to create a database channel.")
+	}
+
+	return nil
+}
+
 func (c Crawler) Start() Results {
 	aggregateChan := make(chan PageResult, len(c.URLs))
 	semaphore := make(chan struct{}, threadPool)
@@ -142,6 +158,9 @@ func (c Crawler) Start() Results {
 func (ct CrawlTask) Crawl() (PageResult, error) {
 	defer log.Printf("NOTIF: Finished Crawling\n")
 	defer (*ct.wd).Close()
+
+	// Initialization
+
 	log.Printf("NOTIF: Start Crawling %s\n", ct.URL)
 	indexer := PageIndexer{wd: ct.wd}
 	hostname, err := utilities.GetOrigin(ct.URL)

@@ -38,7 +38,7 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     "https://fzaid.vercel.app/",
     "https://robbowen.digital/",
     "https://brittanychiang.com",
-    //"https://www.mcconeproperties.com/",
+    "https://www.mcconeproperties.com/",
   ];
 
   const encoder = new TextEncoder();
