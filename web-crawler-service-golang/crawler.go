@@ -102,6 +102,7 @@ func (c Crawler) Start() Results {
 				}()
 				defer wg.Done()
 				wd, err := webdriver.CreateClient()
+				defer (*wd).Close()
 				if err != nil {
 					log.Print(err.Error())
 					log.Printf("ERROR: Unable to create a new connection with Chrome Web Driver.\n")
@@ -167,6 +168,7 @@ func (ct CrawlTask) Crawl() (PageResult, error) {
 		crawlStatus: crawlFail,
 		Message:     "Successfully Crawled & Indexed website",
 	}
+	fmt.Printf("Indexed Webpages Total: %d\n", len(entry.IndexedWebpages))
 
 	return result, nil
 
@@ -312,9 +314,7 @@ func (p PageIndexer) Index() (IndexedWebpage, error) {
 	if err != nil {
 		log.Printf("ERROR: No url for this page")
 	}
-
-	fmt.Printf("PAGE CONTENTS: %s\n", pageContents)
-	fmt.Println("NOTIF: Page indexed")
+	fmt.Printf("NOTIF: Page %s Indexed\n", url)
 
 	newIndexedPage := IndexedWebpage{
 		Contents: pageContents,
@@ -340,7 +340,6 @@ func textContentByIndexSelector(wd *selenium.WebDriver, selector string) ([]stri
 		}
 		elementTextContents = append(elementTextContents, text)
 	}
-	fmt.Println(elementTextContents)
 
 	return elementTextContents, nil
 }
