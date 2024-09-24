@@ -36,7 +36,7 @@ app.get("/", (req: Request, res: Response) => {
 app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
   const Docs = [
     "https://fzaid.vercel.app/",
-    "https://www.mcconeproperties.com/",
+    //"https://www.mcconeproperties.com/",
   ];
 
   const encoder = new TextEncoder();

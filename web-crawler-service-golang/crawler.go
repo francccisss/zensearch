@@ -144,7 +144,11 @@ func (ct CrawlTask) Crawl() (PageResult, error) {
 		IndexedWebpages: make([]IndexedWebpage, 0, ct.docLen),
 	}
 	indexer := PageIndexer{wd: ct.wd}
-	pageTraverser := PageTraverser{entry: &entry, currentUrl: ct.URL, indexer: &indexer}
+	pageTraverser := PageTraverser{
+		entry: &entry, currentUrl: ct.URL,
+		indexer:      &indexer,
+		pagesVisited: map[string]string{},
+	}
 	err := pageTraverser.traversePages()
 	if err != nil {
 		fmt.Println("ERROR: Well something went wrong with the last stack.")
