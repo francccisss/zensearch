@@ -2,11 +2,10 @@ package rabbitmqclient
 
 import (
 	"fmt"
-
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-var connections map[string]*amqp.Connection
+var connections = map[string]*amqp.Connection{}
 
 /*
   Creates a new global reference to a specific tcp connection to rabbitmq
@@ -27,5 +26,5 @@ func GetConnection(name string) (*amqp.Connection, error) {
 	if conn, ok := connections[name]; ok {
 		return conn, nil
 	}
-	return nil, fmt.Errorf("Connection does not exist: %s", name)
+	return nil, fmt.Errorf("Connection does not exist: %s\n", name)
 }

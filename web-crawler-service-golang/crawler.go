@@ -16,17 +16,18 @@ import (
 )
 
 type Header struct {
-	Title       string
-	Webpage_url string
+	Title string
+	Url   string
 }
 
 type WebpageEntry struct {
 	URL             string
 	IndexedWebpages []IndexedWebpage
 	hostname        string
+	Title           string
 }
 type IndexedWebpage struct {
-	Header
+	Header   Header
 	Contents string
 }
 
@@ -82,11 +83,16 @@ type PageResult struct {
 	TotalPages  int
 }
 
-func saveIndexedWebpages(jobID string, webpages []IndexedWebpage) error {
+type DbResult struct {
+	webpages []IndexedWebpage
+	header   Header
+}
+
+func saveIndexedWebpages(jobID string, entry *WebpageEntry) error {
 	conn, err := rabbitmqclient.GetConnection("receiverConn")
 	if err != nil {
+		fmt.Print(err.Error())
 		log.Panicln("ERROR: Unable to get connection.")
-		return fmt.Errorf(err.Error())
 	}
 	dbChannel, err := conn.Channel()
 	if err != nil {
@@ -94,14 +100,19 @@ func saveIndexedWebpages(jobID string, webpages []IndexedWebpage) error {
 		return fmt.Errorf(err.Error())
 	}
 	dbChannel.QueueDeclare("database_push_queue", false, false, false, false, nil)
-	dataBuffer, err := json.Marshal(webpages)
-	dbChannel.Publish("database_push_queue", "", false, false, amqp.Publishing{
+	dataBuffer, err := json.Marshal(entry.IndexedWebpages)
+	dbChannel.Publish("", "database_push_queue", false, false, amqp.Publishing{
 		Type:          "text/plain",
 		Body:          []byte(dataBuffer), // TODO convert to buffer array / byte
 		CorrelationId: jobID,
 	})
 	return nil
 }
+
+/*
+  TODO need to close down chrome driver session after every crawl
+  be it success or fail.
+*/
 
 func (c Crawler) Start() Results {
 	aggregateChan := make(chan PageResult, len(c.URLs))
@@ -179,6 +190,7 @@ func (ct CrawlTask) Crawl() (PageResult, error) {
 		URL:             ct.URL,
 		IndexedWebpages: make([]IndexedWebpage, 0, ct.docLen),
 		hostname:        hostname,
+		Title:           "",
 	}
 	pageTraverser := PageTraverser{
 		entry:        &entry,
@@ -186,6 +198,9 @@ func (ct CrawlTask) Crawl() (PageResult, error) {
 		indexer:      &indexer,
 		pagesVisited: map[string]string{},
 	}
+	_ = (*ct.wd).Get(ct.URL)
+	title, _ := (*ct.wd).Title()
+	entry.Title = title
 	err = pageTraverser.traversePages()
 	if err != nil {
 		fmt.Println("ERROR: Well something went wrong with the last stack.")
@@ -201,7 +216,7 @@ func (ct CrawlTask) Crawl() (PageResult, error) {
 	// are being sent at the same time
 	// create differet correlation IDs
 
-	// saveIndexedWebpages(hostname, entry.IndexedWebpages)
+	saveIndexedWebpages(hostname, &entry)
 
 	return result, nil
 
@@ -353,8 +368,8 @@ func (p PageIndexer) Index() (IndexedWebpage, error) {
 	newIndexedPage := IndexedWebpage{
 		Contents: pageContents,
 		Header: Header{
-			Webpage_url: url,
-			Title:       title,
+			Url:   url,
+			Title: title,
 		},
 	}
 	return newIndexedPage, nil
