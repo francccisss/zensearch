@@ -31,7 +31,7 @@ func main() {
 	if err != nil {
 		log.Panicf("Unable to establish a tcp connection with message broker.")
 	}
-	rabbitmqclient.SetNewConnection("recevierConn", conn)
+	rabbitmqclient.SetNewConnection("receiverConn", conn)
 	if err != nil {
 		log.Panicf("Unable to establish a tcp connection with message broker.")
 	}
