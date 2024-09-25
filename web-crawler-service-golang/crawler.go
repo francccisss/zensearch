@@ -83,9 +83,9 @@ type PageResult struct {
 	TotalPages  int
 }
 
-type DbResult struct {
-	webpages []IndexedWebpage
-	header   Header
+type Message struct {
+	Webpages []IndexedWebpage
+	Header   Header
 }
 
 func saveIndexedWebpages(jobID string, entry *WebpageEntry) error {
@@ -99,8 +99,17 @@ func saveIndexedWebpages(jobID string, entry *WebpageEntry) error {
 		log.Printf("ERROR: Unable to create a database channel.")
 		return fmt.Errorf(err.Error())
 	}
+
+	resultMessage := Message{
+		Webpages: entry.IndexedWebpages,
+		Header: Header{
+			Title: entry.Title,
+			Url:   entry.URL,
+		},
+	}
+
 	dbChannel.QueueDeclare("database_push_queue", false, false, false, false, nil)
-	dataBuffer, err := json.Marshal(entry.IndexedWebpages)
+	dataBuffer, err := json.Marshal(resultMessage)
 	dbChannel.Publish("", "database_push_queue", false, false, amqp.Publishing{
 		Type:          "text/plain",
 		Body:          []byte(dataBuffer), // TODO convert to buffer array / byte
