@@ -1,14 +1,14 @@
 const results_container = document.getElementById("search-results");
 
 function search_item_component(item) {
-  const { Title, Webpage_url, Contents } = item;
-  const url = new URL(Webpage_url);
+  const { Title, Url, Contents } = item;
+  const url = new URL(Url);
   const paths = url.pathname.split("/");
   const path_segments = paths.join(" > ");
   const html_string = `
   <li class="searched-item">
     <div>
-      <a href="${Webpage_url}">${Title}</a>
+      <a href="${Url}">${Title}</a>
       <small>${url.hostname} ${path_segments}</small>
     </div>
     <span>${Contents}</span>
