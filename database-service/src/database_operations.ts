@@ -63,7 +63,7 @@ function index_webpages(db: Database, data: data_t) {
 
 async function query_webpages(db: Database): Promise<Array<webpage_t>> {
   return await new Promise(function (resolved, reject) {
-    const sql_query = "SELECT webpage_url, contents, title FROM webpages";
+    const sql_query = "SELECT Url, Contents, Title FROM webpages";
     db.all<webpage_t>(sql_query, (err, row) => {
       try {
         if (err) {
