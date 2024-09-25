@@ -1,6 +1,7 @@
 package tfidf
 
 import (
+	"fmt"
 	"math"
 	"search-engine-service/utilities"
 	"sort"
@@ -21,11 +22,16 @@ func RankTFIDFRatings(IDF float64, webpages *[]utilities.WebpageTFIDF) *[]utilit
 		(*webpages)[i].TFIDFRating = tfidfRating
 	}
 
+	// need to filter out 0 score
 	webpagesSlice := (*webpages)[:]
 	sort.Slice(webpagesSlice, func(i, j int) bool {
 		return webpagesSlice[i].TFIDFRating > webpagesSlice[j].TFIDFRating
 	})
-	return &webpagesSlice
+	filteredWebpages := utilities.Filter(webpagesSlice)
+
+	fmt.Printf("Filtered: %+v\n", filteredWebpages)
+
+	return &filteredWebpages
 }
 
 func calculateTFIDF(IDF float64, webpage utilities.WebpageTFIDF) float64 {
