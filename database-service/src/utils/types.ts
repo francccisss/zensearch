@@ -1,16 +1,18 @@
 export type data_t = {
-  webpages: Array<{
-    header: { title: string; webpage_url: string };
-    contents: string;
+  Webpages: Array<{
+    Header: header;
+    Contents: string;
   }>;
-  header: {
-    title: string;
-    url: string;
-  };
+  Title: string;
+  Url: string;
 };
 
+type header = {
+  Title: string;
+  Url: string;
+};
 export type webpage_t = {
-  contents: string;
-  title: string;
-  webpage_url: string;
+  Contents: string;
+  Title: string;
+  Url: string;
 };
