@@ -85,7 +85,7 @@ type PageResult struct {
 
 type Message struct {
 	Webpages []IndexedWebpage
-	Header   Header
+	Header
 }
 
 func saveIndexedWebpages(jobID string, entry *WebpageEntry) error {
@@ -104,7 +104,7 @@ func saveIndexedWebpages(jobID string, entry *WebpageEntry) error {
 		Webpages: entry.IndexedWebpages,
 		Header: Header{
 			Title: entry.Title,
-			Url:   entry.URL,
+			Url:   entry.hostname,
 		},
 	}
 
