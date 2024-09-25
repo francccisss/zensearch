@@ -11,7 +11,7 @@ function index_webpages(db: Database, data: data_t) {
     db.run(
       "INSERT OR IGNORE INTO known_sites (url, last_added) VALUES ($url, $last_added);",
       {
-        $url: new URL("/", data.header.url).hostname,
+        $url: data.Url,
         $last_added: Date.now(),
       },
     );
@@ -19,11 +19,11 @@ function index_webpages(db: Database, data: data_t) {
       "INSERT OR IGNORE INTO indexed_sites (primary_url, last_indexed) VALUES ($primary_url, $last_indexed);",
     );
     const insert_webpages_stmt = db.prepare(
-      "INSERT INTO webpages (webpage_url, title, contents, parent) VALUES ($webpage_url, $title, $contents, $parent);",
+      "INSERT INTO webpages (url, title, contents, parent) VALUES ($webpage_url, $title, $contents, $parent);",
     );
     insert_indexed_sites_stmt.run(
       {
-        $primary_url: new URL("/", data.header.url).hostname,
+        $primary_url: data.Url,
         $last_indexed: Date.now(),
       },
       function (err) {
@@ -32,18 +32,18 @@ function index_webpages(db: Database, data: data_t) {
           return;
         }
         const parentId = this.lastID;
-        data.webpages.forEach((el) => {
+        data.Webpages.forEach((el) => {
           if (el === undefined) return;
           const {
-            header: { title, webpage_url },
-            contents,
+            Header: { Title, Url },
+            Contents,
           } = el;
 
           insert_webpages_stmt.run(
             {
-              $webpage_url: webpage_url,
-              $title: title,
-              $contents: contents,
+              $webpage_url: Url,
+              $title: Title,
+              $contents: Contents,
               $parent: parentId,
             },
             (err) => {
