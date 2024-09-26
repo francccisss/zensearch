@@ -87,7 +87,23 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
         data.content.toString(),
       );
       console.log(crawl_list);
-      database_operations.check_existing_tasks(db, crawl_list.Docs);
+      const unindexed_websites = await database_operations.check_existing_tasks(
+        db,
+        crawl_list.Docs,
+      );
+
+      const encoder = new TextEncoder();
+      const encoded_docs = encoder.encode(
+        JSON.stringify({ Docs: unindexed_websites }),
+      );
+
+      const is_sent = database_channel.sendToQueue(
+        db_cbq_express,
+        Buffer.from(encoded_docs),
+      );
+      if (!is_sent) {
+        throw new Error("ERROR: Unable to send back message.");
+      }
       database_channel.ack(data);
     } catch (err) {
       console.error(err);
