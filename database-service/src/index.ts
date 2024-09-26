@@ -8,8 +8,8 @@ const db = init_database();
 (async () => {
   const connection = await amqp.connect("amqp://localhost");
   const push_channel = await connection.createChannel();
-  const query_channel = await connection.createChannel();
-  await channel_operations.channel_handler(db, push_channel, query_channel);
+  const database_channel = await connection.createChannel();
+  await channel_operations.channel_handler(db, push_channel, database_channel);
 })();
 
 function init_database(): sqlite3.Database {
