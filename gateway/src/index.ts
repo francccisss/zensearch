@@ -11,6 +11,8 @@ const PORT = 8080;
    Connect Rabbitmq
    Creates an indefinite loop to listen receive
    new messages from the message broker.
+
+   TODO Create a class for rabbitmq
   */
   const message_broker = await rabbitmq.connect();
 

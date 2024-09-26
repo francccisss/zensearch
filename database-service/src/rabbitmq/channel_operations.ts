@@ -2,8 +2,6 @@ import amqp from "amqplib";
 import database_operations from "../database_operations";
 import { Database } from "sqlite3";
 import data_serializer from "../utils/32bit_serializer";
-import { stringify } from "querystring";
-import { writeFileSync } from "fs";
 
 /*
   channel handler can take in multiple channels from a single tcp conneciton
@@ -13,16 +11,32 @@ import { writeFileSync } from "fs";
 
 async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
   const push_queue = "database_push_queue";
+
+  // routing key used by search engine service to query database for webpages.
   const db_query_queue = "database_query_queue";
-  const db_check_queue = "database_check_queue";
-  const db_response_queue = "database_response_queue"; // respond back to this queue after search engine finishes.
+  // routing key to reply back to the search engine service's callback queue.
+  const db_response_queue = "database_response_queue";
+
+  // routing key used by express server to check existing webpages.
+  const db_check_express = "db_check_express";
+  const db_cbq_express = "db_cbq_express";
+
   const [push_channel, database_channel] = args;
 
   await push_channel.assertQueue(push_queue, {
     exclusive: false,
     durable: false,
   });
-  // TODO Document code please :)
+
+  /*
+   Channel to consume messages sent by the search engine service.
+   The fuck do you mean push_channel? this channel is supposed to consume
+   the data from the web crawler, it receives an array of Type Webpages.
+
+   TODO Document code please :)
+   TODO Change names to make it more comprehensible please :D
+  */
+
   push_channel.consume(push_queue, async (data) => {
     if (data === null) throw new Error("No data was pushed.");
     const decoder = new TextDecoder();
@@ -47,31 +61,46 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
     durable: false,
   });
 
-  await database_channel.assertQueue(db_check_queue, {
+  await database_channel.assertQueue(db_check_express, {
     exclusive: false,
     durable: false,
   });
 
   /*
-   This consumer listens to the messages to the server
-   for new crawl tasks, its responsibility is to check send
-   the array of crawl tasks from the client to the database service
-   and query the database to see if the list of crawl tasks, exists
-   on the database already by checking the indexed_sites TABLE,
-   if it does it returns back the array filtering out the ones that
-   have already been crawled and indexed into the database, returning
-   the remaining items as uncrawled to be processed by the crawler service.
+    The `db_check_express` consumer listens to the messages to the express server
+    for new crawl tasks, its responsibility is to check send
+    the array of crawl tasks from the client to the database service
+    and query the database to see if the list of crawl tasks, exists
+    on the database already by checking the indexed_sites TABLE,
+    if it does it returns back the array filtering out the ones that
+    have already been crawled and indexed into the database, returning
+    the remaining items as uncrawled to be processed by the crawler service.
    */
 
-  database_channel.consume(db_check_queue, async (data) => {
+  database_channel.consume(db_check_express, async (data) => {
     if (data == null) throw new Error("No data was pushed.");
     try {
-      database_channel.sendToQueue(db_);
+      console.log(
+        "NOTIF: DB service received crawl list to check existing indexed websites.",
+      );
+      const crawl_list: { Docs: Array<string> } = JSON.parse(
+        data.content.toString(),
+      );
+      console.log(crawl_list);
+      database_operations.check_existing_tasks(crawl_list.Docs);
+      database_channel.ack(data);
     } catch (err) {
       console.error(err);
     }
   });
 
+  /*
+    Consumes messages sent by the search engine services to query the database for
+    the webpages to be ranked and sent to the client.
+
+    a callback queue is implemented once we consume and query webpages so that we can send
+    it back right after all those process are done.
+  */
   database_channel.consume(db_query_queue, async (data) => {
     if (data === null) throw new Error("No data was pushed.");
     try {

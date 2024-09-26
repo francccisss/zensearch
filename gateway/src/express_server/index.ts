@@ -58,7 +58,8 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
       or list of websites the users want to crawl already exists in the database.
     */
 
-    const db_check_queue = "database_check_queue";
+    const db_check_queue = "db_check_express";
+    const db_check_response_queue = "db_response_express";
     channel.assertQueue(db_check_queue, { durable: false, exclusive: false });
 
     // but we can consume it here after checking the database if it exists or not
@@ -71,15 +72,13 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
       to the crawler service.
     */
 
-    const success = await rabbitmq.crawl_job(channel, encoded_docs, {
-      queue: CRAWL_QUEUE,
-      id: job_id,
-    });
-    if (!success) {
-      next("an Error occured while starting the crawl.");
-    }
-
-    channel.close();
+    //const success = await rabbitmq.crawl_job(channel, encoded_docs, {
+    //  queue: CRAWL_QUEUE,
+    //  id: job_id,
+    //});
+    //if (!success) {
+    //  next("an Error occured while starting the crawl.");
+    //}
 
     /*
       Creates a session cookie for job polling using the poll route handler `/job`
