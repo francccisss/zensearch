@@ -14,25 +14,14 @@ import { writeFileSync } from "fs";
 async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
   const push_queue = "database_push_queue";
   const db_query_queue = "database_query_queue";
-  const db_check_queue = "database_query_queue";
+  const db_check_queue = "database_check_queue";
   const db_response_queue = "database_response_queue"; // respond back to this queue after search engine finishes.
-  const checkdb_queue = "database_response_queue";
   const [push_channel, database_channel] = args;
 
   await push_channel.assertQueue(push_queue, {
     exclusive: false,
     durable: false,
   });
-  await database_channel.assertQueue(db_query_queue, {
-    exclusive: false,
-    durable: false,
-  });
-
-  await database_channel.assertQueue(db_check_queue, {
-    exclusive: false,
-    durable: false,
-  });
-
   // TODO Document code please :)
   push_channel.consume(push_queue, async (data) => {
     if (data === null) throw new Error("No data was pushed.");
@@ -53,6 +42,15 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
   });
 
   // DATABASE MESSAGE HANDLERS
+  await database_channel.assertQueue(db_query_queue, {
+    exclusive: false,
+    durable: false,
+  });
+
+  await database_channel.assertQueue(db_check_queue, {
+    exclusive: false,
+    durable: false,
+  });
 
   /*
    This consumer listens to the messages to the server
@@ -64,7 +62,15 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
    have already been crawled and indexed into the database, returning
    the remaining items as uncrawled to be processed by the crawler service.
    */
-  database_channel.consume(db_check_queue, async (data) => {});
+
+  database_channel.consume(db_check_queue, async (data) => {
+    if (data == null) throw new Error("No data was pushed.");
+    try {
+      database_channel.sendToQueue(db_);
+    } catch (err) {
+      console.error(err);
+    }
+  });
 
   database_channel.consume(db_query_queue, async (data) => {
     if (data === null) throw new Error("No data was pushed.");
