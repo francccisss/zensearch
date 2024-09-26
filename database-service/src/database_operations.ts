@@ -87,9 +87,28 @@ async function query_webpages(db: Database): Promise<Array<webpage_t>> {
 }
 
 async function check_existing_tasks(
-  tasks: Array<string>,
+  db: Database,
+  crawl_list: Array<string>,
 ): Promise<Array<string>> {
-  return [];
+  let tmp: Array<string> = [];
+  console.log("called");
+  // for every webpage in the crawl_list
+  // query each websites in known_websites table
+  // if the current webpage in the crawl_list exists
+
+  const query = `SELECT primary_url FROM indexed_sites`;
+  const st = db.each(query, (err, row) => {
+    try {
+      if (err) {
+        throw new Error(err.message);
+      }
+      console.log(row);
+    } catch (err) {
+      console.error(err);
+    }
+  });
+
+  return tmp;
 }
 
 export default { index_webpages, check_existing_tasks, query_webpages };

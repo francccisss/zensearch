@@ -87,7 +87,7 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
         data.content.toString(),
       );
       console.log(crawl_list);
-      database_operations.check_existing_tasks(crawl_list.Docs);
+      database_operations.check_existing_tasks(db, crawl_list.Docs);
       database_channel.ack(data);
     } catch (err) {
       console.error(err);
