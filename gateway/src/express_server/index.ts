@@ -60,11 +60,15 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
 
     const db_check_queue = "database_check_queue";
     channel.assertQueue(db_check_queue, { durable: false, exclusive: false });
+
+    // but we can consume it here after checking the database if it exists or not
+    // right after it returns with a value.
     channel.sendToQueue(db_check_queue, Buffer.from(encoded_docs));
 
     /*
       Clients does not need to know if it exists or not, we can still handle it internally.
-      We can just send back to the client an ok response.
+      We can just send back to the client an ok response after sending a crawl task
+      to the crawler service.
     */
 
     const success = await rabbitmq.crawl_job(channel, encoded_docs, {
@@ -80,7 +84,7 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     /*
       Creates a session cookie for job polling using the poll route handler `/job`
       the CRAWL_QUEUE_CB is used to poll the crawler service to check and see if
-      crawling is done or not you can read the code with the route handler `/job`
+      crawling is done or not you can read the code with the route `/job`
     */
 
     res.cookie("job_id", job_id);
@@ -125,7 +129,19 @@ app.get("/job", async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-// TODO Cache the most previous search results from client
+/*
+  Hmm might change this next time idk.
+
+  Upgrades http protocol to websocket so that we dont need to poll
+  for the search engine service's search results, and instead we can just create an
+  persistent tcp connection using websocket protocol, the websocket server will
+  be responsible for listening/consuming the search results from the
+  search engine service, and then send back the search result data back to the client.
+
+  - search queue handlers for rabbitmq is in the `rabbitmq/` folder
+  - search channel listeners are in the `websocket/` folder
+
+*/
 
 app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
   const job_id = uuidv4();
