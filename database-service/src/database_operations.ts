@@ -86,4 +86,10 @@ async function query_webpages(db: Database): Promise<Array<webpage_t>> {
   });
 }
 
-export default { index_webpages, query_webpages };
+async function check_existing_tasks(
+  tasks: Array<string>,
+): Promise<Array<string>> {
+  return [];
+}
+
+export default { index_webpages, check_existing_tasks, query_webpages };
