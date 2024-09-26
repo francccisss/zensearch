@@ -99,12 +99,10 @@ async function check_existing_tasks(
       }
       crawl_list.forEach((website) => {
         const current_website = new URL(website);
-        console.log(current_website.hostname);
         if (row.primary_url !== current_website.hostname) {
           tmp.push(website);
         }
       });
-      console.log(row);
     } catch (err) {
       console.error(
         "ERROR: Unable to query indexed sites to check if the list contains unindexed websites.",
