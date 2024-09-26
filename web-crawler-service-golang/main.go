@@ -63,6 +63,9 @@ func main() {
 	 the rabbitmq listener
 	*/
 
+	// TODO create a push queue back to the client to notify
+	// that crawling is done, after indexing pages maybe within the saveIndexedWebpages()
+
 	go func() {
 		// body will be an array of webpages to crawl
 		for msg := range delivery {
