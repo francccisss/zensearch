@@ -48,9 +48,25 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
   const job_id = uuidv4();
   try {
     const connection = await rabbitmq.connect();
+
     if (connection === null)
       throw new Error("Unable to create a channel for crawl queue.");
     const channel = await connection.createChannel();
+
+    /*
+      sends a message to the database service to check and see if the DOCS
+      or list of websites the users want to crawl already exists in the database.
+    */
+
+    const db_check_queue = "database_check_queue";
+    channel.assertQueue(db_check_queue, { durable: false, exclusive: false });
+    channel.sendToQueue(db_check_queue, Buffer.from(encoded_docs));
+
+    /*
+      Clients does not need to know if it exists or not, we can still handle it internally.
+      We can just send back to the client an ok response.
+    */
+
     const success = await rabbitmq.crawl_job(channel, encoded_docs, {
       queue: CRAWL_QUEUE,
       id: job_id,
@@ -59,7 +75,14 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
       next("an Error occured while starting the crawl.");
     }
 
-    // set the queue to be polled by /job polling
+    channel.close();
+
+    /*
+      Creates a session cookie for job polling using the poll route handler `/job`
+      the CRAWL_QUEUE_CB is used to poll the crawler service to check and see if
+      crawling is done or not you can read the code with the route handler `/job`
+    */
+
     res.cookie("job_id", job_id);
     res.cookie("job_queue", CRAWL_QUEUE_CB);
     res.cookie("poll_type", "crawling");
