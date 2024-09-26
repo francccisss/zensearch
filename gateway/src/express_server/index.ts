@@ -99,6 +99,13 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
+/*
+  A Route handler responsible for polling the crawl task, this polls for results
+  from the crawler service in a fixed time, it uses the `job_id` to identify the
+  correlationId of the message in the message queue, and a `job_queue` to specify
+  which message queue it wants to consume from.
+*/
+
 app.get("/job", async (req: Request, res: Response, next: NextFunction) => {
   const { job_id, job_queue } = req.query;
   if (job_id === undefined || job_queue === undefined)
@@ -148,9 +155,15 @@ app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
   try {
     res.setHeader("Connection", "Upgrade");
     res.setHeader("Upgrade", "Websocket");
+
+    /*
+      Need to job_id such that different messages in the message queue `SEARCH_QUEUE_CB`,
+      the websocket listener will be able to determine which job's which.
+      eg: user sends "fzaid projects" search query then that will have its own job_id
+      specifically for that search query in the message queue.
+    */
+
     res.cookie("job_id", job_id);
-    res.cookie("job_queue", SEARCH_QUEUE_CB);
-    res.cookie("poll_type", "search");
     res.sendFile(path.join(...public_route, "search.html"));
   } catch (err) {
     const error = err as Error;

@@ -16,6 +16,11 @@ class WebsocketService {
     this.wss = WS;
   }
 
+  /*
+    Listens to new tcp connections using websocket protocol and receives/listens
+    to new client messages that are pushed to the websocket server.
+  */
+
   async handler() {
     this.wss.on(EVENTS.connection, (client_ws: WebSocket) => {
       console.log("connected");
@@ -25,12 +30,30 @@ class WebsocketService {
     });
   }
 
+  /*
+    This Callback function is executed right after the handler () has received a new search query
+    object from the client it calls the `send_search_query` to send.. a search query as the name
+    implies to the search engine service for processing.
+   */
   private async message_handler(data: Data) {
-    const message: { q: string; job_id: string } = JSON.parse(data.toString());
+    const { q, job_id }: { q: string; job_id: string } = JSON.parse(
+      data.toString(),
+    );
     console.log("Messaged");
     try {
-      await rabbitmq.search_job({ q: message.q, job_id: message.job_id });
-      console.log("Message received from client: %s", message.toString());
+      const is_sent = await rabbitmq.send_search_query({
+        q,
+        job_id,
+      });
+      if (!is_sent) {
+        throw new Error("ERROR: Unable to send search query.");
+      }
+      console.log(
+        "NOTIF: Message received from client: { search query: %s, job id: %s",
+        q,
+        job_id,
+      );
+      console.log("NOTIF: Search query sent to the search engine service.");
     } catch (err) {
       const error = err as Error;
       console.log(

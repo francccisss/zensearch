@@ -7,6 +7,7 @@ const search_input = document.getElementById("search-input");
 const form = document.querySelector("form");
 const cookies = extract_cookies();
 
+// This is used after the client has Established/Upgraded a websocket connection with the server
 form.addEventListener("submit", (e) => {
   e.preventDefault();
   const input_value = search_input.value;

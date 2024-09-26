@@ -35,14 +35,33 @@ async function init_search_channel_queues() {
     durable: false,
   });
 }
-async function search_job(job: { q: string; job_id: string }) {
-  await search_channel.sendToQueue(SEARCH_QUEUE, Buffer.from(job.q), {
+
+/*
+  This Function sends a new search query to the SEARCH ENGINE SERVICE.
+  TODO error handle this please. :D
+*/
+async function send_search_query(job: {
+  q: string;
+  job_id: string;
+}): Promise<boolean> {
+  return await search_channel.sendToQueue(SEARCH_QUEUE, Buffer.from(job.q), {
     correlationId: job.job_id,
     replyTo: SEARCH_QUEUE_CB,
   });
 }
 
-async function search_listener(cb: (data: ConsumeMessage | null) => void) {
+/*
+  A listener for consuming search engine's search results that is pushed to the message queue
+  using `CRAWL_QUEUE_CB` routing key after it finishes processing user's search query.
+
+  Takes in a callback function argument to process the data received from
+  the search engine service.
+
+  TODO Handle errors in here please :D
+*/
+async function search_channel_listener(
+  cb: (data: ConsumeMessage | null) => void,
+) {
   await search_channel.consume(
     SEARCH_QUEUE_CB,
     async (msg: ConsumeMessage | null) => {
@@ -53,6 +72,7 @@ async function search_listener(cb: (data: ConsumeMessage | null) => void) {
     },
   );
 }
+
 async function poll_job(
   chan: Channel,
   job: { id: string; queue: string },
@@ -131,9 +151,9 @@ async function crawl_job(
 }
 
 export default {
-  search_listener,
+  search_channel_listener,
   connect,
-  search_job,
+  send_search_query,
   poll_job,
   crawl_job,
   init_search_channel_queues,
