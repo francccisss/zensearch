@@ -67,7 +67,7 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
   });
 
   /*
-    The `db_check_express` consumer listens to the messages to the express server
+    The `db_check_express`consumes the messages from the express server
     for new crawl tasks, its responsibility is to check send
     the array of crawl tasks from the client to the database service
     and query the database to see if the list of crawl tasks, exists
@@ -86,12 +86,12 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
       const crawl_list: { Docs: Array<string> } = JSON.parse(
         data.content.toString(),
       );
-      console.log(crawl_list);
       const unindexed_websites = await database_operations.check_existing_tasks(
         db,
         crawl_list.Docs,
       );
 
+      console.log(unindexed_websites);
       const encoder = new TextEncoder();
       const encoded_docs = encoder.encode(
         JSON.stringify({ Docs: unindexed_websites }),
