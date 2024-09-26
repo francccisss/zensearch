@@ -91,19 +91,24 @@ async function check_existing_tasks(
   crawl_list: Array<string>,
 ): Promise<Array<string>> {
   let tmp: Array<string> = [];
-  console.log("called");
-  // for every webpage in the crawl_list
-  // query each websites in known_websites table
-  // if the current webpage in the crawl_list exists
-
   const query = `SELECT primary_url FROM indexed_sites`;
-  const st = db.each(query, (err, row) => {
+  const st = db.each(query, (err, row: { primary_url: string }) => {
     try {
       if (err) {
         throw new Error(err.message);
       }
+      crawl_list.forEach((website) => {
+        const current_website = new URL(website);
+        console.log(current_website.hostname);
+        if (row.primary_url !== current_website.hostname) {
+          tmp.push(website);
+        }
+      });
       console.log(row);
     } catch (err) {
+      console.error(
+        "ERROR: Unable to query indexed sites to check if the list contains unindexed websites.",
+      );
       console.error(err);
     }
   });
