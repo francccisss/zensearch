@@ -7,6 +7,7 @@ import app from "./express_server";
 const PORT = 8080;
 (async function start_server() {
   const http_server = http.createServer(app);
+  //await amqp.connect("amqp://localhost");
   /*
    Connect Rabbitmq
    Creates an indefinite loop to listen receive
@@ -14,7 +15,7 @@ const PORT = 8080;
 
    TODO Create a class for rabbitmq
   */
-  const message_broker = await rabbitmq.connect();
+  //const rabbitMq_client =
 
   // Connect Websocket for search results retreival
   const wss: WebSocketServer = new WebSocketServer({ server: http_server });

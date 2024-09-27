@@ -3,7 +3,7 @@ import http, { Server, ServerOptions } from "http";
 import os from "os";
 import rabbitmq from "../rabbitmq";
 import { Channel, ConsumeMessage } from "amqplib";
-import { SEARCH_QUEUE, SEARCH_QUEUE_CB } from "../rabbitmq/queues";
+import { SEARCH_QUEUE, SEARCH_QUEUE_CB } from "../rabbitmq/routing_keys";
 
 const EVENTS = {
   message: "message",
