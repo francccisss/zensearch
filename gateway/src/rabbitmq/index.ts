@@ -13,7 +13,13 @@ class RabbitMQClient {
   client: this = this;
 
   async connectClient() {
-    this.connection = await amqp.connect("amqp://localhost");
+    /*
+     Check if there already exists a connection if not create a new connection else just return
+     A single pattern to make sure that we are only creating a single tcp connection
+    */
+    if (this.connection == null) {
+      this.connection = await amqp.connect("amqp://localhost");
+    }
     return this;
   }
 
@@ -82,11 +88,13 @@ class RabbitMQClient {
    * request that is sent to the server.
    *
    */
-  async poll_job(
-    chan: Channel,
-    job: { id: string; queue: string },
-  ): Promise<{ done: boolean; data: any }> {
+  async poll_job(job: {
+    id: string;
+    queue: string;
+  }): Promise<{ done: boolean; data: any }> {
     try {
+      if (this.connection === null) throw new Error("TCP Connection lost.");
+      const chan = await this.connection.createChannel();
       await chan.assertQueue(job.queue as string, {
         exclusive: false,
         durable: false,
@@ -121,11 +129,9 @@ class RabbitMQClient {
     }
   }
 
-  async crawl_job(
-    chan: Channel,
-    websites: Uint8Array,
-    job: { queue: string; id: string },
-  ) {
+  async crawl_job(websites: Uint8Array, job: { queue: string; id: string }) {
+    if (this.connection === null) throw new Error("TCP Connection lost.");
+    const chan = await this.connection.createChannel();
     const message = "Start Crawl";
     try {
       await chan.assertQueue(CRAWL_QUEUE, {
