@@ -39,6 +39,7 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     "https://robbowen.digital/",
     "https://naren200.github.io/",
     "https://youtube.com/",
+    "https://facebook.com",
     "https://brittanychiang.com",
   ];
 
@@ -67,12 +68,10 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     }
     if (results.undindexed.length === 0) {
       console.log("This shits empty YEEET!");
-      // return something
-      res.status(200).json({
+      return res.status(200).json({
         message: "Crawl list are already indexed, provide a new list.",
         crawl_list: results.undindexed,
       });
-      return;
     }
 
     /*
@@ -85,13 +84,12 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
       to the user to change these entries.
     */
     if (results.undindexed.length !== Docs.length) {
-      res.status(200).json({
+      return res.status(200).json({
         message: "Some of the items in this list have already indexed.",
         crawl_list: Docs.filter(
           (website) => !results.undindexed.includes(website) ?? website,
         ),
       });
-      return;
     }
     // if not then proceed to crawler service
     const success = await rabbitmq.client.crawl(results.data_buffer, {
