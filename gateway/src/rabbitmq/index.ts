@@ -19,7 +19,17 @@ class RabbitMQClient {
      A single pattern to make sure that we are only creating a single tcp connection
     */
     if (this.connection == null) {
-      this.connection = await amqp.connect("amqp://localhost");
+      try {
+        this.connection = await amqp.connect("amqp://localhost");
+      } catch (err) {
+        const error = err as Error;
+        console.error(
+          "ERROR:Unable establish a tcp connection with rabbitmq server.",
+        );
+
+        console.error(error);
+        throw new Error(error.message);
+      }
     }
     return this;
   }
@@ -27,9 +37,7 @@ class RabbitMQClient {
   async init_search_channel_queues() {
     try {
       if (this.connection == null) {
-        throw new Error(
-          "Unable establish a tcp connection with rabbitmq server.",
-        );
+        throw new Error("ERROR: Connection interface is null.");
       }
       this.search_channel = await this.connection.createChannel();
       await this.search_channel.assertQueue(SEARCH_QUEUE, {
@@ -41,16 +49,17 @@ class RabbitMQClient {
         durable: false,
       });
     } catch (err) {
+      const error = err as Error;
       console.error(
         "ERROR: Something went wrong while creating search channels.",
       );
       console.error(err);
+      throw new Error(error.message);
     }
   }
 
   /*
   This Function sends a new search query to the SEARCH ENGINE SERVICE.
-  TODO error handle this please. :D
 */
   async send_search_query(job: {
     q: string;
@@ -76,28 +85,27 @@ class RabbitMQClient {
   Takes in a callback function argument to process the data received from
   the search engine service.
 
-  TODO Handle errors in here please :D
 */
   async search_channel_listener(cb: (data: ConsumeMessage | null) => void) {
     try {
-      if (this.search_channel == null) {
-        throw new Error("Search Channel is null.");
-      }
+      if (this.search_channel == null)
+        throw new Error("ERROR: Search Channel is null.");
       await this.search_channel.consume(
         SEARCH_QUEUE_CB,
-        // errors in here will be caught
+        // errors will propogate outside
         async (msg: ConsumeMessage | null) => {
           if (msg === null) throw new Error("Msg does not exist");
           console.log(msg);
           cb(msg);
           //I hate this
           if (this.search_channel == null) {
-            throw new Error("Search Channel is null.");
+            throw new Error("ERROR: Search Channel is null.");
           }
           this.search_channel.ack(msg);
         },
       );
     } catch (err) {
+      // Propogate error
       const error = err as Error;
       throw new Error(error.message);
     }
@@ -107,7 +115,8 @@ class RabbitMQClient {
    * These methods underneath are used in the express server
    * their purpose is to push messages into the message queue for every user
    * request that is sent to the server.
-   *
+   * `poll_job()` function is used to poll specific job using the job_id identifier that
+   * was set by the server in the client's cookies
    */
   async poll_job(job: {
     id: string;
@@ -123,9 +132,6 @@ class RabbitMQClient {
       const { queue, messageCount, consumerCount } = await chan.checkQueue(
         job.queue as string,
       );
-      console.log(queue);
-      console.log(messageCount);
-      console.log(consumerCount);
       if (messageCount === 0) {
         return { done: false, data: {} };
       }
@@ -138,20 +144,20 @@ class RabbitMQClient {
           data = response.content.toString();
           console.log("CONSUMED");
           chan.ack(response);
-          return { done: true, data };
         },
       );
       return { done: true, data };
     } catch (err) {
       const error = err as Error;
-      console.log("LOG:Something went wrong while polling queue");
+      console.error("ERROR: Something went wrong while polling message queue");
       console.error(error.message);
       throw new Error(error.message);
     }
   }
 
   async crawl_job(websites: Uint8Array, job: { queue: string; id: string }) {
-    if (this.connection === null) throw new Error("TCP Connection lost.");
+    if (this.connection === null)
+      throw new Error("ERROR: TCP Connection lost.");
     const chan = await this.connection.createChannel();
     const message = "Start Crawl";
     try {
@@ -173,18 +179,20 @@ class RabbitMQClient {
         },
       );
       if (!success) {
-        throw new Error("Unable to send to job to crawl queue");
+        throw new Error("ERROR: Unable to send to job to crawler service");
       }
       await chan.close();
       return true;
     } catch (err) {
       const error = err as Error;
-      console.error("LOG: Something went wrong while starting the crawl.");
+      console.error("ERROR: Something went wrong while starting the crawl.");
       console.error(error.message);
       await chan.close();
       return false;
     }
   }
+
+  // TODO handle errors in here please :D
 
   async crawl_list_check(encoded_list: ArrayBuffer): Promise<null | {
     undindexed: Array<string>;
@@ -231,6 +239,7 @@ class RabbitMQClient {
       }
     });
 
+    channel.close();
     return is_error ? null : { undindexed, data_buffer };
   }
 }

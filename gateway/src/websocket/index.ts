@@ -31,15 +31,14 @@ class WebsocketService {
   }
 
   /*
-    This Callback function is executed right after the handler () has received a new search query
-    object from the client it calls the `send_search_query` to send.. a search query as the name
+    This Callback function is executed right after the handler() has received a new search query
+    object from the client, it calls the `send_search_query` to send.. a search query as the name
     implies to the search engine service for processing.
    */
   private async message_handler(data: Data) {
     const { q, job_id }: { q: string; job_id: string } = JSON.parse(
       data.toString(),
     );
-    console.log("Messaged");
     try {
       const is_sent = await rabbitmq.client.send_search_query({
         q,
@@ -55,6 +54,7 @@ class WebsocketService {
       );
       console.log("NOTIF: Search query sent to the search engine service.");
     } catch (err) {
+      // TODO need to send an error back to the user.
       const error = err as Error;
       console.log(
         "LOG: Something went wrong while processing message from websocket.",
