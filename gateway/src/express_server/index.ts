@@ -38,6 +38,7 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     "https://fzaid.vercel.app/",
     "https://robbowen.digital/",
     "https://naren200.github.io/",
+    "https://youtube.com/",
     "https://brittanychiang.com",
   ];
 
@@ -55,7 +56,7 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
      a new list of websites to crawl.
 
      Since we return the modified list that are unindexed, we then pass it to the
-     crawler service through the `crawl_job(<unindexed_list buffer>)` function
+     crawler service through the `crawl(<unindexed_list buffer>)` function
      we then specify that current crawl job with a job_id and a routing key to
      route the messsage.
     */
@@ -68,13 +69,32 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
       console.log("This shits empty YEEET!");
       // return something
       res.status(200).json({
-        message:
-          "Crawl list are already indexed, please send a new list or modify the following",
+        message: "Crawl list are already indexed, provide a new list.",
         crawl_list: results.undindexed,
       });
+      return;
+    }
+
+    /*
+      Need to notify users that some of the items in the list
+      have already been indexed, so we need to send back the items
+      that are not included in the unindexed list.
+
+      Doing the opposite by filtering out websites
+      that have already been indexed and return it back
+      to the user to change these entries.
+    */
+    if (results.undindexed.length !== Docs.length) {
+      res.status(200).json({
+        message: "Some of the items in this list have already indexed.",
+        crawl_list: Docs.filter(
+          (website) => !results.undindexed.includes(website) ?? website,
+        ),
+      });
+      return;
     }
     // if not then proceed to crawler service
-    const success = await rabbitmq.client.crawl_job(results.data_buffer, {
+    const success = await rabbitmq.client.crawl(results.data_buffer, {
       queue: CRAWL_QUEUE,
       id: job_id,
     });
@@ -90,10 +110,10 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     res.cookie("job_id", job_id);
     res.cookie("job_queue", CRAWL_QUEUE_CB);
     res.cookie("poll_type", "crawling");
-    res.send("<p>Crawling...</p>");
+    res.json({ message: "Crawling", crawl_list: results.undindexed });
   } catch (err) {
     const error = err as Error;
-    console.log("LOG:Something went wrong with Crawl queue");
+    console.log("ERRO :Something went wrong with Crawl queue");
     console.error(error.message);
     next(err);
   }
@@ -109,15 +129,14 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
 app.get("/job", async (req: Request, res: Response, next: NextFunction) => {
   const { job_id, job_queue } = req.query;
   if (job_id === undefined || job_queue === undefined)
-    throw new Error("There's no worker queue for this session for crawling.");
-
+    throw new Error("ERROR: There's no job queue for this job id.");
   try {
     const job = await rabbitmq.client.poll_job({
       id: job_id as string,
       queue: job_queue as string,
     });
     if (!job.done) {
-      res.json({ message: "Processing..." });
+      res.status(200).json({ message: "Processing" });
       return;
     }
     res.clearCookie("job_id");
@@ -126,7 +145,7 @@ app.get("/job", async (req: Request, res: Response, next: NextFunction) => {
     res.json({ message: job.data }).status(200);
   } catch (err) {
     const error = err as Error;
-    console.log("LOG:Something went wrong with polling queue");
+    console.log("ERROR :Something went wrong with polling queue");
     console.error(error.message);
     next(err);
   }
@@ -170,7 +189,7 @@ app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
 
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack);
-  res.status(500).send("Something went wrong!");
+  res.status(500).json({ message: err.message });
 });
 
 export default app;

@@ -155,7 +155,10 @@ class RabbitMQClient {
     }
   }
 
-  async crawl_job(websites: Uint8Array, job: { queue: string; id: string }) {
+  async crawl(
+    websites: Uint8Array,
+    job: { queue: string; id: string },
+  ): Promise<boolean> {
     if (this.connection === null)
       throw new Error("ERROR: TCP Connection lost.");
     const chan = await this.connection.createChannel();
@@ -220,7 +223,7 @@ class RabbitMQClient {
 
     await channel.sendToQueue(db_check_queue, Buffer.from(encoded_list));
     let undindexed: Array<string> = [];
-    let data_buffer: Buffer = new Buffer("");
+    let data_buffer: Buffer = Buffer.from("");
     let is_error = false;
     await channel.consume(db_check_response_queue, async (data) => {
       if (data === null) {
