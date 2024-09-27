@@ -91,26 +91,36 @@ async function check_existing_tasks(
   crawl_list: Array<string>,
 ): Promise<Array<string>> {
   let tmp: Array<string> = [];
-  const query = `SELECT primary_url FROM indexed_sites`;
-  const st = db.each(query, (err, row: { primary_url: string }) => {
-    try {
-      if (err) {
-        throw new Error(err.message);
-      }
-      crawl_list.forEach((website) => {
-        const current_website = new URL(website);
-        if (row.primary_url !== current_website.hostname) {
-          tmp.push(website);
-        }
-      });
-    } catch (err) {
-      console.error(
-        "ERROR: Unable to query indexed sites to check if the list contains unindexed websites.",
-      );
-      console.error(err);
-    }
-  });
+  let r: Array<string> = [];
+  let indexed_map: Map<string, string> = new Map();
 
+  const stmt = `SELECT primary_url FROM indexed_sites`;
+  const query = db.each(
+    stmt,
+    function (err, row: { primary_url: string }) {
+      try {
+        if (err) {
+          throw new Error(err.message);
+        }
+        indexed_map.set(row.primary_url, row.primary_url);
+      } catch (err) {
+        console.error("ERROR: Unable to query indexed websites.");
+        console.error(err);
+      }
+    },
+    function () {
+      console.log(indexed_map.size);
+      for (let i = 0; i < crawl_list.length; i++) {
+        const url = new URL(crawl_list[i]).hostname;
+        if (indexed_map.has(url)) {
+        } else {
+          tmp.push(url);
+        }
+      }
+    },
+  );
+
+  console.log(tmp);
   return tmp;
 }
 
