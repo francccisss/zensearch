@@ -44,9 +44,22 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
   const encoder = new TextEncoder();
   const encoded_docs = encoder.encode(JSON.stringify({ Docs }));
 
-  console.log("Crawl");
+  console.log("NOTIF: Crawl request sent.");
   const job_id = uuidv4();
   try {
+    /*
+     Check the users' crawl list if any of the items in that list exists on the database
+     if so then return only the ones that are not indexed.
+
+     If the length of the unindexed list is 0 then we can notify the users to send
+     a new list of websites to crawl.
+
+     Since we return the modified list that are unindexed, we then pass it to the
+     crawler service through the `crawl_job(<unindexed_list buffer>)` function
+     we then specify that current crawl job with a job_id and a routing key to
+     route the messsage.
+    */
+
     const results = await rabbitmq.client.crawl_list_check(encoded_docs);
     if (results === null) {
       throw new Error("Unable to check user's crawl list.");
@@ -54,6 +67,11 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     if (results.undindexed.length === 0) {
       console.log("This shits empty YEEET!");
       // return something
+      res.status(200).json({
+        message:
+          "Crawl list are already indexed, please send a new list or modify the following",
+        crawl_list: results.undindexed,
+      });
     }
     // if not then proceed to crawler service
     const success = await rabbitmq.client.crawl_job(results.data_buffer, {

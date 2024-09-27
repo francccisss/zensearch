@@ -16,7 +16,7 @@ const PORT = 8080;
   */
   const rbq_client = await rabbitmq.client.connectClient();
 
-  // Connect Websocket for search results retreival
+  // Connect Websocket for search results retrieved
   const wss: WebSocketServer = new WebSocketServer({ server: http_server });
   const ws_service = new WebsocketService(wss);
   ws_service.handler();
