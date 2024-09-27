@@ -38,8 +38,6 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     "https://fzaid.vercel.app/",
     "https://robbowen.digital/",
     "https://naren200.github.io/",
-    "https://youtube.com/",
-    "https://facebook.com",
     "https://brittanychiang.com",
   ];
 
@@ -91,6 +89,7 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
         ),
       });
     }
+    console.log({ unindexed: results.undindexed });
     // if not then proceed to crawler service
     const success = await rabbitmq.client.crawl(results.data_buffer, {
       queue: CRAWL_QUEUE,

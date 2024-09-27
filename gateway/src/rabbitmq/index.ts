@@ -155,8 +155,9 @@ class RabbitMQClient {
     }
   }
 
+  // Make user were passinga Buffer from an array of strings
   async crawl(
-    websites: Uint8Array,
+    websites: Buffer,
     job: { queue: string; id: string },
   ): Promise<boolean> {
     if (this.connection === null)
@@ -173,14 +174,10 @@ class RabbitMQClient {
         exclusive: false,
         durable: false,
       });
-      const success = await chan.sendToQueue(
-        CRAWL_QUEUE,
-        Buffer.from(websites.buffer),
-        {
-          replyTo: CRAWL_QUEUE_CB,
-          correlationId: job.id,
-        },
-      );
+      const success = await chan.sendToQueue(CRAWL_QUEUE, websites, {
+        replyTo: CRAWL_QUEUE_CB,
+        correlationId: job.id,
+      });
       if (!success) {
         throw new Error("ERROR: Unable to send to job to crawler service");
       }
