@@ -91,37 +91,48 @@ async function check_existing_tasks(
   crawl_list: Array<string>,
 ): Promise<Array<string>> {
   let tmp: Array<string> = [];
-  let r: Array<string> = [];
-  let indexed_map: Map<string, string> = new Map();
-
-  const stmt = `SELECT primary_url FROM indexed_sites`;
-  const query = db.each(
-    stmt,
-    function (err, row: { primary_url: string }) {
-      try {
-        if (err) {
-          throw new Error(err.message);
-        }
-        indexed_map.set(row.primary_url, row.primary_url);
-      } catch (err) {
-        console.error("ERROR: Unable to query indexed websites.");
-        console.error(err);
-      }
-    },
-    function () {
-      console.log(indexed_map.size);
-      for (let i = 0; i < crawl_list.length; i++) {
-        const url = new URL(crawl_list[i]).hostname;
-        if (indexed_map.has(url)) {
-        } else {
-          tmp.push(url);
-        }
-      }
-    },
-  );
-
-  console.log(tmp);
+  const query = await query_promise_wrapper(db);
+  if (query == null)
+    throw new Error("ERROR: Unable to query indexed websites.");
+  crawl_list.forEach((item) => {
+    const url = new URL(item).hostname;
+    if (!query.has(url)) {
+      tmp.push(item);
+    }
+  });
   return tmp;
+}
+
+async function query_promise_wrapper(
+  db: Database,
+): Promise<Map<string, string> | null> {
+  const stmt = `SELECT primary_url FROM indexed_sites`;
+  let indexed_map: Map<string, string> = new Map();
+  return new Promise((resolve, reject) => {
+    db.each(
+      stmt,
+      function (err, row: { primary_url: string }) {
+        try {
+          if (err) {
+            throw new Error(err.message);
+          }
+          indexed_map.set(row.primary_url, "");
+        } catch (err) {
+          console.error("ERROR: Unable to query indexed websites.");
+          console.error(err);
+          reject(null);
+        }
+      },
+      function (err) {
+        if (err) {
+          console.error(err);
+          reject(null);
+          return;
+        }
+        resolve(indexed_map);
+      },
+    );
+  });
 }
 
 export default { index_webpages, check_existing_tasks, query_webpages };
