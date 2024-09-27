@@ -5,12 +5,13 @@ import {
   SEARCH_QUEUE,
   SEARCH_QUEUE_CB,
 } from "./routing_keys";
-let connection: Connection | null = null;
-let search_channel: Channel;
 
 class RabbitMQClient {
   connection: null | Connection = null;
   client: this = this;
+  search_channel: Channel | null = null;
+
+  constructor() {}
 
   async connectClient() {
     /*
@@ -25,17 +26,17 @@ class RabbitMQClient {
 
   async init_search_channel_queues() {
     try {
-      if (connection == null) {
+      if (this.connection == null) {
         throw new Error(
           "Unable establish a tcp connection with rabbitmq server.",
         );
       }
-      search_channel = await connection.createChannel();
-      await search_channel.assertQueue(SEARCH_QUEUE, {
+      this.search_channel = await this.connection.createChannel();
+      await this.search_channel.assertQueue(SEARCH_QUEUE, {
         exclusive: false,
         durable: false,
       });
-      await search_channel.assertQueue(SEARCH_QUEUE_CB, {
+      await this.search_channel.assertQueue(SEARCH_QUEUE_CB, {
         exclusive: false,
         durable: false,
       });
@@ -55,10 +56,17 @@ class RabbitMQClient {
     q: string;
     job_id: string;
   }): Promise<boolean> {
-    return await search_channel.sendToQueue(SEARCH_QUEUE, Buffer.from(job.q), {
-      correlationId: job.job_id,
-      replyTo: SEARCH_QUEUE_CB,
-    });
+    if (this.search_channel == null) {
+      return false;
+    }
+    return await this.search_channel.sendToQueue(
+      SEARCH_QUEUE,
+      Buffer.from(job.q),
+      {
+        correlationId: job.job_id,
+        replyTo: SEARCH_QUEUE_CB,
+      },
+    );
   }
 
   /*
@@ -71,15 +79,28 @@ class RabbitMQClient {
   TODO Handle errors in here please :D
 */
   async search_channel_listener(cb: (data: ConsumeMessage | null) => void) {
-    await search_channel.consume(
-      SEARCH_QUEUE_CB,
-      async (msg: ConsumeMessage | null) => {
-        if (msg === null) throw new Error("Msg does not exist");
-        console.log(msg);
-        cb(msg);
-        search_channel.ack(msg);
-      },
-    );
+    try {
+      if (this.search_channel == null) {
+        throw new Error("Search Channel is null.");
+      }
+      await this.search_channel.consume(
+        SEARCH_QUEUE_CB,
+        // errors in here will be caught
+        async (msg: ConsumeMessage | null) => {
+          if (msg === null) throw new Error("Msg does not exist");
+          console.log(msg);
+          cb(msg);
+          //I hate this
+          if (this.search_channel == null) {
+            throw new Error("Search Channel is null.");
+          }
+          this.search_channel.ack(msg);
+        },
+      );
+    } catch (err) {
+      const error = err as Error;
+      throw new Error(error.message);
+    }
   }
 
   /*
@@ -163,6 +184,54 @@ class RabbitMQClient {
       await chan.close();
       return false;
     }
+  }
+
+  async crawl_list_check(encoded_list: ArrayBuffer): Promise<null | {
+    undindexed: Array<string>;
+    data_buffer: Buffer;
+  }> {
+    if (this.connection === null)
+      throw new Error("Unable to create a channel for crawl queue.");
+    const channel = await this.connection.createChannel();
+
+    /*
+      Sends a message to the database service to check and see if the DOCS
+      or list of websites the users want to crawl already exists in the database.
+    */
+
+    const db_check_queue = "db_check_express";
+    const db_check_response_queue = "db_cbq_express";
+    await channel.assertQueue(db_check_queue, {
+      durable: false,
+      exclusive: false,
+    });
+    await channel.assertQueue(db_check_response_queue, {
+      durable: false,
+      exclusive: false,
+    });
+
+    await channel.sendToQueue(db_check_queue, Buffer.from(encoded_list));
+    let undindexed: Array<string> = [];
+    let data_buffer: Buffer = new Buffer("");
+    let is_error = false;
+    await channel.consume(db_check_response_queue, async (data) => {
+      if (data === null) {
+        throw new Error("ERROR: Data received is null.");
+      }
+      try {
+        const parse_list: { Docs: Array<string> } = JSON.parse(
+          data.content.toString(),
+        );
+        undindexed = parse_list.Docs;
+        data_buffer = data.content;
+        channel.ack(data);
+      } catch (err) {
+        is_error = true;
+        channel.nack(data, false, false);
+      }
+    });
+
+    return is_error ? null : { undindexed, data_buffer };
   }
 }
 

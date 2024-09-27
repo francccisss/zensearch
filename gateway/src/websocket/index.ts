@@ -41,7 +41,7 @@ class WebsocketService {
     );
     console.log("Messaged");
     try {
-      const is_sent = await rabbitmq.send_search_query({
+      const is_sent = await rabbitmq.client.send_search_query({
         q,
         job_id,
       });

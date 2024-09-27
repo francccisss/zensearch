@@ -40,4 +40,8 @@ const PORT = 8080;
   http_server.listen(PORT, () => {
     console.log("Listening to Port:", PORT);
   });
+  /*
+   Catching errors propogated by these initializers defined inside
+   in the try block
+  */
 })().catch(console.error);
