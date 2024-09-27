@@ -47,67 +47,22 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
   console.log("Crawl");
   const job_id = uuidv4();
   try {
-    const connection = await rabbitmq.connect();
-    if (connection === null)
-      throw new Error("Unable to create a channel for crawl queue.");
-    const channel = await connection.createChannel();
-
-    /*
-      sends a message to the database service to check and see if the DOCS
-      or list of websites the users want to crawl already exists in the database.
-    */
-
-    const db_check_queue = "db_check_express";
-    const db_check_response_queue = "db_cbq_express";
-    await channel.assertQueue(db_check_queue, {
-      durable: false,
-      exclusive: false,
+    const results = await rabbitmq.client.crawl_list_check(encoded_docs);
+    if (results === null) {
+      throw new Error("Unable to check user's crawl list.");
+    }
+    if (results.undindexed.length === 0) {
+      console.log("This shits empty YEEET!");
+      // return something
+    }
+    // if not then proceed to crawler service
+    const success = await rabbitmq.client.crawl_job(results.data_buffer, {
+      queue: CRAWL_QUEUE,
+      id: job_id,
     });
-    await channel.assertQueue(db_check_response_queue, {
-      durable: false,
-      exclusive: false,
-    });
-
-    // but we can consume it here after checking the database if it exists or not
-    // right after it returns with a value.
-    await channel.sendToQueue(db_check_queue, Buffer.from(encoded_docs));
-    await channel.consume(db_check_response_queue, async (data) => {
-      if (data === null) {
-        throw new Error("ERROR: Data received is null.");
-      }
-      try {
-        /*
-         check if it is empty or not, if so send back a message to the client
-         that the list provided have already been crawled
-        */
-        const undindexed_sites: { Docs: Array<string> } = JSON.parse(
-          data.content.toString(),
-        );
-        if (undindexed_sites.Docs.length === 0) {
-          console.log("This shits empty YEEET!");
-          res.send("<p>List already crawled.</p>");
-        }
-
-        // if not then proceed to crawler service
-        const success = await rabbitmq.crawl_job(channel, data.content, {
-          queue: CRAWL_QUEUE,
-          id: job_id,
-        });
-        if (!success) {
-          next("an Error occured while starting the crawl.");
-        }
-        channel.ack(data);
-      } catch (err) {
-        channel.nack(data, false, false);
-      }
-    });
-
-    /*
-      Clients does not need to know if it exists or not, we can still handle it internally.
-      We can just send back to the client an ok response after sending a crawl task
-      to the crawler service.
-    */
-
+    if (!success) {
+      throw new Error("Unable to send crawl list to web crawler service.");
+    }
     /*
       Creates a session cookie for job polling using the poll route handler `/job`
       the CRAWL_QUEUE_CB is used to poll the crawler service to check and see if
@@ -139,10 +94,7 @@ app.get("/job", async (req: Request, res: Response, next: NextFunction) => {
     throw new Error("There's no worker queue for this session for crawling.");
 
   try {
-    const connection = await rabbitmq.connect();
-    if (connection === null) throw new Error("TCP Connection lost.");
-    const channel = await connection.createChannel();
-    const job = await rabbitmq.poll_job(channel, {
+    const job = await rabbitmq.client.poll_job({
       id: job_id as string,
       queue: job_queue as string,
     });
@@ -150,7 +102,6 @@ app.get("/job", async (req: Request, res: Response, next: NextFunction) => {
       res.json({ message: "Processing..." });
       return;
     }
-    channel.close();
     res.clearCookie("job_id");
     res.clearCookie("job_queue");
     res.clearCookie("poll_type");
