@@ -10,9 +10,11 @@ let search_channel: Channel;
 
 class RabbitMQClient {
   connection: null | Connection = null;
+  client: this = this;
 
   async connectClient() {
     this.connection = await amqp.connect("amqp://localhost");
+    return this;
   }
 
   async init_search_channel_queues() {
@@ -158,4 +160,6 @@ class RabbitMQClient {
   }
 }
 
-export default {};
+// Start a new tcp connection with the rabbitmq server
+const client = new RabbitMQClient();
+export default { client };
