@@ -10,34 +10,36 @@ import data_serializer from "../utils/32bit_serializer";
 */
 
 async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
-  const push_queue = "database_push_queue";
+  // CRAWLER ROUTING KEYS
+  const db_indexing_crawler = "db_indexing_crawler";
 
+  // SEARCH ENGINE ROUTING KEYS
   // routing key used by search engine service to query database for webpages.
-  const db_query_queue = "database_query_queue";
+  const db_query_sengine = "db_query_sengine";
   // routing key to reply back to the search engine service's callback queue.
-  const db_response_queue = "database_response_queue";
+  const db_cbq_sengine = "db_cbq_sengine";
 
+  // EXPRESS SERVER ROUTING KEYS
   // routing key used by express server to check existing webpages.
   const db_check_express = "db_check_express";
   const db_cbq_express = "db_cbq_express";
 
-  const [push_channel, database_channel] = args;
+  const [_, database_channel] = args;
 
-  await push_channel.assertQueue(push_queue, {
+  /*
+   TODO Document code please :)
+   TODO Change names to make it more comprehensible please :D
+
+    Consumer waits for the crawler service to push new webpages into the `db_indexing_crawler`
+    message queue, the `index_webpages` handler saves these crawled webpages into
+    the database.
+  */
+  await database_channel.assertQueue(db_indexing_crawler, {
     exclusive: false,
     durable: false,
   });
 
-  /*
-   Channel to consume messages sent by the search engine service.
-   The fuck do you mean push_channel? this channel is supposed to consume
-   the data from the web crawler, it receives an array of Type Webpages.
-
-   TODO Document code please :)
-   TODO Change names to make it more comprehensible please :D
-  */
-
-  push_channel.consume(push_queue, async (data) => {
+  database_channel.consume(db_indexing_crawler, async (data) => {
     if (data === null) throw new Error("No data was pushed.");
     const decoder = new TextDecoder();
     const decoded_data = decoder.decode(data.content as ArrayBuffer);
@@ -45,18 +47,17 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
       const deserialize_data = JSON.parse(decoded_data);
       console.log(deserialize_data);
       database_operations.index_webpages(db, deserialize_data);
+      database_channel.ack(data);
     } catch (err) {
       const error = err as Error;
       console.error("ERROR: Decoder was unable to deserialized indexed data.");
       console.error(error.message);
-      console.error(error.stack);
-    } finally {
-      push_channel.ack(data);
+      database_channel.nack(data, false, false);
     }
   });
 
-  // DATABASE MESSAGE HANDLERS
-  await database_channel.assertQueue(db_query_queue, {
+  // SEARCH ENGINE AND EXPRESS JS CONSUMERS
+  await database_channel.assertQueue(db_query_sengine, {
     exclusive: false,
     durable: false,
   });
@@ -117,7 +118,7 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
     a callback queue is implemented once we consume and query webpages so that we can send
     it back right after all those process are done.
   */
-  database_channel.consume(db_query_queue, async (data) => {
+  database_channel.consume(db_query_sengine, async (data) => {
     if (data === null) throw new Error("No data was pushed.");
     try {
       const data_query: {
@@ -127,7 +128,7 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
       }[] = await database_operations.query_webpages(db);
       console.log(data.content);
       await database_channel.sendToQueue(
-        db_response_queue, // respond back to this queue from search engine
+        db_cbq_sengine, // respond back to this queue from search engine
         Buffer.from(JSON.stringify(data_query)),
         {
           correlationId: data.properties.correlationId,
