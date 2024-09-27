@@ -3,11 +3,9 @@ import { data_t, webpage_t } from "./utils/types";
 
 function index_webpages(db: Database, data: data_t) {
   if (db == null) {
-    throw new Error("Database is not connected.");
+    throw new Error("ERROR: Database is not connected.");
   }
-  console.log("INDEX PAGES");
   db.serialize(() => {
-    // this.db.run("PRAGMA foreign_keys = ON;");
     db.run(
       "INSERT OR IGNORE INTO known_sites (url, last_added) VALUES ($url, $last_added);",
       {
@@ -58,7 +56,7 @@ function index_webpages(db: Database, data: data_t) {
     );
     insert_indexed_sites_stmt.finalize();
   });
-  console.log("DONE INDEXING");
+  console.log("NOTIF: DONE INDEXING");
 }
 
 async function query_webpages(db: Database): Promise<Array<webpage_t>> {
@@ -68,7 +66,7 @@ async function query_webpages(db: Database): Promise<Array<webpage_t>> {
       try {
         if (err) {
           throw new Error(
-            "Something went wrong whil querying webpages for search query.",
+            "ERROR: Something went wrong while querying webpages for search query.",
           );
         }
         if (row.length === 0) {
@@ -78,7 +76,9 @@ async function query_webpages(db: Database): Promise<Array<webpage_t>> {
         resolved(row);
       } catch (err) {
         const error = err as Error;
-        console.log("LOG: Error while querying webpages in database service.");
+        console.log(
+          "ERROR: Error while querying webpages in database service.",
+        );
         console.error(error.message);
         reject(error.message);
       }
@@ -86,6 +86,7 @@ async function query_webpages(db: Database): Promise<Array<webpage_t>> {
   });
 }
 
+// TODO clean this wrapper thingy majig next time. :D
 async function check_existing_tasks(
   db: Database,
   crawl_list: Array<string>,
