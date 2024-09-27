@@ -6,7 +6,7 @@ import {
   CRAWL_QUEUE_CB,
   CRAWL_QUEUE,
   SEARCH_QUEUE_CB,
-} from "../rabbitmq/queues";
+} from "../rabbitmq/routing_keys";
 import rabbitmq from "../rabbitmq";
 rabbitmq;
 
@@ -59,16 +59,19 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
 
     const db_check_queue = "db_check_express";
     const db_check_response_queue = "db_cbq_express";
-    channel.assertQueue(db_check_queue, { durable: false, exclusive: false });
-    channel.assertQueue(db_check_response_queue, {
+    await channel.assertQueue(db_check_queue, {
+      durable: false,
+      exclusive: false,
+    });
+    await channel.assertQueue(db_check_response_queue, {
       durable: false,
       exclusive: false,
     });
 
     // but we can consume it here after checking the database if it exists or not
     // right after it returns with a value.
-    channel.sendToQueue(db_check_queue, Buffer.from(encoded_docs));
-    channel.consume(db_check_response_queue, async (data) => {
+    await channel.sendToQueue(db_check_queue, Buffer.from(encoded_docs));
+    await channel.consume(db_check_response_queue, async (data) => {
       if (data === null) {
         throw new Error("ERROR: Data received is null.");
       }
