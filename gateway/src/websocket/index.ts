@@ -63,6 +63,7 @@ class WebsocketService {
     }
   }
 
+  // send something back to clients if an error occured maybe
   async send_results_to_client(data: ConsumeMessage | null) {
     this.wss.clients.forEach((ws) => {
       if (ws.OPEN && data !== null) {

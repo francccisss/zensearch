@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	rabbitmqclient "web-crawler-service-golang/pkg/rabbitmq_client"
 	webdriver "web-crawler-service-golang/pkg/webdriver"
@@ -92,6 +93,7 @@ func main() {
 func handleConnections(msg amqp.Delivery, chann *amqp.Channel) {
 	defer chann.Ack(msg.DeliveryTag, false)
 	webpageIndex := parseIncomingData(msg.Body)
+	fmt.Printf("Docs: %+v\n", webpageIndex.Docs)
 	crawler := Crawler{URLs: webpageIndex.Docs}
 	go crawler.Start()
 }

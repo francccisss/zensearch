@@ -59,8 +59,9 @@ class RabbitMQClient {
   }
 
   /*
-  This Function sends a new search query to the SEARCH ENGINE SERVICE.
-*/
+   This Function sends a new search query to the SEARCH ENGINE SERVICE.
+   returns a bool to check if it has been sent
+  */
   async send_search_query(job: {
     q: string;
     job_id: string;
@@ -79,44 +80,36 @@ class RabbitMQClient {
   }
 
   /*
-  A listener for consuming search engine's search results that is pushed to the message queue
-  using `CRAWL_QUEUE_CB` routing key after it finishes processing user's search query.
+   A listener for consuming search engine's search results that is pushed to the message queue
+   using `SEARCH_QUEUE_CB` routing key after it finishes processing user's search query.
 
-  Takes in a callback function argument to process the data received from
-  the search engine service.
-
-*/
+   Takes in a callback function argument to process the data received from
+   the search engine service.
+  */
   async search_channel_listener(cb: (data: ConsumeMessage | null) => void) {
-    try {
-      if (this.search_channel == null)
-        throw new Error("ERROR: Search Channel is null.");
-      await this.search_channel.consume(
-        SEARCH_QUEUE_CB,
-        // errors will propogate outside
-        async (msg: ConsumeMessage | null) => {
-          if (msg === null) throw new Error("Msg does not exist");
-          console.log(msg);
-          cb(msg);
-          //I hate this
-          if (this.search_channel == null) {
-            throw new Error("ERROR: Search Channel is null.");
-          }
-          this.search_channel.ack(msg);
-        },
-      );
-    } catch (err) {
-      // Propogate error
-      const error = err as Error;
-      throw new Error(error.message);
-    }
+    if (this.search_channel == null)
+      throw new Error("ERROR: Search Channel is null.");
+    await this.search_channel.consume(
+      SEARCH_QUEUE_CB,
+      // errors will propogate outside
+      async (msg: ConsumeMessage | null) => {
+        if (msg === null) throw new Error("Msg does not exist");
+        console.log(msg);
+        cb(msg);
+        //I hate this
+        if (this.search_channel == null) {
+          throw new Error("ERROR: Search Channel is null.");
+        }
+        this.search_channel.ack(msg);
+      },
+    );
   }
 
   /*
-   * These methods underneath are used in the express server
-   * their purpose is to push messages into the message queue for every user
-   * request that is sent to the server.
    * `poll_job()` function is used to poll specific job using the job_id identifier that
-   * was set by the server in the client's cookies
+   * was set by the server in the client's cookies, it polls the server to check if there
+   * is a message in the message queue for `CRAWL_QUEUE_CB` routing key, by calling
+   * `messageCount`
    */
   async poll_job(job: {
     id: string;
@@ -146,6 +139,7 @@ class RabbitMQClient {
           chan.ack(response);
         },
       );
+      chan.close();
       return { done: true, data };
     } catch (err) {
       const error = err as Error;
@@ -155,7 +149,6 @@ class RabbitMQClient {
     }
   }
 
-  // Make user were passinga Buffer from an array of strings
   async crawl(
     websites: Buffer,
     job: { queue: string; id: string },

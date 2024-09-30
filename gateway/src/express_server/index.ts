@@ -73,13 +73,12 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     }
 
     /*
-      Need to notify users that some of the items in the list
-      have already been indexed, so we need to send back the items
-      that are not included in the unindexed list.
+      Need to notify users that some of the items in the list have already been indexed,
+      so we need to send back the items that are not included in the unindexed list
+      (means return only the indexed ones).
 
-      Doing the opposite by filtering out websites
-      that have already been indexed and return it back
-      to the user to change these entries.
+      Doing the opposite by filtering out websites that have already been indexed and
+      return it back to the user to change these entries.
     */
     if (results.undindexed.length !== Docs.length) {
       return res.status(200).json({
@@ -90,7 +89,8 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
       });
     }
     console.log({ unindexed: results.undindexed });
-    // if not then proceed to crawler service
+
+    // proceed to Crawler Service
     const success = await rabbitmq.client.crawl(results.data_buffer, {
       queue: CRAWL_QUEUE,
       id: job_id,
@@ -98,12 +98,12 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     if (!success) {
       throw new Error("Unable to send crawl list to web crawler service.");
     }
+
     /*
       Creates a session cookie for job polling using the poll route handler `/job`
       the CRAWL_QUEUE_CB is used to poll the crawler service to check and see if
       crawling is done or not you can read the code with the route `/job`
     */
-
     res.cookie("job_id", job_id);
     res.cookie("job_queue", CRAWL_QUEUE_CB);
     res.cookie("poll_type", "crawling");
