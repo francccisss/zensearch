@@ -106,10 +106,10 @@ func saveIndexedWebpages(jobID string, entry *WebpageEntry) error {
 			Url:   entry.hostname,
 		},
 	}
-
-	dbChannel.QueueDeclare("database_push_queue", false, false, false, false, nil)
+	const dbIndexingQueue = "db_indexing_crawler"
+	dbChannel.QueueDeclare(dbIndexingQueue, false, false, false, false, nil)
 	dataBuffer, err := json.Marshal(resultMessage)
-	dbChannel.Publish("", "database_push_queue", false, false, amqp.Publishing{
+	dbChannel.Publish("", dbIndexingQueue, false, false, amqp.Publishing{
 		Type:          "text/plain",
 		Body:          []byte(dataBuffer), // TODO convert to buffer array / byte
 		CorrelationId: jobID,
