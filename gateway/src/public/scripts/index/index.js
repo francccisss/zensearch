@@ -63,7 +63,6 @@ async function handle_on_crawl(target) {
     const poll = await polling.loop();
     target.disabled = false;
     crawl_btn_container.classList.remove("polling");
-    target.parentElement.style.display = "block";
     target.textContent = "Success";
   } catch (err) {
     crawl_btn.disabled = false;
@@ -74,4 +73,5 @@ async function handle_on_crawl(target) {
 crawl_btn.addEventListener("click", async (e) => {
   const target = e.currentTarget;
   await handle_on_crawl(target);
+  search_bar.parentElement.style.display = "block";
 });
