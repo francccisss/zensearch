@@ -2,6 +2,7 @@ import amqp from "amqplib";
 import database_operations from "../database_operations";
 import { Database } from "sqlite3";
 import data_serializer from "../utils/32bit_serializer";
+import { data_t } from "../utils/types";
 
 /*
   channel handler can take in multiple channels from a single tcp conneciton
@@ -44,10 +45,23 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
     const decoder = new TextDecoder();
     const decoded_data = decoder.decode(data.content as ArrayBuffer);
     try {
-      const deserialize_data = JSON.parse(decoded_data);
+      const deserialize_data: data_t = JSON.parse(decoded_data);
       console.log(deserialize_data);
       database_operations.index_webpages(db, deserialize_data);
       database_channel.ack(data);
+
+      database_channel.sendToQueue(
+        data.properties.replyTo,
+        // Encode message to a utf-8 buffer
+        Buffer.from(
+          JSON.stringify({
+            message: "Success",
+            new_webpages: deserialize_data.Webpages.map(
+              (page) => page.Header.Url,
+            ),
+          }),
+        ),
+      );
     } catch (err) {
       const error = err as Error;
       console.error("ERROR: Decoder was unable to deserialized indexed data.");

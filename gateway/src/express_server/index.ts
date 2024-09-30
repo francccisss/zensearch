@@ -36,8 +36,8 @@ app.get("/", (req: Request, res: Response) => {
 app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
   const Docs = [
     "https://fzaid.vercel.app/",
-    "https://robbowen.digital/",
-    "https://naren200.github.io/",
+    //"https://robbowen.digital/",
+    //"https://naren200.github.io/",
     "https://brittanychiang.com",
   ];
 
