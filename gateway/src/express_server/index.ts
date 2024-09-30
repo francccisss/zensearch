@@ -67,8 +67,9 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     if (results.undindexed.length === 0) {
       console.log("This shits empty YEEET!");
       return res.status(200).json({
-        message: "Crawl list are already indexed, provide a new list.",
-        crawl_list: results.undindexed,
+        is_crawling: false,
+        message: "Items in this list have already indexed, provide a new list.",
+        crawl_list: Docs,
       });
     }
 
@@ -82,6 +83,7 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     */
     if (results.undindexed.length !== Docs.length) {
       return res.status(200).json({
+        is_crawling: false,
         message: "Some of the items in this list have already indexed.",
         crawl_list: Docs.filter(
           (website) => !results.undindexed.includes(website) ?? website,
@@ -107,7 +109,11 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     res.cookie("job_id", job_id);
     res.cookie("job_queue", CRAWL_QUEUE_CB);
     res.cookie("poll_type", "crawling");
-    res.json({ message: "Crawling", crawl_list: results.undindexed });
+    res.json({
+      is_crawling: true,
+      message: "Crawling",
+      crawl_list: results.undindexed,
+    });
   } catch (err) {
     const error = err as Error;
     console.log("ERRO :Something went wrong with Crawl queue");

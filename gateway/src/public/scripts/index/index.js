@@ -1,3 +1,5 @@
+// I hate javascript
+
 console.log("Initialized Script");
 import polling from "../utils/job_polling.js";
 import PubSub from "../utils/pubsub.js";
@@ -7,10 +9,9 @@ const crawl_btn_container = document.getElementById("crawl-btn").parentElement;
 const POLL_INTERVAL = 3;
 const spinner = document.querySelector("span.process-spinner");
 const search_bar = document.querySelector('input[type="search"]');
+const crawler_rsp_cont = document.querySelector("#crawler-response-container");
 const pubsub = new PubSub();
 let is_crawling = false;
-
-pubsub.subscribe("polling_event", handle_on_crawl);
 
 // to continue polling when users refresh the page
 
@@ -26,8 +27,23 @@ polling.init(
     console.log(message);
     crawl_btn.disabled = false;
     crawl_btn_container.classList.remove("polling");
+    search_bar.parentElement.style.display = "block";
   },
 );
+
+function update_crawl_list(response) {
+  // Resets the list
+  Array.from(crawler_rsp_cont.lastElementChild.children).forEach((li) => {
+    li.remove();
+  });
+  crawler_rsp_cont.firstElementChild.textContent = response.message;
+  response.crawl_list.forEach((item) => {
+    const crawl_item = document.createElement("li");
+    crawl_item.textContent = item;
+    crawler_rsp_cont.lastElementChild.appendChild(crawl_item);
+  });
+  search_bar.parentElement.style.display = "none";
+}
 
 async function handle_on_crawl() {
   try {
@@ -35,9 +51,15 @@ async function handle_on_crawl() {
     const crawl = await fetch("http://localhost:8080/crawl", {
       method: "POST",
     });
+    const response = await crawl.json();
+    if (!response.is_crawling) {
+      update_crawl_list(response);
+      return;
+    }
     await polling.loop();
-    crawl_btn.disabled = false;
-    crawl_btn_container.classList.remove("polling");
+    target.disabled = true;
+    target.textContent = "Crawling...";
+    crawl_btn_container.classList.add("polling");
   } catch (err) {
     crawl_btn.disabled = false;
     console.error(err.message);
@@ -46,8 +68,5 @@ async function handle_on_crawl() {
 
 crawl_btn.addEventListener("click", async (e) => {
   const target = e.currentTarget;
-  target.disabled = true;
-  target.textContent = "Crawling...";
-  crawl_btn_container.classList.add("polling");
-  pubsub.publish("polling_event");
+  handle_on_crawl();
 });

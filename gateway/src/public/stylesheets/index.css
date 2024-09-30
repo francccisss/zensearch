@@ -46,3 +46,12 @@ main {
     opacity: 1;
   }
 }
+
+#crawler-response-container {
+  p {
+    font-weight: 600;
+  }
+}
+.search-crawl-container {
+  align-items: start !important;
+}
