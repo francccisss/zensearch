@@ -20,11 +20,12 @@ polling.init(
   () => {
     crawl_btn.disabled = true;
     crawl_btn_container.classList.add("polling");
-    crawl_btn.textContent = "Crawling...";
+    crawl_btn.textContent = "Crawling";
   },
   // done()
   (message) => {
     console.log(message);
+    crawl_btn.textContent = "Crawl Websites";
     crawl_btn.disabled = false;
     crawl_btn_container.classList.remove("polling");
     search_bar.parentElement.style.display = "block";
@@ -42,24 +43,28 @@ function update_crawl_list(response) {
     crawl_item.textContent = item;
     crawler_rsp_cont.lastElementChild.appendChild(crawl_item);
   });
-  search_bar.parentElement.style.display = "none";
 }
 
-async function handle_on_crawl() {
+async function handle_on_crawl(target) {
   try {
     console.log("crawl");
     const crawl = await fetch("http://localhost:8080/crawl", {
       method: "POST",
     });
     const response = await crawl.json();
+    search_bar.parentElement.style.display = "none";
     if (!response.is_crawling) {
       update_crawl_list(response);
       return;
     }
-    await polling.loop();
     target.disabled = true;
-    target.textContent = "Crawling...";
+    target.textContent = "Crawling";
     crawl_btn_container.classList.add("polling");
+    const poll = await polling.loop();
+    target.disabled = false;
+    crawl_btn_container.classList.remove("polling");
+    target.parentElement.style.display = "block";
+    target.textContent = "Success";
   } catch (err) {
     crawl_btn.disabled = false;
     console.error(err.message);
@@ -68,5 +73,5 @@ async function handle_on_crawl() {
 
 crawl_btn.addEventListener("click", async (e) => {
   const target = e.currentTarget;
-  handle_on_crawl();
+  await handle_on_crawl(target);
 });

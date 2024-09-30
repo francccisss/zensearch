@@ -4,7 +4,7 @@ async function poll_job() {
   console.log("Poll Job");
   let cookies = extract_cookies();
   const polling = await fetch(
-    `http://localhost:8080/job?job_id=${cookies.job_id}&job_queue=${cookies.job_queue}`,
+    `http://localhost:8080/job?job_id=${cookies.job_id}&job_queue=${cookies.job_queue}&job_count=${cookies.job_count}`,
   );
 
   const polling_response = polling.ok ? await polling.json() : null;
@@ -12,6 +12,7 @@ async function poll_job() {
   return polling_response;
 }
 
+// need a timer to stop looping if the server might be down
 async function loop() {
   console.log("polling");
   let is_polling = true;

@@ -114,6 +114,7 @@ class RabbitMQClient {
   async poll_job(job: {
     id: string;
     queue: string;
+    count: number;
   }): Promise<{ done: boolean; data: any }> {
     try {
       if (this.connection === null) throw new Error("TCP Connection lost.");
@@ -125,8 +126,8 @@ class RabbitMQClient {
       const { queue, messageCount, consumerCount } = await chan.checkQueue(
         job.queue as string,
       );
-      console.log(queue);
-      if (messageCount === 0) {
+      console.log(messageCount);
+      if (messageCount === 0 || messageCount < job.count) {
         return { done: false, data: {} };
       }
       let data: any;
