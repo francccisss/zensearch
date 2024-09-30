@@ -125,6 +125,7 @@ class RabbitMQClient {
       const { queue, messageCount, consumerCount } = await chan.checkQueue(
         job.queue as string,
       );
+      console.log(queue);
       if (messageCount === 0) {
         return { done: false, data: {} };
       }
@@ -137,9 +138,9 @@ class RabbitMQClient {
           data = response.content.toString();
           console.log("CONSUMED");
           chan.ack(response);
+          chan.close();
         },
       );
-      chan.close();
       return { done: true, data };
     } catch (err) {
       const error = err as Error;

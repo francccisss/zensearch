@@ -24,6 +24,7 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
   // routing key used by express server to check existing webpages.
   const db_check_express = "db_check_express";
   const db_cbq_express = "db_cbq_express";
+  const db_cbq_poll_express = "crawl_poll_queue";
 
   const [_, database_channel] = args;
 
@@ -50,6 +51,8 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
       database_operations.index_webpages(db, deserialize_data);
       database_channel.ack(data);
 
+      // Sends message to the `crawl_poll_queue` on the express server /job polling
+      // route handler.
       database_channel.sendToQueue(
         data.properties.replyTo,
         // Encode message to a utf-8 buffer

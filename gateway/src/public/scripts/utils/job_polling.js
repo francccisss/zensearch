@@ -8,6 +8,7 @@ async function poll_job() {
   );
 
   const polling_response = polling.ok ? await polling.json() : null;
+  console.log(polling_response);
   return polling_response;
 }
 
@@ -21,7 +22,7 @@ async function loop() {
     }
 
     const job = await poll_job();
-    if (job !== null) {
+    if (job.done) {
       return job;
     }
     // to block timeout

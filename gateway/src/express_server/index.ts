@@ -128,18 +128,19 @@ app.get("/job", async (req: Request, res: Response, next: NextFunction) => {
   if (job_id === undefined || job_queue === undefined)
     throw new Error("ERROR: There's no job queue for this job id.");
   try {
+    console.log("Poll Crawled Job Results.");
     const job = await rabbitmq.client.poll_job({
       id: job_id as string,
       queue: job_queue as string,
     });
     if (!job.done) {
-      res.status(200).json({ message: "Processing" });
+      res.status(200).json(job);
       return;
     }
     res.clearCookie("job_id");
     res.clearCookie("job_queue");
     res.clearCookie("poll_type");
-    res.json({ message: job.data }).status(200);
+    res.json(job).status(200);
   } catch (err) {
     const error = err as Error;
     console.log("ERROR :Something went wrong with polling queue");
