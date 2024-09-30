@@ -35,10 +35,12 @@ app.get("/", (req: Request, res: Response) => {
 // TODO use Websockets for crawling instead of polling like a biiiitchh
 app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
   const Docs = [
-    "https://fzaid.vercel.app/",
-    //"https://robbowen.digital/",
-    //"https://naren200.github.io/",
-    "https://brittanychiang.com",
+    //"https://localhost:8080",
+    //"https://youtube.com",
+    //"https://brittanychiang.com",
+    //"https://fzaid.vercel.app/",
+    "https://robbowen.digital/",
+    "https://naren200.github.io/",
   ];
 
   const encoder = new TextEncoder();
@@ -84,7 +86,7 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     if (results.undindexed.length !== Docs.length) {
       return res.status(200).json({
         is_crawling: false,
-        message: "Some of the items in this list have already indexed.",
+        message: "The items in this list have already indexed.",
         crawl_list: Docs.filter(
           (website) => !results.undindexed.includes(website) ?? website,
         ),
