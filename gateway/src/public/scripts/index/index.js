@@ -35,7 +35,7 @@ async function handle_on_crawl() {
     const crawl = await fetch("http://localhost:8080/crawl", {
       method: "POST",
     });
-    //await polling.loop();
+    await polling.loop();
     crawl_btn.disabled = false;
     crawl_btn_container.classList.remove("polling");
   } catch (err) {
@@ -46,8 +46,8 @@ async function handle_on_crawl() {
 
 crawl_btn.addEventListener("click", async (e) => {
   const target = e.currentTarget;
-  //target.disabled = true;
-  //target.textContent = "Crawling...";
-  //crawl_btn_container.classList.add("polling");
+  target.disabled = true;
+  target.textContent = "Crawling...";
+  crawl_btn_container.classList.add("polling");
   pubsub.publish("polling_event");
 });
