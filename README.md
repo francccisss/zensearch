@@ -1,4 +1,4 @@
-# search-engine
+# zensearch
 Building a small scale Distributed Search Engine using NodeJs for Crawling and indexing and Golang for calculating and ranking each webpages' relevancy to the user's search query.
 
 ## Why did I build this
