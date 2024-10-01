@@ -10,7 +10,28 @@ Basically a simple distributed search engine, developers can crawl and index web
 
 
 # Tools and Dependencies
-#### Selenium Driver Dependencies
+
+#### Frontend
+[No Framework just vanilla yavascript](https://frontendmasters.com/blog/you-might-not-need-that-framework/)
+
+#### Backend Server
+[ExpressJs](http://expressjs.com/)
+[NodeJS](https://nodejs.org/en)
+
+#### Database Service
+[ExpressJs](http://expressjs.com/)
+[NodeJS](https://nodejs.org/en)
+[Sqlite3 for Nodejs](https://www.npmjs.com/package/sqlite3)
+[Sqlite](https://www.sqlite.org/index.html)
+
+#### Crawler Service
+[Go](https://go.dev/)
+[Selenium](https://pkg.go.dev/github.com/tebeka/selenium)
+
+#### Selenium Driver Dependencies (IMPORTANT)
 [Chrome Driver Docs](https://developer.chrome.com/docs/chromedriver)
 [Chrome Browser](https://www.google.com/chrome/)
 [XFVB virtual frame buffer](https://www.x.org/releases/X11R7.6/doc/man/man1/Xvfb.1.xhtml)
+
+#### Search Engine Service
+[Go](https://go.dev/)
