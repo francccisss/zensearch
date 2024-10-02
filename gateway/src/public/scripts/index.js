@@ -1,4 +1,6 @@
 import crawlInput from "./components/crawl_input/index.js";
+import ui from "./ui/index.js";
+
 const sidebar = document.getElementById("crawl-list-sb");
 const closeSbBtn = document.getElementById("close-sb");
 const openSbBtn = document.getElementById("add-entry-sb-btn");
@@ -28,6 +30,7 @@ function showPage(path) {
 }
 
 window.addEventListener("load", () => {
+  ui.init();
   showPage("/");
 });
 
