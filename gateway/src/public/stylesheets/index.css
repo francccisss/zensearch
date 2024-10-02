@@ -174,7 +174,7 @@ header.title-container {
   }
 }
 
-button.add-entry-sb-btn {
+button#add-entry-sb-btn {
   display: block;
   margin-top: 2em;
   color: var(--light-text);
@@ -198,6 +198,7 @@ body:has(.active-sb) {
   background-color: var(--bg);
   min-height: 100dvh;
   padding: 1em 2em;
+  width: 30em;
 }
 #crawl-list-header {
   display: flex;
@@ -216,9 +217,11 @@ body:has(.active-sb) {
   }
 }
 #crawl-list-sb.inactive-sb {
-  width: 0em;
+  transition: 250ms ease-in-out left;
+  left: -40em;
 }
 #crawl-list-sb.active-sb {
+  transition: 250ms ease-in-out left;
   box-shadow: 2px 0px 10px 4px #1d1d1d10;
-  width: 30em;
+  left: 0em;
 }

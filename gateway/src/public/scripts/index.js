@@ -1,4 +1,7 @@
 import crawlInput from "./components/crawl_input/index.js";
+const sidebar = document.getElementById("crawl-list-sb");
+const closeSbBtn = document.getElementById("close-sb");
+const openSbBtn = document.getElementById("add-entry-sb-btn");
 const pageUrls = {
   home: "/",
   crawlProcess: "#crawl-section/process",
@@ -26,4 +29,14 @@ function showPage(path) {
 
 window.addEventListener("load", () => {
   showPage("/");
+});
+
+closeSbBtn.addEventListener("click", () => {
+  if (sidebar.classList.contains("active-sb")) {
+    sidebar.classList.replace("active-sb", "inactive-sb");
+  }
+});
+
+openSbBtn.addEventListener("click", () => {
+  sidebar.classList.replace("inactive-sb", "active-sb");
 });
