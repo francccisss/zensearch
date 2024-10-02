@@ -1,12 +1,14 @@
 import crawlInput from "../components/crawl_input/index.js";
 
+/*
+ * The plan is to make this file as a collection of ui component/element handlers
+ * instead of spreading them out wherever, or putting them in the same folder
+ * with the entry point `index.js` where all of the event listeners reside.
+ */
+
 function initCrawlInputs() {
   const listContainer = document.querySelector(".list-container");
   listContainer.appendChild(crawlInput.createComponent());
-}
-
-function init() {
-  initCrawlInputs();
 }
 
 function sidebarActions(event) {
@@ -23,4 +25,8 @@ function sidebarActions(event) {
   }
 }
 
+// UI initializer for placeholder or something. idk
+function init() {
+  initCrawlInputs();
+}
 export default { init, sidebarActions };
