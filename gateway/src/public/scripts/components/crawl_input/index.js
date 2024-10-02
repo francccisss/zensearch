@@ -1,4 +1,6 @@
 const template = document.getElementById("crawl-input-template");
+const listContainer = document.querySelector(".crawl-list-container")
+  .children[0];
 
 function createComponent() {
   const container = document.createElement("div");
@@ -8,4 +10,19 @@ function createComponent() {
   return container;
 }
 
-export default { createComponent };
+function addNewEntry() {
+  listContainer.appendChild(createComponent());
+}
+
+function removeEntry(id) {
+  const children = Array.from(listContainer.children);
+  listContainer.replaceChildren(
+    children.filter((child) => {
+      if (child.id !== id) {
+        return child;
+      }
+    }),
+  );
+}
+
+export default { createComponent, addNewEntry };
