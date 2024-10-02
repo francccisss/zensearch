@@ -164,15 +164,11 @@ header.title-container {
 .crawl-list-container {
   margin-top: 2em;
   display: flex;
-  align-items: center;
-  justify-content: center;
   & > :first-child {
     width: 100%;
     display: flex;
-    align-items: center;
-    justify-content: left;
+    align-items: start;
     flex-direction: column;
-    max-height: 300px;
     overflow-y: auto;
     gap: 1em;
   }
@@ -195,12 +191,34 @@ body:has(.active-sb) {
     background-color: #1d1d1d20;
   }
 }
-#crawl-list-sb.active-sb {
+#crawl-list-sb {
   z-index: 999;
-  box-shadow: 2px 0px 10px 4px #1d1d1d10;
-  position: sticky;
+  position: fixed;
   top: 0px;
-  width: 20em;
   background-color: var(--bg);
   min-height: 100dvh;
+  padding: 1em 2em;
+}
+#crawl-list-header {
+  display: flex;
+  align-items: center;
+  h2 {
+    font-size: 3rem;
+  }
+  button {
+    color: var(--light-text);
+    font-weight: bold;
+    background-color: var(--black);
+    border-radius: var(--rounded-full);
+    height: 30px;
+    width: 30px;
+    margin-left: auto;
+  }
+}
+#crawl-list-sb.inactive-sb {
+  width: 0em;
+}
+#crawl-list-sb.active-sb {
+  box-shadow: 2px 0px 10px 4px #1d1d1d10;
+  width: 30em;
 }

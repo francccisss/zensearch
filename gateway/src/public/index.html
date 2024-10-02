@@ -12,7 +12,20 @@
     <script type="module" src="scripts/index.js"></script>
   </head>
   <body>
-    <div id="crawl-list-sb" class="active-sb">Crawl Urls:</div>
+    <div id="crawl-list-sb" class="active-sb">
+      <div id="crawl-list-header">
+        <h2>Crawl list</h2>
+        <button type="button">X</button>
+      </div>
+      <div class="crawl-list-container">
+        <div>
+          <crawl-input crawl-url="https://localhost:8080/"></crawl-input>
+          <crawl-input crawl-url="https://localhost:8080/"></crawl-input>
+          <crawl-input crawl-url="https://localhost:8080/"></crawl-input>
+          <crawl-input crawl-url="https://localhost:8080/"></crawl-input>
+        </div>
+      </div>
+    </div>
     <main id="search-page">
       <section class="centered-contents-container">
         <div class="contents">
@@ -66,15 +79,6 @@
         </div>
       </section>
     </main>
-    <!--<div class="crawl-list-container">-->
-    <!--  <div>-->
-    <!--    <crawl-input crawl-url="https://localhost:8080/"></crawl-input>-->
-    <!--    <crawl-input crawl-url="https://localhost:8080/"></crawl-input>-->
-    <!--    <crawl-input crawl-url="https://localhost:8080/"></crawl-input>-->
-    <!--    <crawl-input crawl-url="https://localhost:8080/"></crawl-input>-->
-    <!--  </div>-->
-    <!--</div>-->
-
     <main id="results-page"></main>
     <main id="process-page"></main>
     <template id="crawl-input-temp">
