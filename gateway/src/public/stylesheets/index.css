@@ -47,13 +47,8 @@ button {
   --light-text: #ffffff;
 }
 
-#scroll-down-info {
-  margin-top: auto;
-  text-align: center;
-}
-
 .info-large {
-  font-size: 1.4rem;
+  font-size: 1rem;
   color: var(--low-light-text);
 }
 .info-small {
@@ -85,16 +80,28 @@ header.title-container {
 }
 
 .search-outer-container {
-  margin-top: 2em;
+  margin-top: 1.8em;
   display: flex;
   flex-direction: column;
   width: 100%;
-  :last-child {
-    text-align: center;
-  }
   .github-link {
+    margin-top: 1em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     a:hover {
       text-decoration: underline;
+    }
+    span.github-icon {
+      margin-right: 0.5rem;
+      --icon-size: 30px;
+      display: inline-block;
+      width: var(--icon-size);
+      height: var(--icon-size);
+      background-size: var(--icon-size);
+      background: url("../assets/icons/Github.png");
+      background-position: center;
+      background-repeat: no-repeat;
     }
   }
 }
@@ -118,4 +125,21 @@ header.title-container {
     right: 0%;
   }
   margin-bottom: 0.5em;
+}
+
+#scroll-down-info {
+  margin-top: auto;
+  margin-bottom: 1.2em;
+  text-align: center;
+  .scroll-down-icon {
+    --icon-size: 30px;
+    margin-inline: auto;
+    display: block;
+    width: var(--icon-size);
+    height: var(--icon-size);
+    background-size: var(--icon-size);
+    background: url("../assets/icons/arrow_drop_down.png");
+    background-position: center;
+    background-repeat: no-repeat;
+  }
 }
