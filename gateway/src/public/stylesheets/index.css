@@ -284,13 +284,13 @@ body:has(.active-sb) {
   }
 }
 
-.hide-reveal-entry:hover,
-.remove-entry:hover {
+.hide-reveal-entry-btn:hover,
+.remove-entry-btn:hover {
   transition: scale ease-in-out 50ms;
   scale: 0.9;
 }
-.hide-reveal-entry,
-.remove-entry {
+.hide-reveal-entry-btn,
+.remove-entry-btn {
   transition: scale ease-in 250ms;
   background-color: transparent;
   --icon-size: 35px;
@@ -300,12 +300,12 @@ body:has(.active-sb) {
   background-repeat: no-repeat;
   background-position: center;
 }
-.hide-entry {
+.hide-entry-btn {
   background-image: url("../assets/icons/hide.png");
 }
-.reveal-entry {
+.reveal-entry-btn {
   background-image: url("../assets/icons/show.png");
 }
-.remove-entry {
+.remove-entry-btn {
   background-image: url("../assets/icons/close.png");
 }
