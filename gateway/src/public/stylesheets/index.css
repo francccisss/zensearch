@@ -38,6 +38,15 @@ button {
   appearance: none;
 }
 
+a,
+a:visited {
+  text-decoration: none;
+  color: var(--low-light-text);
+}
+a:hover {
+  text-decoration: underline;
+}
+
 :root {
   --low-light-text: #757575;
   --input-color: #f3f3f3;
