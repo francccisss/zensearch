@@ -12,6 +12,7 @@
     <script type="module" src="scripts/index.js"></script>
   </head>
   <body>
+    <div id="crawl-list-sb" class="active-sb">Crawl Urls:</div>
     <main id="search-page">
       <section class="centered-contents-container">
         <div class="contents">
@@ -50,12 +51,41 @@
         <span class="scroll-down-icon"></span>
       </a>
     </main>
-    <main id="crawl-section">Crawl</main>
+    <main id="crawl-section">
+      <section class="centered-contents-container">
+        <div class="contents">
+          <header class="title-container">
+            <div class="bold-title">
+              <h1 class="header-title">
+                <p class="highlight-text">Crawl</p>
+                the web by inserting a website
+              </h1>
+            </div>
+          </header>
+          <button type="button" class="add-entry-sb-btn">Add Entries</button>
+        </div>
+      </section>
+    </main>
+    <!--<div class="crawl-list-container">-->
+    <!--  <div>-->
+    <!--    <crawl-input crawl-url="https://localhost:8080/"></crawl-input>-->
+    <!--    <crawl-input crawl-url="https://localhost:8080/"></crawl-input>-->
+    <!--    <crawl-input crawl-url="https://localhost:8080/"></crawl-input>-->
+    <!--    <crawl-input crawl-url="https://localhost:8080/"></crawl-input>-->
+    <!--  </div>-->
+    <!--</div>-->
+
     <main id="results-page"></main>
     <main id="process-page"></main>
     <template id="crawl-input-temp">
-      <input data-hidden="false" type="text" name="" value="" />
-      <button type="button">Hide</button>
+      <input
+        data-hidden="false"
+        placeholder="Type in url to crawl"
+        type="text"
+        name=""
+        value=""
+      />
+      <button type="button">.</button>
     </template>
   </body>
 </html>
