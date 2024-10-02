@@ -27,9 +27,13 @@ h5 {
   margin: 0;
   border: 0;
 }
+p {
+  display: inline-block;
+}
 
 button,
 a {
+  font-family: inherit;
   cursor: pointer;
 }
 input,
@@ -48,6 +52,9 @@ a:hover {
 }
 
 :root {
+  --rounded-full: 9999px;
+  --input-btn-padding: 1rem 1.5rem;
+  --crawl-input-btn-padding: 0.7rem 1.2rem;
   --low-light-text: #757575;
   --input-color: #f3f3f3;
   --black: #1e1e1e;
@@ -74,6 +81,7 @@ header.title-container {
   align-items: center;
   text-align: center;
   h1 {
+    max-width: 700px;
     line-height: 3.8rem;
     span {
       display: block;
@@ -119,7 +127,7 @@ header.title-container {
   position: relative;
   input,
   button {
-    padding: 1rem 1.5rem;
+    padding: var(--input-btn-padding);
     border-radius: 9999px;
   }
   input[type="search"] {
@@ -151,4 +159,48 @@ header.title-container {
     background-position: center;
     background-repeat: no-repeat;
   }
+}
+
+.crawl-list-container {
+  margin-top: 2em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  & > :first-child {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: left;
+    flex-direction: column;
+    max-height: 300px;
+    overflow-y: auto;
+    gap: 1em;
+  }
+}
+
+button.add-entry-sb-btn {
+  display: block;
+  margin-top: 2em;
+  color: var(--light-text);
+  background-color: var(--black);
+  padding: var(--input-btn-padding);
+  border-radius: var(--rounded-full);
+  margin-inline: auto;
+}
+
+body:has(.active-sb) {
+  position: relative;
+  main {
+    filter: blur(5px);
+    background-color: #1d1d1d20;
+  }
+}
+#crawl-list-sb.active-sb {
+  z-index: 999;
+  box-shadow: 2px 0px 10px 4px #1d1d1d10;
+  position: sticky;
+  top: 0px;
+  width: 20em;
+  background-color: var(--bg);
+  min-height: 100dvh;
 }
