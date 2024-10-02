@@ -19,3 +19,9 @@ openSbBtn.addEventListener("click", () => {
 
 sidebar.addEventListener("click", ui.sidebarActions);
 pubsub.subscribe("removeEntry", crawlInput.updateEntries);
+pubsub.subscribe("removeEntry", (entries) => {
+  if (entries.length === 0) {
+    listContainer.innerHTML = `<p class='info-large'>Seems like you don't have any entries yet, click on "New entry".</p>`;
+  }
+});
+pubsub.subscribe("hideEntry", crawlInput.updateEntries);

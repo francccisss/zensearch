@@ -1,5 +1,8 @@
 @import url("./layouts.css");
 
+html {
+  scroll-behavior: smooth;
+}
 body,
 html {
   font-family:
@@ -162,21 +165,6 @@ header.title-container {
   }
 }
 
-.crawl-list-container {
-  margin-top: 2em;
-  display: flex;
-  align-items: start;
-  flex-direction: column;
-  & > :first-child {
-    width: 100%;
-    display: flex;
-    align-items: start;
-    flex-direction: column;
-    overflow-y: auto;
-    gap: 1em;
-  }
-}
-
 button#add-entry-sb-btn:hover,
 .new-entry-btn:hover {
   background-color: transparent;
@@ -208,20 +196,40 @@ body:has(.active-sb) {
     background-color: #1d1d1d20;
   }
 }
+.crawl-list-container {
+  margin-top: 2em;
+  display: flex;
+  align-items: start;
+  flex-direction: column;
+  & > :first-child {
+    width: 100%;
+    display: flex;
+    align-items: start;
+    flex-direction: column;
+    overflow-y: auto;
+    gap: 1.4em;
+  }
+}
+
 #crawl-list-sb {
   z-index: 999;
   position: fixed;
   top: 0px;
   background-color: var(--bg);
   min-height: 100dvh;
-  padding: 1em 2em;
+  padding: 2em 2em;
   width: 35em;
 }
 #crawl-list-header {
   display: flex;
   align-items: center;
-  h2 {
-    font-size: 3rem;
+  span {
+    h2 {
+      font-size: 3.5rem;
+    }
+    p {
+      color: var(--low-light-text);
+    }
   }
   button:hover {
     outline: 2px solid #1d1d1d;
@@ -229,6 +237,7 @@ body:has(.active-sb) {
     transition: outline 120ms ease-in;
   }
   button {
+    align-self: self-start;
     transition: outline 120ms ease-in;
     outline: 2px solid transparent;
     outline-offset: 5px;
@@ -237,7 +246,7 @@ body:has(.active-sb) {
     background-color: var(--black);
     border-radius: var(--rounded-full);
     height: 30px;
-    width: 30px;
+    width: 35px;
     margin-left: auto;
   }
 }
