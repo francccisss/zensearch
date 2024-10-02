@@ -240,6 +240,7 @@ body:has(.active-sb) {
       color: var(--low-light-text);
     }
   }
+
   button:hover {
     outline: 2px solid #1d1d1d;
     outline-offset: 5px;

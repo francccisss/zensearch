@@ -18,6 +18,7 @@ function createComponent() {
 
 function addNewEntry() {
   listContainer.appendChild(createComponent());
+  pubsub.publish("addEntry", listContainer.children);
 }
 
 /*
