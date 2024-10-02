@@ -38,6 +38,7 @@ a {
 }
 input,
 button {
+  font-family: inherit;
   border: none;
   appearance: none;
 }
@@ -131,6 +132,7 @@ header.title-container {
     border-radius: 9999px;
   }
   input[type="search"] {
+    /*font-size: 1rem;*/
     background-color: var(--input-color);
     width: 100%;
   }
@@ -177,6 +179,8 @@ header.title-container {
 button#add-entry-sb-btn {
   display: block;
   margin-top: 2em;
+  font-size: 1.5rem;
+  font-weight: bold;
   color: var(--light-text);
   background-color: var(--black);
   padding: var(--input-btn-padding);
@@ -198,7 +202,7 @@ body:has(.active-sb) {
   background-color: var(--bg);
   min-height: 100dvh;
   padding: 1em 2em;
-  width: 30em;
+  width: 35em;
 }
 #crawl-list-header {
   display: flex;

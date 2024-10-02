@@ -2,6 +2,7 @@
 <html>
   <head>
     <title>ZenSearch</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -12,7 +13,7 @@
     <script type="module" src="scripts/index.js"></script>
   </head>
   <body>
-    <div id="crawl-list-sb" class="active-sb">
+    <div id="crawl-list-sb" class="inactive-sb">
       <div id="crawl-list-header">
         <h2>Crawl list</h2>
         <button id="close-sb" type="button">X</button>
@@ -71,11 +72,15 @@
             <div class="bold-title">
               <h1 class="header-title">
                 <p class="highlight-text">Crawl</p>
-                the web by inserting a website
+                the web by adding an entry
               </h1>
             </div>
+            <p class="sub-title">
+              Important: make sure you dont refresh the webpage while the
+              crawler is doing it's job :D, say "thank you" crawler afterwards!
+            </p>
           </header>
-          <button type="button" id="add-entry-sb-btn">Add Entries</button>
+          <button type="button" id="add-entry-sb-btn">Add entries</button>
         </div>
       </section>
     </main>
