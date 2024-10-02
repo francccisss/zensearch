@@ -1,5 +1,6 @@
 import crawlInput from "./components/crawl_input/index.js";
 import ui from "./ui/index.js";
+import PubSub from "./utils/pubsub.js";
 
 const sidebar = document.getElementById("crawl-list-sb");
 const closeSbBtn = document.getElementById("close-sb");
@@ -34,12 +35,8 @@ window.addEventListener("load", () => {
   showPage("/");
 });
 
-closeSbBtn.addEventListener("click", () => {
-  if (sidebar.classList.contains("active-sb")) {
-    sidebar.classList.replace("active-sb", "inactive-sb");
-  }
-});
-
 openSbBtn.addEventListener("click", () => {
   sidebar.classList.replace("inactive-sb", "active-sb");
 });
+
+sidebar.addEventListener("click", ui.sidebarActions);
