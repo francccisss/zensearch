@@ -24,7 +24,6 @@ function addNewEntry() {
   Params `ref` reference to the input we want to remove from the
   crawl list.
  */
-
 function removeEntry(ref) {
   const entries = Array.from(listContainer.children);
   const filtered = entries.filter((child) => {
@@ -35,6 +34,9 @@ function removeEntry(ref) {
   pubsub.publish("removeEntry", filtered);
 }
 
+/*
+  Params`newEntries` refers to the updated entries for deleting through pubsub
+*/
 function updateEntries(newEntries) {
   if (newEntries !== null) {
     listContainer.replaceChildren(...newEntries);
