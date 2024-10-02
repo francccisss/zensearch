@@ -1,10 +1,11 @@
 import crawlInput from "./components/crawl_input/index.js";
 import ui from "./ui/index.js";
-import PubSub from "./utils/pubsub.js";
+import pubsub from "./utils/pubsub.js";
 
 const sidebar = document.getElementById("crawl-list-sb");
 const closeSbBtn = document.getElementById("close-sb");
 const openSbBtn = document.getElementById("add-entry-sb-btn");
+const listContainer = document.querySelector(".list-container");
 const pageUrls = {
   home: "/",
   crawlProcess: "#crawl-section/process",
@@ -40,3 +41,4 @@ openSbBtn.addEventListener("click", () => {
 });
 
 sidebar.addEventListener("click", ui.sidebarActions);
+pubsub.subscribe("removeEntry", crawlInput.updateEntries);

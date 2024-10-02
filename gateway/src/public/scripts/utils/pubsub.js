@@ -30,4 +30,6 @@ class PubSub {
   }
 }
 
-export default PubSub;
+const pubsub = new PubSub();
+
+export default pubsub;
