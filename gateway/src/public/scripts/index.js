@@ -5,7 +5,7 @@ import pubsub from "./utils/pubsub.js";
 
 const sidebar = document.getElementById("crawl-list-sb");
 const newEntry = document.querySelector(".new-entry-btn");
-const closeSbBtn = document.getElementById("close-sb");
+const closeSbBtn = document.getElementById("close-sb-btn");
 const openSbBtn = document.getElementById("add-entry-sb-btn");
 const listContainer = document.querySelector(".list-container");
 const limit = 6;
@@ -22,12 +22,10 @@ openSbBtn.addEventListener("click", () => {
 });
 
 sidebar.addEventListener("click", ui.sidebarActions);
-pubsub.subscribe("removeEntry", crawlInput.updateEntries);
+
+// To show popup messages
 pubsub.subscribe("removeEntry", (entries) => {
-  if (entries.length === 0) {
-    listContainer.innerHTML = `<p class='info-large'>Seems like you don't have any entries yet, click on "New entry".</p>`;
-  }
-  if (entries.length <= limit) {
+  if (entries.length < limit) {
     newEntry.disabled = false;
     const children = Array.from(listContainer.children);
     children.forEach((child) => {
@@ -46,3 +44,10 @@ pubsub.subscribe("addEntry", (entries) => {
   }
 });
 pubsub.subscribe("hideEntry", crawlInput.updateEntries);
+pubsub.subscribe("revealEntry", crawlInput.updateEntries);
+pubsub.subscribe("removeEntry", (entries) => {
+  if (listContainer.children.length < 2) {
+    return;
+  }
+  crawlInput.updateEntries(entries);
+});
