@@ -1,52 +1,42 @@
 <!doctype html>
 <html>
   <head>
-    <title>Your Search Engine</title>
-    <script type="module" defer src="scripts/index/index.js"></script>
-    <script
-      src="https://unpkg.com/htmx.org@2.0.2"
-      integrity="sha384-Y7hw+L/jvKeWIRRkqWYfPcvVxHzVzn5REgzbawhxAuQGwX1XWe70vji+VSeHOThJ"
-      crossorigin="anonymous"
-    ></script>
-    <link href="stylesheets/index.css" rel="stylesheet" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap"
-      rel="stylesheet"
-    />
+    <title>ZenSearch</title>
+    <link rel="stylesheet" href="stylesheets/index.css" />
+    <script type="module" src="scripts/index.js"></script>
   </head>
   <body>
-    <main id="index-page">
-      <section>
-        <div id="title-search-bar">
-          <div id="index-page-header">
-            <p>A distributed search engine.</p>
-            <h1>Crawl before you search.</h1>
-            <small>Every Query is yours.</small>
-          </div>
-          <div class="search-crawl-container">
-            <div class="" id="crawl-data-submission">
-              <button id="crawl-btn">Crawl Websites</button>
-              <span id="spinner" class="process-spinner"></span>
-            </div>
-            <div id="search-container">
-              <form method="get" action="/search">
-                <input
-                  class="form-control"
-                  type="search"
-                  name="q"
-                  placeholder="Start your search..."
-                />
-              </form>
-              <div id="crawler-response-container">
-                <p></p>
-                <ul></ul>
-              </div>
-            </div>
-          </div>
+    <main id="search-page">
+      <header class="title-container">
+        <div class="bold-title">
+          <div>ZenSearch</div>
+          <p>Every query is yours</p>
         </div>
-      </section>
+        <p class="sub-title">
+          A distributed search engine where you have more control over what you
+          want your searches to be.
+        </p>
+      </header>
+      <div>
+        <div id="search-input">
+          <input type="search" name="searchQuery" />
+          <button type="submit">Search</button>
+        </div>
+        <div class="info-small">
+          <span class="github-icon"></span>
+          <a>Got a problem? create an issue on github.</a>
+        </div>
+      </div>
+      <div class="info-large">
+        Don't have any websites to search throught? scroll down.
+      </div>
     </main>
+    <main id="results-page"></main>
+    <main id="crawl-page"></main>
+    <main id="process-page"></main>
+    <template id="crawl-input-temp">
+      <input data-hidden="false" type="text" name="" value="" />
+      <button type="button">Hide</button>
+    </template>
   </body>
 </html>

@@ -1,57 +1,21 @@
-@import url("./layout.css");
+@import url("./layouts.css");
+
+body,
+html {
+  margin: 0;
+  border: 0;
+}
+
+:root {
+  --low-light-text: #757575;
+  --input-color: #f3f3f3;
+  --black: #1e1e1e;
+  --accent: #d88c21;
+  --bg: #ffffff;
+  --light-text: #ffffff;
+}
+
 main {
-  min-height: inherit;
-  color: var(--text-black);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-direction: column;
-}
-
-#index-page-header {
-  margin-bottom: 1em;
-  h1 {
-    font-size: 3rem;
-    line-height: 2.5rem;
-  }
-}
-
-#crawl-data-submission {
-  display: flex;
-  align-items: center;
-  margin-right: 1em;
-  gap: 0.5em;
-  #crawl-btn {
-    background: var(--text-black);
-    color: var(--white-1);
-    appearance: none;
-    border: none;
-    padding: 0.6em 0.8em;
-    font-weight: 500;
-    font-size: 1rem;
-    border-radius: 2px;
-  }
-  #crawl-btn:disabled {
-    background: var(--gray-2);
-  }
-}
-
-.process-spinner {
-  display: none !important;
-  opacity: 0;
-}
-#crawl-data-submission.polling {
-  .process-spinner {
-    display: inline-block !important;
-    opacity: 1;
-  }
-}
-
-#crawler-response-container {
-  p {
-    font-weight: 600;
-  }
-}
-.search-crawl-container {
-  align-items: start !important;
+  min-height: 100dvh;
+  background-color: var(--bg);
 }
