@@ -13,8 +13,4 @@ class Component extends HTMLElement {
 }
 customElements.define("crawl-input", Component);
 
-/* Methods for Component
- *
- */
-
-export default { createComponent, Component };
+export default { Component };
