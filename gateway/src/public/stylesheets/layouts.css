@@ -1,0 +1,14 @@
+main {
+  display: flex;
+  min-height: 100dvh;
+  background-color: var(--bg);
+  flex-direction: column;
+}
+
+.centered-contents-container {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  place-items: center;
+  place-content: center;
+}
