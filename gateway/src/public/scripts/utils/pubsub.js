@@ -21,7 +21,7 @@ class PubSub {
 
   publish(event, updateData) {
     if (!this.events[event]) {
-      console.error("Event does not exist.");
+      console.error("Event does not exist: %s", event);
       return;
     }
     this.events[event].forEach((cb) => {
