@@ -62,7 +62,7 @@ a:hover {
   --low-light-text: #757575;
   --input-color: #f3f3f3;
   --black: #1e1e1e;
-  --accent: #d88c21;
+  --accent: #edb25e;
   --bg: #ffffff;
   --light-text: #ffffff;
 }
@@ -165,15 +165,7 @@ header.title-container {
   }
 }
 
-button#add-entry-sb-btn:hover,
-.new-entry-btn:hover {
-  background-color: transparent;
-  border: 4px solid var(--black);
-  transition: ease-in-out 100ms all;
-  color: black;
-}
-button#add-entry-sb-btn,
-.new-entry-btn {
+.capsule-btn {
   border: 4px solid transparent;
   transition: ease-in-out 30ms all;
   display: block;
@@ -183,6 +175,23 @@ button#add-entry-sb-btn,
   background-color: var(--black);
   padding: var(--input-btn-padding);
   border-radius: var(--rounded-full);
+}
+
+#sb-btns {
+  display: flex;
+  gap: 1em;
+}
+.crawl-btn {
+  background-color: var(--accent);
+  color: var(--black);
+  font-weight: bold;
+}
+button#add-entry-sb-btn:hover,
+.new-entry-btn:hover {
+  background-color: transparent;
+  border: 4px solid var(--black);
+  transition: ease-in-out 100ms all;
+  color: black;
 }
 button#add-entry-sb-btn {
   font-size: 1.5rem;
