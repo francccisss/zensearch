@@ -19,8 +19,6 @@ function showPage(path) {
   }
 }
 
-function navigatePage(page) {}
-
 window.addEventListener("load", () => {
   showPage("/");
 });
