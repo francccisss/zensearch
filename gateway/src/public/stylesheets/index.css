@@ -181,10 +181,18 @@ header.title-container {
   display: flex;
   gap: 1em;
 }
+.crawl-btn:hover {
+  background-color: transparent;
+  border: 4px solid var(--accent);
+  font-weight: bold;
+  transition: ease-in-out 100ms all;
+}
 .crawl-btn {
   background-color: var(--accent);
+  border: 4px solid transparent;
   color: var(--black);
   font-weight: bold;
+  transition: ease-in-out 100ms all;
 }
 button#add-entry-sb-btn:hover,
 .new-entry-btn:hover {
