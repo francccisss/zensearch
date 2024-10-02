@@ -231,7 +231,6 @@ body:has(.active-sb) {
   button {
     transition: outline 120ms ease-in;
     outline: 2px solid transparent;
-    outline-offset: 5px;
     color: var(--light-text);
     font-weight: bold;
     background-color: var(--black);

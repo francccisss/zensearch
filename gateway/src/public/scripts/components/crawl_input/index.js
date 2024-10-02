@@ -10,7 +10,7 @@ function createComponent() {
   container.append(template.content.cloneNode(true));
   const btns = container.querySelectorAll("button");
   btns.forEach((btn) => btn.setAttribute("data-contref", newId));
-  container.classList.add("url-input");
+  container.classList.add("url-entry");
   container.setAttribute("id", newId);
   console.log(container);
   return container;
