@@ -6,6 +6,33 @@ import crawlInput from "../components/crawl_input/index.js";
  * with the entry point `index.js` where all of the event listeners reside.
  */
 
+const newEntry = document.querySelector(".new-entry-btn");
+const listContainer = document.querySelector(".list-container");
+const popup = document.createElement("p");
+const limit = 6;
+
+popup.classList.add("info-large");
+
+function popUpOnRemoveEntry(entries) {
+  if (entries.length < limit) {
+    newEntry.disabled = false;
+    const children = Array.from(listContainer.children);
+    children.forEach((child) => {
+      if (child.classList.contains("info-large")) {
+        child.remove();
+      }
+    });
+  }
+}
+
+function popUpOnAddEntry(entries) {
+  popup.textContent = "You've reached the maximum limit.";
+  if (entries.length >= limit) {
+    console.log("lol");
+    listContainer.appendChild(popup);
+    newEntry.disabled = true;
+  }
+}
 function initCrawlInputs() {
   const listContainer = document.querySelector(".list-container");
   listContainer.appendChild(crawlInput.createComponent());
@@ -39,4 +66,4 @@ function sidebarActions(event) {
 function init() {
   initCrawlInputs();
 }
-export default { init, sidebarActions };
+export default { init, sidebarActions, popUpOnRemoveEntry, popUpOnAddEntry };

@@ -4,6 +4,10 @@ import uuid from "../../utils/uuid.js";
 const template = document.getElementById("crawl-input-template");
 const listContainer = document.querySelector(".list-container");
 
+/* File for handling the input entries for creating new crawl entries
+ * of url for crawler to work with.
+ *
+ */
 function createComponent() {
   const newId = uuid();
   const container = document.createElement("div");
@@ -55,6 +59,10 @@ function revealEntry(ref) {
  */
 function removeEntry(ref) {
   const entries = Array.from(listContainer.children);
+  console.log(entries.length);
+  if (entries.length < 2) {
+    return;
+  }
   const filtered = entries.filter((child) => child.id !== ref ?? child);
   pubsub.publish("removeEntry", filtered);
 }
