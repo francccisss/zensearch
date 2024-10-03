@@ -32,7 +32,10 @@ function hideEntry(ref) {
     if (child.id === ref) {
       child.classList.replace("reveal-entry", "hide-entry");
       child.dataset.hidden = true;
-      child.querySelector("input").disabled = true;
+
+      const input = child.querySelector("input");
+      input.disabled = true;
+      input.setAttribute("data-hidden", "true");
       return child;
     }
     return child;
@@ -45,7 +48,10 @@ function revealEntry(ref) {
     if (child.id === ref) {
       child.classList.replace("hide-entry", "reveal-entry");
       child.dataset.hidden = false;
-      child.querySelector("input").disabled = false;
+
+      const input = child.querySelector("input");
+      input.disabled = false;
+      input.setAttribute("data-hidden", "false");
       return child;
     }
     return child;
@@ -77,6 +83,8 @@ function updateEntries(newEntries) {
   console.log(listContainer);
 }
 
+function submitCrawlList() {}
+
 export default {
   createComponent,
   addNewEntry,
@@ -84,4 +92,5 @@ export default {
   updateEntries,
   revealEntry,
   hideEntry,
+  submitCrawlList,
 };
