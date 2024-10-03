@@ -27,6 +27,7 @@
       <div class="crawl-list-container">
         <div class="list-container"></div>
         <div id="sb-btns">
+          <span hidden class="crawl-loader"></span>
           <button class="capsule-btn crawl-btn">Start crawl</button>
           <button class="capsule-btn new-entry-btn">New entry</button>
         </div>
@@ -96,9 +97,9 @@
     <template id="crawl-input-template">
       <input
         data-hidden="false"
-        placeholder="Type in url to crawl"
+        placeholder="Enter a url to crawl"
         type="text"
-        name=""
+        class="crawl-input"
         value=""
       />
       <button

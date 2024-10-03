@@ -62,6 +62,12 @@ function sidebarActions(event) {
   }
 }
 
+// TODO create an event listener for crawl button
+// need to grab each inputs and for each inputs get their
+// values and store them in an array, or unless convert into a form
+// then on submit on a form element, we can easily create a form data
+// where each input fields can be turned into form entries.
+
 // UI initializer for placeholder or something. idk
 function init() {
   initCrawlInputs();
