@@ -194,7 +194,6 @@ header.title-container {
   transition: ease-in-out 100ms all;
 }
 .crawl-btn {
-  display: none;
   background-color: var(--accent);
   border: 4px solid transparent;
   color: var(--black);
