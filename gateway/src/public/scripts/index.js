@@ -9,6 +9,7 @@ const crawlLoader = document.querySelector(".crawl-loader");
 const sidebar = document.getElementById("crawl-list-sb");
 const openSbBtn = document.getElementById("add-entry-sb-btn");
 const crawlBtn = document.querySelector(".crawl-btn");
+const listErrors = document.querySelector("#list-error-popup-container");
 
 window.addEventListener("load", () => {
   ui.init();
@@ -36,10 +37,11 @@ async function mockPostRequest(webUrls) {
     const response = await sendWebUrls.json();
     console.log(response);
     if (response.is_crawling === false) {
-      throw new Error(response.message);
+      throw new Error(JSON.stringify(response));
     }
     // needs to call poll loop
   } catch (err) {
+    const parseErr = JSON.parse(err.message);
     // What errors should be thrown?
     // - Entries that already exist on the database
     // - Server error
@@ -48,8 +50,12 @@ async function mockPostRequest(webUrls) {
     // Result object of type {message:string, status:"error", data: null | unindexedList}
     // result.message will be passed in from err parameter by the try block
 
-    pubsub.publish("crawlError", { status: "error", message: err.message });
-    console.error(err.message);
+    pubsub.publish("crawlError", {
+      status: "error",
+      message: parseErr.message,
+      data: parseErr.crawl_list,
+    });
+    console.error(parseErr.message);
   }
 }
 
@@ -99,6 +105,17 @@ pubsub.subscribe("crawlError", (result) => {
     console.log(result.message);
     return;
   }
+  console.log("Error");
+  const p = listErrors.children[0];
+  const indexedList = listErrors.children[1];
+  p.textContent = result.message;
+
+  const sites = result.data.map((site) => {
+    const span = document.createElement("span");
+    span.textContent = site;
+    return span;
+  });
+  indexedList.replaceChildren(...sites);
   // This is for handling urls that were already indexed and stored
   // in the database.
 });

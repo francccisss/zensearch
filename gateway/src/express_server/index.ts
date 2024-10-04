@@ -63,7 +63,8 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
       console.log("This shits empty YEEET!");
       return res.status(200).json({
         is_crawling: false,
-        message: "Items in this list have already indexed, provide a new list.",
+        message:
+          "All of the items in this list has already indexed, please provide a new list.",
         crawl_list: Docs,
       });
     }
@@ -79,7 +80,7 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     if (results.undindexed.length !== Docs.length) {
       return res.status(200).json({
         is_crawling: false,
-        message: "The items in this list has already been indexed.",
+        message: "Some of the items in this list has already been indexed.",
         crawl_list: Docs.filter(
           (website) => !results.undindexed.includes(website) ?? website,
         ),

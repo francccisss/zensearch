@@ -1,6 +1,18 @@
 @import url("./layouts.css");
 @import url("./loader.css");
 
+:root {
+  --rounded-full: 9999px;
+  --input-btn-padding: 1rem 1.5rem;
+  --crawl-input-btn-padding: 0.7rem 1.2rem;
+  --low-light-text: #757575;
+  --input-color: #f3f3f3;
+  --black: #1e1e1e;
+  --accent: #edb25e;
+  --bg: #ffffff;
+  --light-text: #ffffff;
+  --error: #ed5e5e;
+}
 html {
   scroll-behavior: smooth;
 }
@@ -54,18 +66,6 @@ a:visited {
 }
 a:hover {
   text-decoration: underline;
-}
-
-:root {
-  --rounded-full: 9999px;
-  --input-btn-padding: 1rem 1.5rem;
-  --crawl-input-btn-padding: 0.7rem 1.2rem;
-  --low-light-text: #757575;
-  --input-color: #f3f3f3;
-  --black: #1e1e1e;
-  --accent: #edb25e;
-  --bg: #ffffff;
-  --light-text: #ffffff;
 }
 
 .info-large {
@@ -322,4 +322,21 @@ body:has(.active-sb) {
 }
 .remove-entry-btn {
   background-image: url("../assets/icons/close.png");
+}
+
+#list-error-popup-container {
+  margin-top: 2em;
+  font-size: 0.8rem;
+  opacity: 0.8;
+  color: var(--error);
+  & > :first-child {
+    font-weight: bold;
+  }
+  & > :last-child {
+    display: grid;
+    grid-auto-rows: auto auto;
+    grid-auto-columns: auto auto;
+    margin-top: 0.6em;
+    display: grid;
+  }
 }
