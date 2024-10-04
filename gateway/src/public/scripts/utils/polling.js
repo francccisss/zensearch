@@ -1,37 +1,60 @@
+import extract_cookies from "./extract_cookies.js";
 import pubsub from "./pubsub.js";
+
+const pollUrl = "http://localhost:8080/job";
 
 async function poll(webUrls) {
   console.log("Poll something");
+  const { job_count, job_id, job_queue } = extract_cookies();
+  let responseObj = {};
   try {
-    setTimeout(() => {
-      console.log(webUrls);
-    }, 3 * 1000);
-    const isSuccess = false;
-    if (!isSuccess) {
-      throw new Error("Error message from fetch");
+    const pollData = await fetch(
+      `${pollUrl}?job_count=${job_count}&job_id=${job_id}&job_queue=${job_queue}`,
+    );
+    responseObj = { ...(await pollData.json()) };
+    console.log(responseObj);
+
+    if (pollData.ok === false) {
+      throw new Error(pollData.statusText);
     }
 
-    // when polling when the data returned by crawler does not match
-    // the length of the client's crawl list, poll and skip this function
+    // for looping
+    if (responseObj.done === false) {
+      return responseObj.done;
+    }
 
-    // If the crawler returns all of the list of urls the client
-    // requested to crawl, then return this one
-    pubsub.publish("crawlDone", {
+    pubsub.publish("pollingDone", {
       message: "Done",
-      data: ["your", "unindexed", "list", "that", "were", "crawled"],
+      isPolling: false,
+      data: responseObj.data,
     });
-    return {};
+    return responseObj.done;
   } catch (err) {
+    console.error(err);
     pubsub.publish("crawlError", {
       isPolling: false,
-      message: "Polling",
+      message: err.message,
       data: null,
     });
   }
 }
 
 async function loop() {
-  await poll();
+  const { job_count } = extract_cookies();
+  let isDone = false;
+  while (!isDone) {
+    isDone = await poll();
+    if (isDone) {
+      console.log("Stop polling");
+      return;
+    }
+    await new Promise((resolve, reject) => {
+      setTimeout(() => {
+        console.log("Poll loop triggered.");
+        resolve("");
+      }, 2 * 1000);
+    });
+  }
 }
 
-export default { poll };
+export default { poll, loop };

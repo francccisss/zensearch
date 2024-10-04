@@ -89,14 +89,14 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     console.log({ unindexed: results.undindexed });
 
     // proceed to Crawler Service
-    //const success = await rabbitmq.client.crawl(results.data_buffer, {
-    //  queue: CRAWL_QUEUE,
-    //  id: job_id,
-    //});
-    //if (!success) {
-    //  throw new Error("Unable to send crawl list to web crawler service.");
-    //}
-    //
+    const success = await rabbitmq.client.crawl(results.data_buffer, {
+      queue: CRAWL_QUEUE,
+      id: job_id,
+    });
+    if (!success) {
+      throw new Error("Unable to send crawl list to web crawler service.");
+    }
+
     /*
       Creates a session cookie for job polling using the poll route handler `/job`
       the CRAWL_QUEUE_CB is used to poll the crawler service to check and see if
