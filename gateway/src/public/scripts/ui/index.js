@@ -41,6 +41,8 @@ function initCrawlInputs() {
   listContainer.appendChild(
     crawlInput.createComponent("https://fzaid.vercel.app/"),
   );
+  listContainer.appendChild(crawlInput.createComponent("https://youtube.com"));
+  listContainer.appendChild(crawlInput.createComponent("https://wgh.com/"));
 }
 
 function sidebarActions(event) {
