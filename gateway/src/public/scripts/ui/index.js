@@ -1,4 +1,6 @@
 import crawlInput from "../components/crawl_input/index.js";
+import errorsui from "./errors.js";
+import crawlui from "./crawl.js";
 
 /*
  * The plan is to make this file as a collection of ui component/element handlers
@@ -79,4 +81,12 @@ function sidebarActions(event) {
 function init() {
   initCrawlInputs();
 }
-export default { init, sidebarActions, popUpOnRemoveEntry, popUpOnAddEntry };
+
+export default {
+  errorsui,
+  crawlui,
+  init,
+  sidebarActions,
+  popUpOnRemoveEntry,
+  popUpOnAddEntry,
+};
