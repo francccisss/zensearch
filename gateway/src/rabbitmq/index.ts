@@ -10,6 +10,7 @@ class RabbitMQClient {
   connection: null | Connection = null;
   client: this = this;
   search_channel: Channel | null = null;
+  crawledSites: Array<string> = []; // string as an utf-8 buffer
 
   constructor() {}
 
@@ -126,22 +127,30 @@ class RabbitMQClient {
       const { queue, messageCount, consumerCount } = await chan.checkQueue(
         job.queue as string,
       );
-      console.log(messageCount);
-      if (messageCount === 0) {
+      chan.prefetch(Number(job.count));
+      console.log({ msgCount: messageCount, jobCount: Number(job.count) });
+      if (messageCount < job.count) {
         return { done: false, data: {} };
       }
-      let data: any;
       const consumer = await chan.consume(
         job.queue as string,
         async (response) => {
           if (response === null) throw new Error("No Response");
           console.log("LOG: Response from Polled Job received");
-          data = response.content.toString();
+          this.crawledSites = [
+            ...this.crawledSites,
+            response.content.toString(),
+          ];
           console.log("CONSUMED");
-          chan.ack(response);
-          chan.close();
         },
       );
+      if (this.crawledSites.length < messageCount) {
+        return { done: false, data: {} };
+      }
+      const data = [...this.crawledSites];
+      this.crawledSites = []; //reset the array
+      chan.ackAll();
+      chan.close();
       return { done: true, data };
     } catch (err) {
       const error = err as Error;

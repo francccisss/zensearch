@@ -9,10 +9,7 @@ import client from "./client_operations/index.js";
 const sidebar = document.getElementById("crawl-list-sb");
 const openSbBtn = document.getElementById("add-entry-sb-btn");
 const crawlBtn = document.querySelector(".crawl-btn");
-document.cookie = "";
 // TODO Add documentations
-// TODO Create a loop for polling
-// TODO Attach loop poll after data is successfully sent.
 // TODO Attach loop poll if user's refreshes the browser.
 
 window.addEventListener("load", () => {
@@ -39,7 +36,6 @@ crawlBtn.addEventListener("click", async () => {
   } catch (err) {
     console.error(err.message);
   }
-  // needs to call poll loop after post Request to /crawl
 });
 
 /* Pubsub utility is used to handle UI reactivity on data change

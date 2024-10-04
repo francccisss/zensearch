@@ -59,9 +59,8 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
         Buffer.from(
           JSON.stringify({
             message: "Success",
-            new_webpages: deserialize_data.Webpages.map(
-              (page) => page.Header.Url,
-            ),
+            url: deserialize_data.Url,
+            webpage_count: deserialize_data.Webpages.length,
           }),
         ),
       );

@@ -138,15 +138,25 @@ app.get("/job", async (req: Request, res: Response, next: NextFunction) => {
       queue: job_queue as string,
       count: job_count as unknown as number, // whatever
     });
+    console.log(job);
     if (!job.done) {
-      res.status(200).json({ ...job, message: "Polling" });
+      res.status(200).json({
+        ...job,
+        message: "Polling",
+      });
       return;
     }
     res.clearCookie("job_id");
     res.clearCookie("job_count");
     res.clearCookie("job_queue");
     res.clearCookie("poll_type");
-    res.json({ ...job, message: "Success" }).status(200);
+    res
+      .json({
+        ...job,
+        message: "Success",
+        data: job.data.map((d: string) => JSON.parse(d)),
+      })
+      .status(200);
   } catch (err) {
     const error = err as Error;
     console.log("ERROR :Something went wrong with polling queue");
