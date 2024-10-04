@@ -24,6 +24,7 @@ sidebar.addEventListener("click", ui.sidebarActions);
 
 async function mockPostRequest(webUrls) {
   // try catch if an error while sending post request
+  let responseObj = {};
   try {
     pubsub.publish("crawlStart");
     const sendWebUrls = await fetch("http://localhost:8080/crawl", {
@@ -34,28 +35,23 @@ async function mockPostRequest(webUrls) {
       },
       body: JSON.stringify(webUrls),
     });
-    const response = await sendWebUrls.json();
-    console.log(response);
-    if (response.is_crawling === false) {
-      throw new Error(JSON.stringify(response));
+    // specific for network errors
+    if (sendWebUrls.ok === false) {
+      responseObj = { statusCode: sendWebUrls.status };
+      throw new Error(sendWebUrls.statusText);
     }
-    // needs to call poll loop
+    responseObj = { ...(await sendWebUrls.json()) };
+    if (responseObj.is_crawling === false) {
+      throw new Error(responseObj.message);
+    }
   } catch (err) {
-    const parseErr = JSON.parse(err.message);
-    // What errors should be thrown?
-    // - Entries that already exist on the database
-    // - Server error
-    // - Value error if its not http format url (TODO handle it client-side too)
-
-    // Result object of type {message:string, status:"error", data: null | unindexedList}
-    // result.message will be passed in from err parameter by the try block
-
     pubsub.publish("crawlError", {
       status: "error",
-      message: parseErr.message,
-      data: parseErr.crawl_list,
+      statusCode: responseObj.statusCode,
+      message: err.message,
+      data: responseObj.crawl_list,
     });
-    console.error(parseErr.message);
+    throw new Error(err.message);
   }
 }
 
@@ -64,7 +60,13 @@ crawlBtn.addEventListener("click", async () => {
     'input.crawl-input:not([data-hidden="true"])',
   );
   const inputValues = Array.from(unhiddenInputs).map((input) => input.value);
-  await mockPostRequest(inputValues);
+  try {
+    await mockPostRequest(inputValues);
+    pubsub.publish("crawlDone");
+  } catch (err) {
+    console.error(err.message);
+  }
+  // needs to call poll loop after post Request to /crawl
 });
 
 /* Pubsub utility is used to handle UI reactivity on data change
@@ -87,6 +89,7 @@ pubsub.subscribe("crawlStart", async () => {
   crawlLoader.style.display = "inline-block";
   crawlBtn.style.display = "none";
   console.log("Request is sent");
+  listErrors.hidden = true;
 });
 
 pubsub.subscribe("crawlDone", (result) => {
@@ -99,25 +102,32 @@ pubsub.subscribe("crawlError", (result) => {
   // This is a standard error for server response
   // - Wrong values
   // - Server error
+  listErrors.hidden = false;
   crawlLoader.style.display = "none";
   crawlBtn.style.display = "unset";
-  if (result.data == null) {
-    console.log(result.message);
-    return;
-  }
   console.log("Error");
   const p = listErrors.children[0];
   const indexedList = listErrors.children[1];
+  indexedList.replaceChildren([]);
   p.textContent = result.message;
 
+  // handle network errors
+  if (result.data == undefined) {
+    console.log(result.message);
+    p.textContent = "Something went wrong while sending your crawl list.";
+
+    indexedList.replaceChildren(["Please restart the application."]);
+    return;
+  }
+
+  // This is for handling urls that were already indexed and stored
+  // in the database.
   const sites = result.data.map((site) => {
     const span = document.createElement("span");
     span.textContent = site;
     return span;
   });
   indexedList.replaceChildren(...sites);
-  // This is for handling urls that were already indexed and stored
-  // in the database.
 });
 
 document.cookie = "job_count=4;";
