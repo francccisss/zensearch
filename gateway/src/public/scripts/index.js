@@ -29,12 +29,15 @@ async function mockPostRequest(webUrls) {
       mode: "cors",
       method: "POST",
       headers: {
-        "Content-Type": "Application/json",
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify({ Docs: webUrls }),
+      body: JSON.stringify(webUrls),
     });
     const response = await sendWebUrls.json();
     console.log(response);
+    if (response.is_crawling === false) {
+      throw new Error(response.message);
+    }
     // needs to call poll loop
   } catch (err) {
     // What errors should be thrown?

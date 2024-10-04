@@ -34,7 +34,7 @@ app.get("/", (req: Request, res: Response) => {
 
 // TODO use Websockets for crawling instead of polling like a biiiitchh
 app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
-  const { Docs }: { Docs: Array<string> } = req.body;
+  const Docs: Array<string> = [...req.body];
   const encoder = new TextEncoder();
   const encoded_docs = encoder.encode(JSON.stringify({ Docs }));
 
@@ -54,6 +54,7 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
      route the messsage.
     */
 
+    // TODO need to return some error after some amount of time if there is not ack received
     const results = await rabbitmq.client.crawl_list_check(encoded_docs);
     if (results === null) {
       throw new Error("Unable to check user's crawl list.");
@@ -78,7 +79,7 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     if (results.undindexed.length !== Docs.length) {
       return res.status(200).json({
         is_crawling: false,
-        message: "The items in this list have already indexed.",
+        message: "The items in this list has already been indexed.",
         crawl_list: Docs.filter(
           (website) => !results.undindexed.includes(website) ?? website,
         ),
@@ -87,14 +88,14 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     console.log({ unindexed: results.undindexed });
 
     // proceed to Crawler Service
-    const success = await rabbitmq.client.crawl(results.data_buffer, {
-      queue: CRAWL_QUEUE,
-      id: job_id,
-    });
-    if (!success) {
-      throw new Error("Unable to send crawl list to web crawler service.");
-    }
-
+    //const success = await rabbitmq.client.crawl(results.data_buffer, {
+    //  queue: CRAWL_QUEUE,
+    //  id: job_id,
+    //});
+    //if (!success) {
+    //  throw new Error("Unable to send crawl list to web crawler service.");
+    //}
+    //
     /*
       Creates a session cookie for job polling using the poll route handler `/job`
       the CRAWL_QUEUE_CB is used to poll the crawler service to check and see if
