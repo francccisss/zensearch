@@ -14,7 +14,7 @@ const PORT = 8080;
 
    TODO Create a class for rabbitmq
   */
-  //const rbq_client = await rabbitmq.client.connectClient();
+  const rbq_client = await rabbitmq.client.connectClient();
 
   // Connect Websocket for search results retrieved
   const wss: WebSocketServer = new WebSocketServer({ server: http_server });
@@ -33,8 +33,8 @@ const PORT = 8080;
    once the search_channel_listener consumes a message from the search engine service
    through `SEARCH_QUEUE_CB` routing key.
   */
-  //await rbq_client.init_search_channel_queues();
-  //await rbq_client.search_channel_listener(ws_service.send_results_to_client);
+  await rbq_client.init_search_channel_queues();
+  await rbq_client.search_channel_listener(ws_service.send_results_to_client);
 
   // Start HTTP server
   http_server.listen(PORT, () => {

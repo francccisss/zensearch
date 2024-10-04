@@ -8,7 +8,7 @@ const listContainer = document.querySelector(".list-container");
  * of url for crawler to work with.
  *
  */
-function createComponent() {
+function createComponent(url) {
   const newId = uuid();
   const container = document.createElement("div");
   container.append(template.content.cloneNode(true));
@@ -18,6 +18,9 @@ function createComponent() {
   container.classList.add("reveal-entry");
   container.setAttribute("id", newId);
   console.log(container);
+
+  const input = container.querySelector("input");
+  input.value = url;
   return container;
 }
 

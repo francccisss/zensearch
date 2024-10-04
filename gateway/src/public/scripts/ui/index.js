@@ -35,7 +35,12 @@ function popUpOnAddEntry(entries) {
 }
 function initCrawlInputs() {
   const listContainer = document.querySelector(".list-container");
-  listContainer.appendChild(crawlInput.createComponent());
+  listContainer.appendChild(
+    crawlInput.createComponent("http://localhost:8080"),
+  );
+  listContainer.appendChild(
+    crawlInput.createComponent("https://fzaid.vercel.app/"),
+  );
 }
 
 function sidebarActions(event) {
