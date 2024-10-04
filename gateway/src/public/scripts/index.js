@@ -1,8 +1,11 @@
 import navigation from "./client_navigation/navigation.js";
 import crawlInput from "./components/crawl_input/index.js";
 import ui from "./ui/index.js";
+import extract_cookies from "./utils/extract_cookies.js";
+import polling from "./utils/polling.js";
 import pubsub from "./utils/pubsub.js";
 
+const crawlLoader = document.querySelector(".crawl-loader");
 const sidebar = document.getElementById("crawl-list-sb");
 const openSbBtn = document.getElementById("add-entry-sb-btn");
 const crawlBtn = document.querySelector(".crawl-btn");
@@ -18,17 +21,21 @@ openSbBtn.addEventListener("click", () => {
 
 sidebar.addEventListener("click", ui.sidebarActions);
 
-function mockPostRequest() {
-  const unhiddenInputs = document.querySelectorAll(
-    'input.crawl-input:not([data-hidden="true"])',
-  );
-  const inputValues = Array.from(unhiddenInputs).map((input) => input.value);
+async function mockPostRequest(webUrls) {
   // try catch if an error while sending post request
   try {
     pubsub.publish("crawlStart");
-    setTimeout(() => {
-      console.log(inputValues);
-    }, 3 * 1000);
+    const sendWebUrls = await fetch("http://localhost:8080/crawl", {
+      mode: "cors",
+      method: "POST",
+      headers: {
+        "Content-Type": "Application/json",
+      },
+      body: JSON.stringify({ Docs: webUrls }),
+    });
+    const response = await sendWebUrls.json();
+    console.log(response);
+    // needs to call poll loop
   } catch (err) {
     // What errors should be thrown?
     // - Entries that already exist on the database
@@ -43,7 +50,13 @@ function mockPostRequest() {
   }
 }
 
-crawlBtn.addEventListener("click", mockPostRequest);
+crawlBtn.addEventListener("click", async () => {
+  const unhiddenInputs = document.querySelectorAll(
+    'input.crawl-input:not([data-hidden="true"])',
+  );
+  const inputValues = Array.from(unhiddenInputs).map((input) => input.value);
+  await mockPostRequest(inputValues);
+});
 
 /* Pubsub utility is used to handle UI reactivity on data change
  */
@@ -61,13 +74,9 @@ pubsub.subscribe("removeEntry", crawlInput.updateEntries);
 // what happens if a post request is sent to the server.
 
 // polling is started here.
-pubsub.subscribe("crawlStart", () => {
-  // poll()
-  // in poll function call crawlDone once poll receives
-  // response with data.
-  const crawlLoader = document.querySelector(".crawl-loader");
+pubsub.subscribe("crawlStart", async () => {
   crawlLoader.style.display = "inline-block";
-  crawlBtn.style.display = " none";
+  crawlBtn.style.display = "none";
   console.log("Request is sent");
 });
 
@@ -90,3 +99,7 @@ pubsub.subscribe("crawlError", (result) => {
   // This is for handling urls that were already indexed and stored
   // in the database.
 });
+
+document.cookie = "job_count=4;";
+document.cookie = "job_id=buh;";
+extract_cookies();

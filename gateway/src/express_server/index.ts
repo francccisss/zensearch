@@ -34,15 +34,7 @@ app.get("/", (req: Request, res: Response) => {
 
 // TODO use Websockets for crawling instead of polling like a biiiitchh
 app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
-  const Docs = [
-    //"https://localhost:8080",
-    //"https://youtube.com",
-    //"https://brittanychiang.com",
-    //"https://fzaid.vercel.app/",
-    "https://robbowen.digital/",
-    "https://naren200.github.io/",
-  ];
-
+  const { Docs }: { Docs: Array<string> } = req.body;
   const encoder = new TextEncoder();
   const encoded_docs = encoder.encode(JSON.stringify({ Docs }));
 

@@ -3,7 +3,7 @@
   height: 48px;
   border: 3px solid #fff;
   border-radius: 50%;
-  display: inline-block;
+  display: none;
   position: relative;
   box-sizing: border-box;
   animation: rotation 1s linear infinite;
