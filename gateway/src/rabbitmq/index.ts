@@ -127,7 +127,7 @@ class RabbitMQClient {
         job.queue as string,
       );
       console.log(messageCount);
-      if (messageCount === 0 || messageCount < job.count) {
+      if (messageCount === 0) {
         return { done: false, data: {} };
       }
       let data: any;

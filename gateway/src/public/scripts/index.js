@@ -9,6 +9,11 @@ import client from "./client_operations/index.js";
 const sidebar = document.getElementById("crawl-list-sb");
 const openSbBtn = document.getElementById("add-entry-sb-btn");
 const crawlBtn = document.querySelector(".crawl-btn");
+document.cookie = "";
+// TODO Add documentations
+// TODO Create a loop for polling
+// TODO Attach loop poll after data is successfully sent.
+// TODO Attach loop poll if user's refreshes the browser.
 
 window.addEventListener("load", () => {
   ui.init();
@@ -29,6 +34,8 @@ crawlBtn.addEventListener("click", async () => {
   try {
     await client.sendCrawlRequest(inputValues);
     pubsub.publish("crawlDone");
+    // Start polling after resposne from post request is successful
+    await polling.loop();
   } catch (err) {
     console.error(err.message);
   }
@@ -51,7 +58,9 @@ pubsub.subscribe("crawlStart", ui.crawlui.onCrawlUrls);
 pubsub.subscribe("crawlDone", ui.crawlui.onCrawlDone);
 pubsub.subscribe("crawlError", ui.errorsui.handleCrawlErrors);
 
+pubsub.subscribe("pollingDone", (result) => {
+  console.log(result);
+});
+
 // ignore this
-document.cookie = "job_count=4;";
-document.cookie = "job_id=buh;";
 extract_cookies();
