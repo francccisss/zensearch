@@ -160,6 +160,8 @@ class RabbitMQClient {
     }
   }
 
+  // Crawler Expects an Object to be unmarshalled where the
+  // Array of websites are inside a Docs property.
   async crawl(
     websites: Buffer,
     job: { queue: string; id: string },
