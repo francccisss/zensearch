@@ -106,6 +106,8 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     res.cookie("job_count", results.undindexed.length);
     res.cookie("job_queue", CRAWL_QUEUE_CB);
     res.cookie("poll_type", "crawling");
+    res.setHeader("Connection", "Upgrade");
+    res.setHeader("Upgrade", "Websocket");
     res.json({
       is_crawling: true,
       message: "Crawling",
@@ -182,8 +184,8 @@ app.get("/job", async (req: Request, res: Response, next: NextFunction) => {
 app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
   const job_id = uuidv4();
   try {
-    res.setHeader("Connection", "Upgrade");
-    res.setHeader("Upgrade", "Websocket");
+    //res.setHeader("Connection", "Upgrade");
+    //res.setHeader("Upgrade", "Websocket");
 
     /*
       Need to job_id such that different messages in the message queue `SEARCH_QUEUE_CB`,

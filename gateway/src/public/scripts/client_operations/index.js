@@ -1,5 +1,6 @@
 import pubsub from "../utils/pubsub.js";
 
+// Upgrade http to websocket connection
 async function sendCrawlRequest(webUrls) {
   // try catch if an error while sending post request
   let responseObj = {};
@@ -15,10 +16,12 @@ async function sendCrawlRequest(webUrls) {
     });
     // specific for network errors
     if (sendWebUrls.ok === false) {
-      responseObj = { statusCode: sendWebUrls.status };
       throw new Error(sendWebUrls.statusText);
     }
-    responseObj = { ...(await sendWebUrls.json()) };
+    responseObj = await sendWebUrls.json();
+    // For handling crawl list to be returned if
+    // it has already been indexed, before upgrading
+    // to a websocket connection.
     if (responseObj.is_crawling === false) {
       throw new Error(responseObj.message);
     }
