@@ -115,52 +115,6 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
 });
 
 /*
-  A Route handler responsible for polling the crawl task, this polls for results
-  from the crawler service in a fixed time, it uses the `job_id` to identify the
-  correlationId of the message in the message queue, and a `job_queue` to specify
-  which message queue it wants to consume from.
-*/
-
-app.get("/job", async (req: Request, res: Response, next: NextFunction) => {
-  const { job_count, job_id, job_queue } = req.query;
-  if (job_id === undefined || job_queue === undefined)
-    throw new Error("ERROR: There's no job queue for this job id.");
-  try {
-    console.log(req.query);
-    console.log("Poll Crawled Job Results.");
-    const job = await rabbitmq.client.poll_job({
-      id: job_id as string,
-      queue: job_queue as string,
-      count: job_count as unknown as number, // whatever
-    });
-    console.log(job);
-    if (!job.done) {
-      res.status(200).json({
-        ...job,
-        message: "Polling",
-      });
-      return;
-    }
-    res.clearCookie("job_id");
-    res.clearCookie("job_count");
-    res.clearCookie("job_queue");
-    res.clearCookie("poll_type");
-    res
-      .json({
-        ...job,
-        message: "Success",
-        data: job.data.map((d: string) => JSON.parse(d)),
-      })
-      .status(200);
-  } catch (err) {
-    const error = err as Error;
-    console.log("ERROR :Something went wrong with polling queue");
-    console.error(error.message);
-    next(err);
-  }
-});
-
-/*
   Hmm might change this next time idk.
 
   Upgrades http protocol to websocket so that we dont need to poll

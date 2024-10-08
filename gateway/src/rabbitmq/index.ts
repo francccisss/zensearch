@@ -95,7 +95,9 @@ class RabbitMQClient {
    Takes in a callback function argument to process the data received from
    the search engine service.
   */
-  async websocket_channel_listener(cb: (data: ConsumeMessage | null) => void) {
+  async websocket_channel_listener(
+    cb: (data: Buffer | null, message_type: string) => void,
+  ) {
     if (this.search_channel == null)
       throw new Error("ERROR: Search Channel is null.");
 
@@ -107,7 +109,7 @@ class RabbitMQClient {
       async (msg: ConsumeMessage | null) => {
         if (msg === null) throw new Error("Msg does not exist");
         console.log(msg);
-        cb(msg);
+        await cb(msg.content, "searching");
         if (this.search_channel == null) {
           throw new Error("ERROR: Search Channel is null.");
         }
@@ -120,37 +122,17 @@ class RabbitMQClient {
     // -> [db_indexing_crawler]Database[CRAWL_QUEUE_CB] -> [CRAWL_QUEUE_CB]ws this listener -> client.
     // Crawler service directs database service to send a message to the message queue with CRAWL_QUEUE_CB
     // routing key after it finishes storing the indexed websites
-    this.crawl_channel.consume(CRAWL_QUEUE_CB, async (data) => {
-      if (data === null) throw new Error("No Response");
+    this.crawl_channel.consume(CRAWL_QUEUE_CB, async (msg) => {
+      if (msg === null) throw new Error("No Response");
       console.log("LOG: Response from Polled Job received");
       if (this.crawl_channel == null) {
         throw new Error("ERROR: Search Channel is null.");
       }
-      console.log(data.content.toString());
-      this.crawl_channel.ack(data);
+      await cb(msg.content, "crawling");
+      console.log(msg.content.toString());
+      this.crawl_channel.ack(msg);
       console.log("CONSUMED");
     });
-  }
-
-  /*
-   * `poll_job()` function is used to poll specific job using the job_id identifier that
-   * was set by the server in the client's cookies, it polls the server to check if there
-   * is a message in the message queue for `CRAWL_QUEUE_CB` routing key, by calling
-   * `messageCount`
-   */
-  async poll_job(job: {
-    id: string;
-    queue: string;
-    count: number;
-  }): Promise<{ done: boolean; data: any }> {
-    try {
-      return { done: true, data: {} };
-    } catch (err) {
-      const error = err as Error;
-      console.error("ERROR: Something went wrong while polling message queue");
-      console.error(error.message);
-      throw new Error(error.message);
-    }
   }
 
   // Crawler Expects an Object to be unmarshalled where the
