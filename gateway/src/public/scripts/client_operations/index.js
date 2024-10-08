@@ -1,11 +1,11 @@
 import pubsub from "../utils/pubsub.js";
 
 // Upgrade http to websocket connection
-async function sendCrawlRequest(webUrls) {
+async function checkListAndUpgrade(webUrls) {
   // try catch if an error while sending post request
   let responseObj = {};
   try {
-    pubsub.publish("crawlStart");
+    pubsub.publish("checkAndUpgradeStart");
     const sendWebUrls = await fetch("http://localhost:8080/crawl", {
       mode: "cors",
       method: "POST",
@@ -25,15 +25,18 @@ async function sendCrawlRequest(webUrls) {
     if (responseObj.is_crawling === false) {
       throw new Error(responseObj.message);
     }
+    pubsub.publish("checkAndUpgradeDone");
+    return responseObj.crawl_list;
   } catch (err) {
-    pubsub.publish("crawlError", {
+    pubsub.publish("checkAndUpgradeError", {
       status: "error",
       statusCode: responseObj.statusCode,
       message: err.message,
       data: responseObj.crawl_list,
     });
     throw new Error(err.message);
+    return null;
   }
 }
 
-export default { sendCrawlRequest };
+export default { checkListAndUpgrade };
