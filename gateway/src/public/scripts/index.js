@@ -32,7 +32,7 @@ crawlBtn.addEventListener("click", async () => {
     await client.sendCrawlRequest(inputValues);
     pubsub.publish("crawlDone");
     // Start polling after resposne from post request is successful
-    await polling.loop();
+    //await polling.loop();
   } catch (err) {
     console.error(err.message);
   }
