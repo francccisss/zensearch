@@ -26,7 +26,7 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
   const db_cbq_express = "db_cbq_express";
   const db_cbq_poll_express = "crawl_poll_queue";
 
-  const [_, database_channel] = args;
+  const [database_channel] = args;
 
   /*
    TODO Document code please :)
@@ -114,6 +114,7 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
         JSON.stringify({ Docs: unindexed_websites }),
       );
 
+      database_channel.ack(data);
       const is_sent = database_channel.sendToQueue(
         db_cbq_express,
         Buffer.from(encoded_docs),
@@ -121,8 +122,10 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
       if (!is_sent) {
         throw new Error("ERROR: Unable to send back message.");
       }
-      database_channel.ack(data);
     } catch (err) {
+      const error = err as Error;
+      database_channel.nack(data, false, false);
+      console.error(error.message);
       console.error(err);
     }
   });
@@ -143,6 +146,7 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
         Url: string;
       }[] = await database_operations.query_webpages(db);
       console.log(data.content);
+      database_channel.ack(data);
       await database_channel.sendToQueue(
         db_cbq_sengine, // respond back to this queue from search engine
         Buffer.from(JSON.stringify(data_query)),
@@ -150,7 +154,6 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
           correlationId: data.properties.correlationId,
         },
       );
-      database_channel.ack(data);
     } catch (err) {
       const error = err as Error;
       console.error(error.message);
