@@ -3,7 +3,11 @@ import http, { Server, ServerOptions } from "http";
 import os from "os";
 import rabbitmq from "../rabbitmq";
 import { Channel, ConsumeMessage } from "amqplib";
-import { SEARCH_QUEUE, SEARCH_QUEUE_CB } from "../rabbitmq/routing_keys";
+import {
+  CRAWL_QUEUE,
+  SEARCH_QUEUE,
+  SEARCH_QUEUE_CB,
+} from "../rabbitmq/routing_keys";
 
 const EVENTS = {
   message: "message",
@@ -21,11 +25,40 @@ class WebsocketService {
     to new client messages that are pushed to the websocket server.
   */
 
+  // Handler needs to mutliplex incoming messages from the client
+  // if it a crawl request or a search request.
+
   async handler() {
-    this.wss.on(EVENTS.connection, (client_ws: WebSocket) => {
+    this.wss.on(EVENTS.connection, async (client_ws: WebSocket) => {
       console.log("connected");
-      client_ws.on(EVENTS.message, (data: Data) => {
-        this.message_handler(data);
+      client_ws.on(EVENTS.message, async (data: Data) => {
+        console.log("Message received");
+
+        const decode_buffer: {
+          message_type: "crawling" | "searching";
+          meta: { job_id: string };
+          unindexed_list?: Array<string>;
+          [key: string]: any;
+        } = JSON.parse(data.toString());
+
+        if (decode_buffer.message_type === "crawling") {
+          const serialize_list = Buffer.from(
+            JSON.stringify(decode_buffer.unindexed_list!),
+          );
+          const success = await rabbitmq.client.crawl(serialize_list, {
+            queue: CRAWL_QUEUE,
+            id: decode_buffer.meta.job_id,
+          });
+          if (!success) {
+            throw new Error(
+              "Unable to send crawl list to web crawler service.",
+            );
+          }
+        }
+        if (decode_buffer.message_type === "searching") {
+          //this.message_handler(data);
+          console.log("Search");
+        }
       });
     });
   }
