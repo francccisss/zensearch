@@ -57,7 +57,7 @@ class WebsocketService {
           }
         }
         if (decode_buffer.message_type === "searching") {
-          //this.message_handler(data);
+          //this.search_handler(data);
           console.log("Search");
         }
       });
@@ -69,7 +69,7 @@ class WebsocketService {
     object from the client, it calls the `send_search_query` to send.. a search query as the name
     implies to the search engine service for processing.
    */
-  private async message_handler(data: Data) {
+  private async search_handler(data: Data) {
     const { q, job_id }: { q: string; job_id: string } = JSON.parse(
       data.toString(),
     );
@@ -97,12 +97,13 @@ class WebsocketService {
     }
   }
 
-  // send something back to clients if an error occured maybe
-  async send_results_to_client(data: ConsumeMessage | null) {
+  // A callback function that is called within the channel listeners for consuming
+  // messages from the message queues.
+  async send_results_to_client(data: Buffer | null, message_type: string) {
     this.wss.clients.forEach((ws) => {
       if (ws.OPEN && data !== null) {
-        const webpages = data.content.toString();
-        ws.send(webpages, (err) => {
+        //const webpages = data.content.toString();
+        ws.send(JSON.stringify({ data_buffer: data, message_type }), (err) => {
           if (err) throw new Error("Unable to send search results to client.");
         });
       }

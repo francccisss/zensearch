@@ -26,16 +26,16 @@ const PORT = 8080;
    polling crawled tasks, and sending search queries are all handled
    by the express-server these rabbitmq handlers are specifically used for websockets
 
-   The `init_search_channel_queues` asserts message queues.
+   The `init_websocket_channel_queues` asserts message queues.
 
-   The `search_channel_listener` initializes listeners and takes in a cb
+   The `websocket_channel_listener` initializes listeners and takes in a cb
    function from the websocket server that pushes messages back to the client
-   once the search_channel_listener consumes a message from the search engine service
-   through `SEARCH_QUEUE_CB` routing key.
+   once the websocket_channel_listener consumes a message from the search engine  or Web crawler service.
   */
   await rbq_client.init_websocket_channel_queues();
+  // ERROR this object undefined when used as callback function
   await rbq_client.websocket_channel_listener(
-    ws_service.send_results_to_client,
+    ws_service.send_results_to_client.bind(ws_service),
   );
 
   // Start HTTP server
