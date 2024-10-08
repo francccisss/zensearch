@@ -10,6 +10,7 @@ class RabbitMQClient {
   connection: null | Connection = null;
   client: this = this;
   search_channel: Channel | null = null;
+  crawl_channel: Channel | null = null;
   crawledSites: Array<string> = []; // string as an utf-8 buffer
 
   constructor() {}
@@ -35,17 +36,24 @@ class RabbitMQClient {
     return this;
   }
 
-  async init_search_channel_queues() {
+  async init_websocket_channel_queues() {
     try {
       if (this.connection == null) {
         throw new Error("ERROR: Connection interface is null.");
       }
       this.search_channel = await this.connection.createChannel();
-      await this.search_channel.assertQueue(SEARCH_QUEUE, {
+
+      this.crawl_channel = await this.connection.createChannel();
+      this.search_channel.assertQueue(SEARCH_QUEUE, {
         exclusive: false,
         durable: false,
       });
-      await this.search_channel.assertQueue(SEARCH_QUEUE_CB, {
+      this.search_channel.assertQueue(SEARCH_QUEUE_CB, {
+        exclusive: false,
+        durable: false,
+      });
+
+      this.crawl_channel.assertQueue(CRAWL_QUEUE_CB, {
         exclusive: false,
         durable: false,
       });
@@ -87,23 +95,41 @@ class RabbitMQClient {
    Takes in a callback function argument to process the data received from
    the search engine service.
   */
-  async search_channel_listener(cb: (data: ConsumeMessage | null) => void) {
+  async websocket_channel_listener(cb: (data: ConsumeMessage | null) => void) {
     if (this.search_channel == null)
       throw new Error("ERROR: Search Channel is null.");
+
+    if (this.crawl_channel == null)
+      throw new Error("ERROR: Crawl Channel is null.");
+
     await this.search_channel.consume(
       SEARCH_QUEUE_CB,
-      // errors will propogate outside
       async (msg: ConsumeMessage | null) => {
         if (msg === null) throw new Error("Msg does not exist");
         console.log(msg);
         cb(msg);
-        //I hate this
         if (this.search_channel == null) {
           throw new Error("ERROR: Search Channel is null.");
         }
         this.search_channel.ack(msg);
       },
     );
+
+    // Consumes database service's output that was sent by the crawler service.
+    // client -> ws(CRAWL_QUEUE_CB)[CRAWL_QUEUE] -> [CRAWL_QUEUE]Crawler(CRAWL_QUEUE_CB)[db_indexing_crawler]
+    // -> [db_indexing_crawler]Database[CRAWL_QUEUE_CB] -> [CRAWL_QUEUE_CB]ws this listener -> client.
+    // Crawler service directs database service to send a message to the message queue with CRAWL_QUEUE_CB
+    // routing key after it finishes storing the indexed websites
+    this.crawl_channel.consume(CRAWL_QUEUE_CB, async (data) => {
+      if (data === null) throw new Error("No Response");
+      console.log("LOG: Response from Polled Job received");
+      if (this.crawl_channel == null) {
+        throw new Error("ERROR: Search Channel is null.");
+      }
+      console.log(data.content.toString());
+      this.crawl_channel.ack(data);
+      console.log("CONSUMED");
+    });
   }
 
   /*
@@ -118,40 +144,7 @@ class RabbitMQClient {
     count: number;
   }): Promise<{ done: boolean; data: any }> {
     try {
-      if (this.connection === null) throw new Error("TCP Connection lost.");
-      const chan = await this.connection.createChannel();
-      await chan.assertQueue(job.queue as string, {
-        exclusive: false,
-        durable: false,
-      });
-      const { queue, messageCount, consumerCount } = await chan.checkQueue(
-        job.queue as string,
-      );
-      chan.prefetch(Number(job.count));
-      console.log({ msgCount: messageCount, jobCount: Number(job.count) });
-      if (messageCount < job.count) {
-        return { done: false, data: {} };
-      }
-      const consumer = await chan.consume(
-        job.queue as string,
-        async (response) => {
-          if (response === null) throw new Error("No Response");
-          console.log("LOG: Response from Polled Job received");
-          this.crawledSites = [
-            ...this.crawledSites,
-            response.content.toString(),
-          ];
-          console.log("CONSUMED");
-        },
-      );
-      if (this.crawledSites.length < messageCount) {
-        return { done: false, data: {} };
-      }
-      const data = [...this.crawledSites];
-      this.crawledSites = []; //reset the array
-      chan.ackAll();
-      chan.close();
-      return { done: true, data };
+      return { done: true, data: {} };
     } catch (err) {
       const error = err as Error;
       console.error("ERROR: Something went wrong while polling message queue");
@@ -172,11 +165,6 @@ class RabbitMQClient {
     const message = "Start Crawl";
     try {
       await chan.assertQueue(CRAWL_QUEUE, {
-        exclusive: false,
-        durable: false,
-      });
-
-      await chan.assertQueue(CRAWL_QUEUE_CB, {
         exclusive: false,
         durable: false,
       });
