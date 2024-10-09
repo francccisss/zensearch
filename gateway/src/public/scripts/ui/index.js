@@ -29,7 +29,7 @@ function popUpOnRemoveEntry(entries) {
 
 function popUpOnAddEntry(entries) {
   popup.textContent = "You've reached the maximum limit.";
-  if (entries.length >= limit) {
+  if (entries.length == limit) {
     console.log("lol");
     listContainer.appendChild(popup);
     newEntry.disabled = true;
@@ -44,13 +44,13 @@ function initCrawlInputs() {
 }
 
 function sidebarActions(event) {
-  const sidebar = document.getElementById("crawl-list-sb");
+  const crawlSb = document.getElementById("crawl-list-sb");
   const target = event.target;
   if (target.classList.contains("new-entry-btn")) {
     crawlInput.addNewEntry();
   }
-  if (target.id == "close-sb-btn" && sidebar.classList.contains("active-sb")) {
-    sidebar.classList.replace("active-sb", "inactive-sb");
+  if (target.id == "close-sb-btn" && crawlSb.classList.contains("active-sb")) {
+    crawlSb.classList.replace("active-sb", "inactive-sb");
   }
   if (target.classList.contains("remove-entry-btn")) {
     crawlInput.removeEntry(target.dataset.contref);

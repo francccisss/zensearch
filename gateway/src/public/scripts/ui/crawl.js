@@ -1,6 +1,9 @@
 const listErrors = document.querySelector("#list-error-popup-container");
 const crawlLoader = document.querySelector(".crawl-loader");
 const crawlBtn = document.querySelector(".crawl-btn");
+const crawlSb = document.getElementById("crawl-list-sb");
+const template = document.getElementById("waiting-item");
+
 function onCrawlUrls() {
   crawlLoader.style.display = "inline-block";
   crawlBtn.style.display = "none";

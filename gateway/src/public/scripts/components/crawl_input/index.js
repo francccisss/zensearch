@@ -25,7 +25,7 @@ function createComponent(url) {
 }
 
 function addNewEntry() {
-  listContainer.appendChild(createComponent());
+  listContainer.appendChild(createComponent(""));
   pubsub.publish("addEntry", listContainer.children);
 }
 
@@ -46,18 +46,18 @@ function hideEntry(ref) {
   pubsub.publish("hideEntry", updatedEntries);
 }
 function revealEntry(ref) {
-  const entries = Array.from(listContainer.children);
-  const updatedEntries = entries.map((child) => {
-    if (child.id === ref) {
-      child.classList.replace("hide-entry", "reveal-entry");
-      child.dataset.hidden = false;
+  const entries = document.querySelectorAll(".url-entry");
+  const updatedEntries = entries.map((entry) => {
+    if (entry.id === ref) {
+      entry.classList.replace("hide-entry", "reveal-entry");
+      entry.dataset.hidden = false;
 
-      const input = child.querySelector("input");
+      const input = entry.querySelector("input");
       input.disabled = false;
       input.setAttribute("data-hidden", "false");
-      return child;
+      return entry;
     }
-    return child;
+    return entry;
   });
   pubsub.publish("revealEntry", updatedEntries);
 }
@@ -67,7 +67,7 @@ function revealEntry(ref) {
   crawl list.
  */
 function removeEntry(ref) {
-  const entries = Array.from(listContainer.children);
+  const entries = Array.from(document.querySelectorAll(".url-entry"));
   console.log(entries.length);
   if (entries.length < 2) {
     return;

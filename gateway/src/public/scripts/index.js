@@ -6,23 +6,38 @@ import pubsub from "./utils/pubsub.js";
 import client from "./client_operations/index.js";
 import ws from "./client_operations/websocket.js";
 
-const sidebar = document.getElementById("crawl-list-sb");
+const crawlSb = document.getElementById("crawl-list-sb");
 const openSbBtn = document.getElementById("add-entry-sb-btn");
 const crawlBtn = document.querySelector(".crawl-btn");
 const crawledData = new Map();
+let isCrawling = false;
+
 // TODO Add documentations
-// TODO Attach loop poll if user's refreshes the browser.
+// TODO store user's unindexed_list in local storage
+// for if ever a user refreshes the page while crawling
+// we can still redirect users back to the waiting area
+// redirect only if there are cookies pertaining a crawling job
+// and use the stored list to create the UI for each input
+// TODO a crawling acknoledgement, such that when user's receive the crawled website data
+// the user can send back an acknoledgement to the websocket server, and only then will the
+// websocket server send an `ack` back to the rabbitmq queue.
 
 window.addEventListener("load", () => {
   ui.init();
+  const cookies = extract_cookies();
+  if (cookies.message_type == "crawling") {
+    isCrawling = true;
+    pubsub.publish("crawlStart", ["https://fzaid.vercel.app/"]);
+    return;
+  }
   navigation.showPage("/");
 });
 
 openSbBtn.addEventListener("click", () => {
-  sidebar.classList.replace("inactive-sb", "active-sb");
+  crawlSb.classList.replace("inactive-sb", "active-sb");
 });
 
-sidebar.addEventListener("click", ui.sidebarActions);
+crawlSb.addEventListener("click", ui.sidebarActions);
 
 crawlBtn.addEventListener("click", async () => {
   const unhiddenInputs = document.querySelectorAll(
@@ -39,6 +54,10 @@ crawlBtn.addEventListener("click", async () => {
     // websocket server to start crawling the unindexed list.
     const message = { message_type, unindexed_list, meta: { job_id } };
     ws.send(JSON.stringify(message));
+    // might return an error so we need to handle it before we transition
+    // to waiting area.
+
+    pubsub.publish("crawlStart", unindexed_list);
   } catch (err) {
     console.error(err.message);
   }
@@ -73,9 +92,11 @@ pubsub.subscribe("crawlReceiver", (msg) => {
     console.log("Less than");
     // Need to update the ui of the current crawled website
     // in the unindexed list.
+    pubsub.publish("crawlNotify", parseDecodedBuffer);
     return;
   }
   console.log("Transition to search.");
+  pubsub.publish("crawlDone", parseDecodedBuffer);
   // if size is === to job_count transition page to search.
   // console.log(data);
 });
@@ -93,3 +114,13 @@ const d = {
   message_type: "crawling",
 };
 pubsub.publish("crawlReceiver", d);
+
+pubsub.subscribe("crawlStart", () => {});
+
+pubsub.subscribe("crawlNotify", (currentCrawledObj) => {
+  console.log("Update entry to green or red based on result");
+});
+
+pubsub.subscribe("crawlDone", (currentCrawledObj) => {
+  console.log("Transition to search");
+});
