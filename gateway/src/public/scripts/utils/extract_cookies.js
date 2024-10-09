@@ -4,7 +4,5 @@ export default function () {
     const [key, value] = cookie.split("=");
     cookies[key] = value;
   });
-
-  console.log(cookies);
   return cookies;
 }

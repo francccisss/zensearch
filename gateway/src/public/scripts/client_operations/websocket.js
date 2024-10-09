@@ -19,7 +19,7 @@ ws.addEventListener("message", (event) => {
   if (parse_message.message_type === "crawling") {
     console.log(parse_message);
     console.log("Message received from crawler");
-    //pubsub.publish("crawlReciver", parse_message);
+    pubsub.publish("crawlReceiver", parse_message);
   }
 });
 
