@@ -13,28 +13,30 @@
     <script type="module" src="scripts/index.js"></script>
   </head>
   <body>
-    <div id="crawl-list-sb" class="active-sb">
-      <div id="crawl-list-header">
-        <span>
-          <h2>Crawl list</h2>
-          <p>
-            If one of your entries already exists on the database, we will
-            report it back to you immediately :D
-          </p>
-        </span>
-        <button id="close-sb-btn" type="button">X</button>
-      </div>
-      <div class="crawl-list-container">
-        <div class="list-container"></div>
-        <div id="sb-btns">
-          <span class="crawl-loader"></span>
-          <button class="capsule-btn crawl-btn">Start crawl</button>
-          <button class="capsule-btn new-entry-btn">New entry</button>
+    <div id="sidebar-container" class="active-sb">
+      <div id="crawl-list-sb">
+        <div id="crawl-list-header">
+          <span>
+            <h2>Crawl list</h2>
+            <p>
+              If one of your entries already exists on the database, we will
+              report it back to you immediately :D
+            </p>
+          </span>
+          <button id="close-sb-btn" type="button">X</button>
         </div>
-        <span hidden id="list-error-popup-container">
-          <p></p>
-          <div></div>
-        </span>
+        <div class="crawl-list-container">
+          <div class="list-container"></div>
+          <div id="sb-btns">
+            <span class="crawl-loader"></span>
+            <button class="capsule-btn crawl-btn">Start crawl</button>
+            <button class="capsule-btn new-entry-btn">New entry</button>
+          </div>
+          <span hidden id="list-error-popup-container">
+            <p></p>
+            <div></div>
+          </span>
+        </div>
       </div>
     </div>
     <main id="search-page">
@@ -111,6 +113,10 @@
         class="hide-reveal-entry-btn reveal-entry-btn"
       ></button>
       <button type="button" class="remove-entry-btn"></button>
+    </template>
+    <template id="waiting-item">
+      <p class="wait-item-url" data-waiting="true"></p>
+      <span class="wait-item-icon"></span>
     </template>
   </body>
 </html>
