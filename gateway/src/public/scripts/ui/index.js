@@ -44,13 +44,13 @@ function initCrawlInputs() {
 }
 
 function sidebarActions(event) {
-  const crawlSb = document.getElementById("crawl-list-sb");
+  const sidebar = document.getElementById("sidebar-container");
   const target = event.target;
   if (target.classList.contains("new-entry-btn")) {
     crawlInput.addNewEntry();
   }
-  if (target.id == "close-sb-btn" && crawlSb.classList.contains("active-sb")) {
-    crawlSb.classList.replace("active-sb", "inactive-sb");
+  if (target.id == "close-sb-btn" && sidebar.classList.contains("active-sb")) {
+    sidebar.classList.replace("active-sb", "inactive-sb");
   }
   if (target.classList.contains("remove-entry-btn")) {
     crawlInput.removeEntry(target.dataset.contref);

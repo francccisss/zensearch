@@ -6,7 +6,7 @@ import pubsub from "./utils/pubsub.js";
 import client from "./client_operations/index.js";
 import ws from "./client_operations/websocket.js";
 
-const crawlSb = document.getElementById("crawl-list-sb");
+const sidebar = document.getElementById("sidebar-container");
 const openSbBtn = document.getElementById("add-entry-sb-btn");
 const crawlBtn = document.querySelector(".crawl-btn");
 const crawledData = new Map();
@@ -34,10 +34,10 @@ window.addEventListener("load", () => {
 });
 
 openSbBtn.addEventListener("click", () => {
-  crawlSb.classList.replace("inactive-sb", "active-sb");
+  sidebar.classList.replace("inactive-sb", "active-sb");
 });
 
-crawlSb.addEventListener("click", ui.sidebarActions);
+sidebar.addEventListener("click", ui.sidebarActions);
 
 crawlBtn.addEventListener("click", async () => {
   const unhiddenInputs = document.querySelectorAll(
@@ -115,6 +115,7 @@ const d = {
 };
 pubsub.publish("crawlReceiver", d);
 
+// Transition sidebar from crawl list to waiting area
 pubsub.subscribe("crawlStart", () => {});
 
 pubsub.subscribe("crawlNotify", (currentCrawledObj) => {
