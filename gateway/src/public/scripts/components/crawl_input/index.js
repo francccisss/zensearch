@@ -30,23 +30,23 @@ function addNewEntry() {
 }
 
 function hideEntry(ref) {
-  const entries = Array.from(listContainer.children);
-  const updatedEntries = entries.map((child) => {
-    if (child.id === ref) {
-      child.classList.replace("reveal-entry", "hide-entry");
-      child.dataset.hidden = true;
+  const entries = Array.from(document.querySelectorAll(".url-entry"));
+  const updatedEntries = entries.map((entry) => {
+    if (entry.id === ref) {
+      entry.classList.replace("reveal-entry", "hide-entry");
+      entry.dataset.hidden = true;
 
-      const input = child.querySelector("input");
+      const input = entry.querySelector("input");
       input.disabled = true;
       input.setAttribute("data-hidden", "true");
-      return child;
+      return entry;
     }
-    return child;
+    return entry;
   });
   pubsub.publish("hideEntry", updatedEntries);
 }
 function revealEntry(ref) {
-  const entries = document.querySelectorAll(".url-entry");
+  const entries = Array.from(document.querySelectorAll(".url-entry"));
   const updatedEntries = entries.map((entry) => {
     if (entry.id === ref) {
       entry.classList.replace("hide-entry", "reveal-entry");

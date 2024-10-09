@@ -14,18 +14,18 @@
   </head>
   <body>
     <div id="sidebar-container" class="active-sb">
-      <div id="crawl-list-sb">
-        <div id="crawl-list-header">
+      <div class="sb-contents-container" id="waiting-list-sb">
+        <div class="sb-list-header" id="waiting-list-header">
           <span>
-            <h2>Crawl list</h2>
+            <h2>Crawling</h2>
             <p>
-              If one of your entries already exists on the database, we will
-              report it back to you immediately :D
+              Please wait while we crawl your list of Urls, you can start search
+              once one of your entry has been crawled.
             </p>
           </span>
           <button id="close-sb-btn" type="button">X</button>
         </div>
-        <div class="crawl-list-container">
+        <div class="sb-list-container">
           <div class="list-container"></div>
           <div id="sb-btns">
             <span class="crawl-loader"></span>
@@ -38,6 +38,31 @@
           </span>
         </div>
       </div>
+
+      <!--<div class="sb-contents-container" id="crawl-list-sb">-->
+      <!--  <div class="sb-list-header" id="crawl-list-header">-->
+      <!--    <span>-->
+      <!--      <h2>Crawl list</h2>-->
+      <!--      <p>-->
+      <!--        If one of your entries already exists on the database, we will-->
+      <!--        report it back to you immediately :D-->
+      <!--      </p>-->
+      <!--    </span>-->
+      <!--    <button id="close-sb-btn" type="button">X</button>-->
+      <!--  </div>-->
+      <!--<div class="sb-list-container">-->
+      <!--    <div class="list-container"></div>-->
+      <!--    <div id="sb-btns">-->
+      <!--      <span class="crawl-loader"></span>-->
+      <!--      <button class="capsule-btn crawl-btn">Start crawl</button>-->
+      <!--      <button class="capsule-btn new-entry-btn">New entry</button>-->
+      <!--    </div>-->
+      <!--    <span hidden id="list-error-popup-container">-->
+      <!--      <p></p>-->
+      <!--      <div></div>-->
+      <!--    </span>-->
+      <!--  </div>-->
+      <!--</div>-->
     </div>
     <main id="search-page">
       <section class="centered-contents-container">
@@ -98,8 +123,6 @@
         </div>
       </section>
     </main>
-    <main id="results-page"></main>
-    <main id="process-page"></main>
     <template id="crawl-input-template">
       <input
         data-hidden="false"
