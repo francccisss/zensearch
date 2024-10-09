@@ -2,7 +2,6 @@ import navigation from "./client_navigation/navigation.js";
 import crawlInput from "./components/crawl_input/index.js";
 import ui from "./ui/index.js";
 import extract_cookies from "./utils/extract_cookies.js";
-import polling from "./utils/polling.js";
 import pubsub from "./utils/pubsub.js";
 import client from "./client_operations/index.js";
 import ws from "./client_operations/websocket.js";
@@ -10,6 +9,7 @@ import ws from "./client_operations/websocket.js";
 const sidebar = document.getElementById("crawl-list-sb");
 const openSbBtn = document.getElementById("add-entry-sb-btn");
 const crawlBtn = document.querySelector(".crawl-btn");
+const crawledData = new Map();
 // TODO Add documentations
 // TODO Attach loop poll if user's refreshes the browser.
 
@@ -60,6 +60,36 @@ pubsub.subscribe("checkAndUpgradeStart", ui.crawlui.onCrawlUrls);
 pubsub.subscribe("checkAndUpgradeDone", ui.crawlui.onCrawlDone);
 pubsub.subscribe("checkAndUpgradeError", ui.errorsui.handleCrawlErrors);
 
-pubsub.subscribe("pollingDone", (result) => {
-  console.log(result);
+pubsub.subscribe("crawlReceiver", (msg) => {
+  const { job_count } = extract_cookies();
+  const uint8 = new Uint8Array(msg.data_buffer.data);
+  const decoder = new TextDecoder();
+  const decodedBuffer = decoder.decode(uint8);
+  const parseDecodedBuffer = JSON.parse(decodedBuffer);
+
+  console.log(parseDecodedBuffer);
+  crawledData.set(parseDecodedBuffer.url, parseDecodedBuffer);
+  if (crawledData.size < job_count) {
+    console.log("Less than");
+    // Need to update the ui of the current crawled website
+    // in the unindexed list.
+    return;
+  }
+  console.log("Transition to search.");
+  // if size is === to job_count transition page to search.
+  // console.log(data);
 });
+
+const d = {
+  data_buffer: {
+    type: "Buffer",
+    data: [
+      123, 34, 109, 101, 115, 115, 97, 103, 101, 34, 58, 34, 83, 117, 99, 99,
+      101, 115, 115, 34, 44, 34, 117, 114, 108, 34, 58, 34, 102, 122, 97, 105,
+      100, 46, 118, 101, 114, 99, 101, 108, 46, 97, 112, 112, 34, 44, 34, 119,
+      101, 98, 112, 97, 103, 101, 95, 99, 111, 117, 110, 116, 34, 58, 53, 125,
+    ],
+  },
+  message_type: "crawling",
+};
+pubsub.publish("crawlReceiver", d);
