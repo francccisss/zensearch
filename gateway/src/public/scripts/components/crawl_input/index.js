@@ -2,7 +2,7 @@ import pubsub from "../../utils/pubsub.js";
 import uuid from "../../utils/uuid.js";
 
 const template = document.getElementById("crawl-input-template");
-const listContainer = document.querySelector(".list-container");
+const crawlListContainer = document.querySelector("#crawl-list-container");
 
 /* File for handling the input entries for creating new crawl entries
  * of url for crawler to work with.
@@ -25,8 +25,8 @@ function createComponent(url) {
 }
 
 function addNewEntry() {
-  listContainer.appendChild(createComponent(""));
-  pubsub.publish("addEntry", listContainer.children);
+  crawlListContainer.appendChild(createComponent(""));
+  pubsub.publish("addEntry", crawlListContainer.children);
 }
 
 function hideEntry(ref) {
@@ -81,9 +81,9 @@ function removeEntry(ref) {
 */
 function updateEntries(newEntries) {
   if (newEntries !== null) {
-    listContainer.replaceChildren(...newEntries);
+    crawlListContainer.replaceChildren(...newEntries);
   }
-  console.log(listContainer);
+  console.log(crawlListContainer);
 }
 
 function submitCrawlList() {}

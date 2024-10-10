@@ -24,6 +24,9 @@ let isCrawling = false;
 // websocket server send an `ack` back to the rabbitmq queue.
 // TODO Network requests from pubsub needs to be asynchronous
 // TODO Handle the errors
+// TODO Find a way for the crawler to immediately send message to the
+// database service if an error has occured or since it uses a replyqueue to crawl_poll_queue
+// let crawler send a message to the express websocket server with an error of the current crawl.
 window.addEventListener("load", () => {
   ui.init();
 });
@@ -80,7 +83,6 @@ pubsub.subscribe("checkAndUpgradeDone", ui.crawlui.onCrawlDone);
 pubsub.subscribe("checkAndUpgradeError", ui.errorsui.handleCrawlErrors);
 
 pubsub.subscribe("crawlReceiver", (msg) => {
-  console.time("Crawl receiver called");
   const { job_count } = cookiesUtil.extractCookies();
   const uint8 = new Uint8Array(msg.data_buffer.data);
   const decoder = new TextDecoder();
@@ -103,7 +105,6 @@ pubsub.subscribe("crawlNotify", (currentCrawledObj) => {
   const updateItems = waitItems.map((waitItem) => {
     const itemText = waitItem.children[0].textContent;
     const url = new URL(itemText);
-    console.log({ url, currentCrawledObjURL: currentCrawledObj.url });
     if (url.hostname === currentCrawledObj.url) {
       if (currentCrawledObj.message === "Success") {
         waitItem.dataset.state = "done";
@@ -112,8 +113,6 @@ pubsub.subscribe("crawlNotify", (currentCrawledObj) => {
       waitItem.dataset.state = "error";
     }
   });
-  console.log(waitItems);
-  console.log("Update entry to green or red based on result");
 });
 
 pubsub.subscribe("crawlDone", (currentCrawledObj) => {
