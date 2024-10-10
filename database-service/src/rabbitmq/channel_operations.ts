@@ -41,21 +41,27 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
     durable: false,
   });
 
+  // Aside from database service to handle errors for indexing,
+  // the crawler also needs to send the same mssage format straight
+  // to the express server to notify that the crawl for the current url
+  // threw an error.
+
   database_channel.consume(db_indexing_crawler, async (data) => {
     if (data === null) throw new Error("No data was pushed.");
     const decoder = new TextDecoder();
     const decoded_data = decoder.decode(data.content as ArrayBuffer);
+    const deserialize_data: data_t = JSON.parse(decoded_data);
     try {
-      const deserialize_data: data_t = JSON.parse(decoded_data);
-      console.log(deserialize_data);
-      database_operations.index_webpages(db, deserialize_data);
+      // if ever an error occurs while saving new indexed webpages.
+      // send message to the client with a message of "Error" with the.
+      // current url.
       database_channel.ack(data);
-
-      // Sends message to the `crawl_poll_queue` on the express server /job polling
-      // route handler.
+      // sqlite is asynchronous, after calling this function
+      // it will call sqlite query function asynchronously, so this one should return
+      // immediately
+      await database_operations.index_webpages(db, deserialize_data);
       database_channel.sendToQueue(
         data.properties.replyTo,
-        // Encode message to a utf-8 buffer
         Buffer.from(
           JSON.stringify({
             message: "Success",
@@ -69,6 +75,16 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
       console.error("ERROR: Decoder was unable to deserialized indexed data.");
       console.error(error.message);
       database_channel.nack(data, false, false);
+      database_channel.sendToQueue(
+        data.properties.replyTo,
+        Buffer.from(
+          JSON.stringify({
+            message: "Error",
+            url: deserialize_data.Url,
+            webpage_count: 0,
+          }),
+        ),
+      );
     }
   });
 
