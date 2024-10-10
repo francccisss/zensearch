@@ -116,6 +116,8 @@ pubsub.subscribe("crawlNotify", (currentCrawledObj) => {
 });
 
 pubsub.subscribe("crawlDone", (currentCrawledObj) => {
+  const newListBtn = document.getElementById("new-list-btn");
+  newListBtn.style.display = "block";
   // Remove cookies from browser
   cookiesUtil.clearAllCookies();
   console.log("Transition to SEARCH");
