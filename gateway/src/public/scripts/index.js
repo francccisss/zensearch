@@ -23,6 +23,7 @@ let isCrawling = false;
 // the user can send back an acknoledgement to the websocket server, and only then will the
 // websocket server send an `ack` back to the rabbitmq queue.
 // TODO for window on load, when cookie exists, load the waiting list ui else, load the crawl list
+// TODO Network requests from pubsub needs to be asynchronous
 
 window.addEventListener("load", () => {
   ui.init();
@@ -91,7 +92,7 @@ pubsub.subscribe("crawlReceiver", (msg) => {
   console.log(parseDecodedBuffer);
   crawledData.set(parseDecodedBuffer.url, parseDecodedBuffer);
   pubsub.publish("crawlNotify", parseDecodedBuffer);
-  if (crawledData.size === job_count) {
+  if (crawledData.size === Number(job_count)) {
     pubsub.publish("crawlDone", {});
   }
 });
@@ -100,15 +101,16 @@ pubsub.subscribe("crawlReceiver", (msg) => {
 pubsub.subscribe("crawlStart", ui.transitionToWaitingList);
 
 pubsub.subscribe("crawlNotify", (currentCrawledObj) => {
-  const waitItems = document.querySelectorAll("wait-item");
-  const url = new URL(currentCrawledObj.url, "/");
-  console.log({ currentUrl: url });
-  console.log(waitItems);
+  //const waitItems = document.querySelectorAll("wait-item");
+  //const url = new URL(currentCrawledObj.url, "/");
+  //console.log({ currentUrl: url });
+  //console.log(waitItems);
 
   console.log("Update entry to green or red based on result");
 });
 
 pubsub.subscribe("crawlDone", (currentCrawledObj) => {
   // Remove cookies from browser
+  cookiesUtil.clearAllCookies();
   console.log("Transition to SEARCH");
 });
