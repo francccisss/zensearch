@@ -1,7 +1,7 @@
 import { Database } from "sqlite3";
 import { data_t, webpage_t } from "./utils/types";
 
-function index_webpages(db: Database, data: data_t) {
+async function index_webpages(db: Database, data: data_t) {
   if (db == null) {
     throw new Error("ERROR: Database is not connected.");
   }
@@ -60,6 +60,9 @@ function index_webpages(db: Database, data: data_t) {
 }
 
 async function query_webpages(db: Database): Promise<Array<webpage_t>> {
+  // query function returns once the promise has either been resolved
+  // or rejected by the sqlite query call.
+
   return await new Promise(function (resolved, reject) {
     const sql_query = "SELECT Url, Contents, Title FROM webpages";
     db.all<webpage_t>(sql_query, (err, row) => {
