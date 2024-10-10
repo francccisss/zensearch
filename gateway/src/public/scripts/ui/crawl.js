@@ -12,7 +12,11 @@ function onCrawlUrls() {
 }
 
 function onCrawlDone(result) {
-  console.log("Crawl is done");
+  /*
+   Hides the loader ui for crawling after upgrading
+   http to wesocket and sending list to the crawler
+  */
+  console.log("Crawled and Upgraded.");
   crawlLoader.style.display = "none";
   crawlBtn.style.display = "unset";
 }

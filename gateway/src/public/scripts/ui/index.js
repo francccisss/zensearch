@@ -1,6 +1,7 @@
 import crawlInput from "../components/crawl_input/index.js";
 import errorsui from "./errors.js";
 import crawlui from "./crawl.js";
+import extract_cookies from "../utils/extract_cookies.js";
 
 /*
  * The plan is to make this file as a collection of ui component/element handlers
@@ -36,7 +37,7 @@ function popUpOnAddEntry(entries) {
   }
 }
 function initCrawlInputs() {
-  const listContainer = document.querySelector(".list-container");
+  const listContainer = document.querySelector("#crawl-list-container");
   //listContainer.appendChild(crawlInput.createComponent("https://ludwig.com/"));
   listContainer.appendChild(
     crawlInput.createComponent("https://fzaid.vercel.app/"),

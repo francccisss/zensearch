@@ -24,6 +24,9 @@ let isCrawling = false;
 // websocket server send an `ack` back to the rabbitmq queue.
 // TODO for window on load, when cookie exists, load the waiting list ui else, load the crawl list
 
+window.addEventListener("load", () => {
+  ui.init();
+});
 openSbBtn.addEventListener("click", () => {
   sidebar.classList.replace("inactive-sb", "active-sb");
 });
@@ -53,8 +56,9 @@ async function sendCrawlList() {
     ws.send(JSON.stringify(message));
     // might return an error so we need to handle it before we transition
     // to waiting area.
-
-    pubsub.publish("crawlStart", unindexed_list);
+    //
+    // Message is successfully sent
+    // pubsub.publish("crawlStart", unindexed_list);
   } catch (err) {
     console.error(err.message);
   }
@@ -77,6 +81,7 @@ pubsub.subscribe("checkAndUpgradeDone", ui.crawlui.onCrawlDone);
 pubsub.subscribe("checkAndUpgradeError", ui.errorsui.handleCrawlErrors);
 
 pubsub.subscribe("crawlReceiver", (msg) => {
+  console.time("Crawl receiver called");
   const { job_count } = extract_cookies();
   const uint8 = new Uint8Array(msg.data_buffer.data);
   const decoder = new TextDecoder();
@@ -99,27 +104,14 @@ pubsub.subscribe("crawlReceiver", (msg) => {
 // Transition sidebar from crawl list to waiting area
 pubsub.subscribe("crawlStart", ui.transitionToWaitingList);
 
-// test
-pubsub.publish("crawlStart", ["https://fzaid.vercel.app/"]);
-
 pubsub.subscribe("crawlNotify", (currentCrawledObj) => {
+  const waitItems = document.querySelectorAll("wait-item");
+  const url = new URL(currentCrawledObj.url);
+
   console.log("Update entry to green or red based on result");
 });
 
 pubsub.subscribe("crawlDone", (currentCrawledObj) => {
-  console.log("Transition to search");
+  //clear cookies
+  console.log("Transition to SEARCH");
 });
-
-// test
-const d = {
-  data_buffer: {
-    type: "Buffer",
-    data: [
-      123, 34, 109, 101, 115, 115, 97, 103, 101, 34, 58, 34, 83, 117, 99, 99,
-      101, 115, 115, 34, 44, 34, 117, 114, 108, 34, 58, 34, 102, 122, 97, 105,
-      100, 46, 118, 101, 114, 99, 101, 108, 46, 97, 112, 112, 34, 44, 34, 119,
-      101, 98, 112, 97, 103, 101, 95, 99, 111, 117, 110, 116, 34, 58, 53, 125,
-    ],
-  },
-  message_type: "crawling",
-};
