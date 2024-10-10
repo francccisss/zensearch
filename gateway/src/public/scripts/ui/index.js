@@ -88,6 +88,7 @@ function transitionToWaitingList(unindexed_list) {
     const container = document.createElement("div");
     container.append(template.content.cloneNode(true));
     container.setAttribute("class", "wait-item");
+    container.dataset.state = "loading";
     const p = container.children[0];
     const icon = container.children[1];
     p.textContent = item;
