@@ -75,6 +75,7 @@ function sidebarActions(event) {
 function transitionToCrawlList() {
   const crawlList = document.getElementById("crawl-list-sb");
   const waitingList = document.getElementById("waiting-list-sb");
+  const newListBtn = document.getElementById("new-list-btn");
   if (crawlList.classList.contains("inactive-list-container")) {
     waitingList.classList.replace(
       "active-list-container",
@@ -85,6 +86,7 @@ function transitionToCrawlList() {
       "active-list-container",
     );
   }
+  newListBtn.style.display = "none";
 }
 function transitionToWaitingList(unindexed_list) {
   const crawlList = document.getElementById("crawl-list-sb");
