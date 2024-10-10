@@ -4,7 +4,6 @@ import pubsub from "../utils/pubsub.js";
 ws.addEventListener("open", (msg) => {
   console.log("Connected to websocket server");
 });
-
 ws.addEventListener("message", (event) => {
   const parse_message = JSON.parse(event.data);
 
@@ -16,10 +15,12 @@ ws.addEventListener("message", (event) => {
   // the length of the messages received from the server is equal
   // to the length of the crawl_list length, then transition to onSuccessCrawl
 
+  // TODO Error: Receiving message just right after sending the unindexed list
+  // should only receive after the crawl is done.
   if (parse_message.message_type === "crawling") {
-    console.log(parse_message);
     console.log("Message received from crawler");
-    pubsub.publish("crawlReceiver", parse_message);
+    console.log(event);
+    //pubsub.publish("crawlReceiver", parse_message);
   }
 });
 

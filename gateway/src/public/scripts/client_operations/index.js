@@ -25,7 +25,7 @@ async function checkListAndUpgrade(webUrls) {
     if (responseObj.is_crawling === false) {
       throw new Error(responseObj.message);
     }
-    pubsub.publish("checkAndUpgradeDone");
+    pubsub.publish("checkAndUpgradeDone", {});
     return responseObj.crawl_list;
   } catch (err) {
     pubsub.publish("checkAndUpgradeError", {

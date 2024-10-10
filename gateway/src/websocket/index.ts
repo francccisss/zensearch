@@ -45,7 +45,6 @@ class WebsocketService {
           const serialize_list = Buffer.from(
             JSON.stringify({ Docs: decode_buffer.unindexed_list! }),
           );
-          client_ws.send(JSON.stringify(decode_buffer));
           const success = await rabbitmq.client.crawl(serialize_list, {
             queue: CRAWL_QUEUE,
             id: decode_buffer.meta.job_id,
