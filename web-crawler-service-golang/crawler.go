@@ -87,6 +87,49 @@ type Message struct {
 	Header
 }
 
+type ErrorMessage struct {
+	Message string
+	Url     string
+}
+
+func sendErrorOnWebpageCrawl(hostname string) error {
+
+	/*
+	 expressErrorChannel is used to pass a message from crawl service
+	 to the express websocket server using the `crawl_poll_queue` (Might change routing key name)
+	 routing key to notify users immediately that an error occured for the current
+	 to notify users immediately that an error occured for the current url
+	*/
+
+	fmt.Println("ERROR Crawl")
+	conn, err := rabbitmqclient.GetConnection("receiverConn")
+	if err != nil {
+		fmt.Print(err.Error())
+		log.Panicln("ERROR: Unable to get connection.")
+	}
+	expressErrorChannel, err := conn.Channel()
+	if err != nil {
+		log.Printf("ERROR: Unable to create a database channel.")
+		return fmt.Errorf(err.Error())
+	}
+
+	errorMessage := ErrorMessage{
+		Message: "Error",
+		Url:     hostname,
+	}
+	const crawlPollqueue = "crawl_poll_queue"
+
+	expressErrorChannel.QueueDeclare(crawlPollqueue, false, false, false, false, nil)
+	dataBuffer, err := json.Marshal(errorMessage)
+	expressErrorChannel.Publish("", crawlPollqueue, false, false, amqp.Publishing{
+		Type:    "text/plain",
+		Body:    []byte(dataBuffer), // TODO convert to buffer array / byte
+		ReplyTo: crawlPollqueue,
+	})
+	expressErrorChannel.Close()
+	return nil
+}
+
 func saveIndexedWebpages(jobID string, entry *WebpageEntry) error {
 	conn, err := rabbitmqclient.GetConnection("receiverConn")
 	if err != nil {
@@ -118,6 +161,7 @@ func saveIndexedWebpages(jobID string, entry *WebpageEntry) error {
 		CorrelationId: jobID,
 		ReplyTo:       crawlPollqueue,
 	})
+	dbChannel.Close()
 	return nil
 }
 
@@ -215,7 +259,9 @@ func (ct CrawlTask) Crawl() (PageResult, error) {
 	entry.Title = title
 	err = pageTraverser.traversePages()
 	if err != nil {
+		sendErrorOnWebpageCrawl(ct.URL)
 		fmt.Println("ERROR: Well something went wrong with the last stack.")
+		return PageResult{}, err
 	}
 	result := PageResult{
 		URL:         ct.URL,
