@@ -19,8 +19,7 @@ ws.addEventListener("message", (event) => {
   // should only receive after the crawl is done.
   if (parse_message.message_type === "crawling") {
     console.log("Message received from crawler");
-    console.log(event);
-    //pubsub.publish("crawlReceiver", parse_message);
+    pubsub.publish("crawlReceiver", parse_message);
   }
 });
 

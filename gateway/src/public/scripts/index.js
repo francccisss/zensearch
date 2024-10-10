@@ -1,7 +1,7 @@
 import navigation from "./client_navigation/navigation.js";
 import crawlInput from "./components/crawl_input/index.js";
 import ui from "./ui/index.js";
-import extract_cookies from "./utils/extract_cookies.js";
+import cookiesUtil from "./utils/cookies.js";
 import pubsub from "./utils/pubsub.js";
 import client from "./client_operations/index.js";
 import ws from "./client_operations/websocket.js";
@@ -49,7 +49,7 @@ async function sendCrawlList() {
     const unindexed_list = await client.checkListAndUpgrade(inputValues);
     console.log("Transition to waiting area for crawled list.");
 
-    const { message_type, job_id } = extract_cookies();
+    const { message_type, job_id } = cookiesUtil.extractCookies();
     // On Successful database check for unindexed list, send the list to the
     // websocket server to start crawling the unindexed list.
     const message = { message_type, unindexed_list, meta: { job_id } };
@@ -58,7 +58,7 @@ async function sendCrawlList() {
     // to waiting area.
     //
     // Message is successfully sent
-    // pubsub.publish("crawlStart", unindexed_list);
+    pubsub.publish("crawlStart", unindexed_list);
   } catch (err) {
     console.error(err.message);
   }
@@ -82,7 +82,7 @@ pubsub.subscribe("checkAndUpgradeError", ui.errorsui.handleCrawlErrors);
 
 pubsub.subscribe("crawlReceiver", (msg) => {
   console.time("Crawl receiver called");
-  const { job_count } = extract_cookies();
+  const { job_count } = cookiesUtil.extractCookies();
   const uint8 = new Uint8Array(msg.data_buffer.data);
   const decoder = new TextDecoder();
   const decodedBuffer = decoder.decode(uint8);
@@ -90,15 +90,10 @@ pubsub.subscribe("crawlReceiver", (msg) => {
 
   console.log(parseDecodedBuffer);
   crawledData.set(parseDecodedBuffer.url, parseDecodedBuffer);
-  if (crawledData.size < job_count) {
-    console.log("Less than");
-    // Need to update the ui of the current crawled website
-    // in the unindexed list.
-    pubsub.publish("crawlNotify", parseDecodedBuffer);
-    return;
+  pubsub.publish("crawlNotify", parseDecodedBuffer);
+  if (crawledData.size === job_count) {
+    pubsub.publish("crawlDone", {});
   }
-  console.log("Transition to search.");
-  pubsub.publish("crawlDone", parseDecodedBuffer);
 });
 
 // Transition sidebar from crawl list to waiting area
@@ -106,12 +101,14 @@ pubsub.subscribe("crawlStart", ui.transitionToWaitingList);
 
 pubsub.subscribe("crawlNotify", (currentCrawledObj) => {
   const waitItems = document.querySelectorAll("wait-item");
-  const url = new URL(currentCrawledObj.url);
+  const url = new URL(currentCrawledObj.url, "/");
+  console.log({ currentUrl: url });
+  console.log(waitItems);
 
   console.log("Update entry to green or red based on result");
 });
 
 pubsub.subscribe("crawlDone", (currentCrawledObj) => {
-  //clear cookies
+  // Remove cookies from browser
   console.log("Transition to SEARCH");
 });
