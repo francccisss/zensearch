@@ -38,7 +38,7 @@ function popUpOnAddEntry(entries) {
 }
 function initCrawlInputs() {
   const listContainer = document.querySelector("#crawl-list-container");
-  //listContainer.appendChild(crawlInput.createComponent("https://ludwig.com/"));
+  listContainer.appendChild(crawlInput.createComponent("https://m7mad.dev"));
   listContainer.appendChild(
     crawlInput.createComponent("https://fzaid.vercel.app/"),
   );
@@ -66,10 +66,27 @@ function sidebarActions(event) {
     target.classList.replace("hide-entry-btn", "reveal-entry-btn");
     crawlInput.revealEntry(target.dataset.contref);
   }
+  if (target.id === "new-list-btn") {
+    console.log("Transition back to crawl list");
+    transitionToCrawlList([]);
+  }
 }
 
+function transitionToCrawlList() {
+  const crawlList = document.getElementById("crawl-list-sb");
+  const waitingList = document.getElementById("waiting-list-sb");
+  if (crawlList.classList.contains("inactive-list-container")) {
+    waitingList.classList.replace(
+      "active-list-container",
+      "inactive-list-container",
+    );
+    crawlList.classList.replace(
+      "inactive-list-container",
+      "active-list-container",
+    );
+  }
+}
 function transitionToWaitingList(unindexed_list) {
-  console.log(unindexed_list);
   const crawlList = document.getElementById("crawl-list-sb");
   const waitingList = document.getElementById("waiting-list-sb");
   if (crawlList.classList.contains("active-list-container")) {

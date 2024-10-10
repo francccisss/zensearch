@@ -185,29 +185,47 @@ header.title-container {
   align-items: center;
   gap: 1em;
   margin-top: 2em;
+  font-weight: bold;
   * {
     margin-top: 0;
   }
 }
+
+#new-list-btn:hover {
+  border: 4px solid var(--black);
+  color: var(--black);
+}
+
+#new-list-btn {
+  display: none;
+}
+
+#new-list-btn,
+button#add-entry-sb-btn,
+.new-entry-btn,
+.crawl-btn {
+  transition: ease-in-out 100ms all;
+}
+#new-list-btn:hover,
+button#add-entry-sb-btn:hover,
+.new-entry-btn:hover,
 .crawl-btn:hover {
   background-color: transparent;
-  border: 4px solid var(--accent);
-  font-weight: bold;
   transition: ease-in-out 100ms all;
+}
+.crawl-btn:hover {
+  border: 4px solid var(--accent);
 }
 .crawl-btn {
   background-color: var(--accent);
   border: 4px solid transparent;
   color: var(--black);
-  font-weight: bold;
-  transition: ease-in-out 100ms all;
 }
+#new-list-btn:hover,
 button#add-entry-sb-btn:hover,
 .new-entry-btn:hover {
-  background-color: transparent;
   border: 4px solid var(--black);
-  transition: ease-in-out 100ms all;
-  color: black;
+  color: var(--black);
 }
 button#add-entry-sb-btn {
   font-size: 1.5rem;
