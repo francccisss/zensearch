@@ -5,6 +5,7 @@ import extract_cookies from "./utils/extract_cookies.js";
 import pubsub from "./utils/pubsub.js";
 import client from "./client_operations/index.js";
 import ws from "./client_operations/websocket.js";
+import crawl_input from "./components/crawl_input/index.js";
 
 const sidebar = document.getElementById("sidebar-container");
 const openSbBtn = document.getElementById("add-entry-sb-btn");
@@ -21,25 +22,21 @@ let isCrawling = false;
 // TODO a crawling acknoledgement, such that when user's receive the crawled website data
 // the user can send back an acknoledgement to the websocket server, and only then will the
 // websocket server send an `ack` back to the rabbitmq queue.
-
-window.addEventListener("load", () => {
-  ui.init();
-  const cookies = extract_cookies();
-  if (cookies.message_type == "crawling") {
-    isCrawling = true;
-    pubsub.publish("crawlStart", ["https://fzaid.vercel.app/"]);
-    return;
-  }
-  navigation.showPage("/");
-});
+// TODO for window on load, when cookie exists, load the waiting list ui else, load the crawl list
 
 openSbBtn.addEventListener("click", () => {
   sidebar.classList.replace("inactive-sb", "active-sb");
 });
 
-sidebar.addEventListener("click", ui.sidebarActions);
+sidebar.addEventListener("click", async (e) => {
+  const target = e.target;
+  ui.sidebarActions(e);
+  if (target.classList.contains("crawl-btn")) {
+    await sendCrawlList();
+  }
+});
 
-crawlBtn.addEventListener("click", async () => {
+async function sendCrawlList() {
   const unhiddenInputs = document.querySelectorAll(
     'input.crawl-input:not([data-hidden="true"])',
   );
@@ -61,7 +58,7 @@ crawlBtn.addEventListener("click", async () => {
   } catch (err) {
     console.error(err.message);
   }
-});
+}
 
 /* Pubsub utility is used to handle UI reactivity on data change
  */
@@ -97,10 +94,23 @@ pubsub.subscribe("crawlReceiver", (msg) => {
   }
   console.log("Transition to search.");
   pubsub.publish("crawlDone", parseDecodedBuffer);
-  // if size is === to job_count transition page to search.
-  // console.log(data);
 });
 
+// Transition sidebar from crawl list to waiting area
+pubsub.subscribe("crawlStart", ui.transitionToWaitingList);
+
+// test
+pubsub.publish("crawlStart", ["https://fzaid.vercel.app/"]);
+
+pubsub.subscribe("crawlNotify", (currentCrawledObj) => {
+  console.log("Update entry to green or red based on result");
+});
+
+pubsub.subscribe("crawlDone", (currentCrawledObj) => {
+  console.log("Transition to search");
+});
+
+// test
 const d = {
   data_buffer: {
     type: "Buffer",
@@ -113,15 +123,3 @@ const d = {
   },
   message_type: "crawling",
 };
-pubsub.publish("crawlReceiver", d);
-
-// Transition sidebar from crawl list to waiting area
-pubsub.subscribe("crawlStart", () => {});
-
-pubsub.subscribe("crawlNotify", (currentCrawledObj) => {
-  console.log("Update entry to green or red based on result");
-});
-
-pubsub.subscribe("crawlDone", (currentCrawledObj) => {
-  console.log("Transition to search");
-});

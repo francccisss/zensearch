@@ -67,14 +67,44 @@ function sidebarActions(event) {
   }
 }
 
-// TODO create an event listener for crawl button
-// need to grab each inputs and for each inputs get their
-// values and store them in an array, or unless convert into a form
-// then on submit on a form element, we can easily create a form data
-// where each input fields can be turned into form entries.
+function transitionToWaitingList(unindexed_list) {
+  console.log(unindexed_list);
+  const crawlList = document.getElementById("crawl-list-sb");
+  const waitingList = document.getElementById("waiting-list-sb");
+  if (crawlList.classList.contains("active-list-container")) {
+    crawlList.classList.replace(
+      "active-list-container",
+      "inactive-list-container",
+    );
+    waitingList.classList.replace(
+      "inactive-list-container",
+      "active-list-container",
+    );
+  }
 
-// UI initializer for placeholder or something. idk
+  const template = document.getElementById("waiting-item");
+  const waitListContainer = document.getElementById("wait-list-container");
+  const createItems = unindexed_list.map((item) => {
+    const container = document.createElement("div");
+    container.append(template.content.cloneNode(true));
+    container.setAttribute("class", "wait-item");
+    const p = container.children[0];
+    const icon = container.children[1];
+    p.textContent = item;
+    return container;
+  });
+  waitListContainer.replaceChildren(...createItems);
+}
 function init() {
+  // TODO When using init for transitionToWaitingList, need to make sure
+  // that unindexed list is persistent such that when user refreshes the page
+  // we can reattach the list again.
+
+  const cookies = extract_cookies();
+  if (cookies.message_type == "crawling") {
+    transitionToWaitingList();
+    return;
+  }
   initCrawlInputs();
 }
 
@@ -85,4 +115,5 @@ export default {
   sidebarActions,
   popUpOnRemoveEntry,
   popUpOnAddEntry,
+  transitionToWaitingList,
 };
