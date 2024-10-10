@@ -19,12 +19,11 @@ let isCrawling = false;
 // we can still redirect users back to the waiting area
 // redirect only if there are cookies pertaining a crawling job
 // and use the stored list to create the UI for each input
-// TODO a crawling acknoledgement, such that when user's receive the crawled website data
+// TODO a crawling acknowledgement, such that when user's receive the crawled website data
 // the user can send back an acknoledgement to the websocket server, and only then will the
 // websocket server send an `ack` back to the rabbitmq queue.
-// TODO for window on load, when cookie exists, load the waiting list ui else, load the crawl list
 // TODO Network requests from pubsub needs to be asynchronous
-
+// TODO Handle the errors
 window.addEventListener("load", () => {
   ui.init();
 });
@@ -57,8 +56,7 @@ async function sendCrawlList() {
     ws.send(JSON.stringify(message));
     // might return an error so we need to handle it before we transition
     // to waiting area.
-    //
-    // Message is successfully sent
+
     pubsub.publish("crawlStart", unindexed_list);
   } catch (err) {
     console.error(err.message);
@@ -101,11 +99,20 @@ pubsub.subscribe("crawlReceiver", (msg) => {
 pubsub.subscribe("crawlStart", ui.transitionToWaitingList);
 
 pubsub.subscribe("crawlNotify", (currentCrawledObj) => {
-  //const waitItems = document.querySelectorAll("wait-item");
-  //const url = new URL(currentCrawledObj.url, "/");
-  //console.log({ currentUrl: url });
-  //console.log(waitItems);
-
+  const waitItems = Array.from(document.querySelectorAll(".wait-item"));
+  const updateItems = waitItems.map((waitItem) => {
+    const itemText = waitItem.children[0].textContent;
+    const url = new URL(itemText);
+    console.log({ url, currentCrawledObjURL: currentCrawledObj.url });
+    if (url.hostname === currentCrawledObj.url) {
+      if (currentCrawledObj.message === "Success") {
+        waitItem.dataset.state = "done";
+        return;
+      }
+      waitItem.dataset.state = "error";
+    }
+  });
+  console.log(waitItems);
   console.log("Update entry to green or red based on result");
 });
 
