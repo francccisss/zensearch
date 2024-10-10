@@ -2,6 +2,7 @@
 @import url("./loader.css");
 
 :root {
+  --waiting-icon-size: 25px;
   --rounded-full: 9999px;
   --input-btn-padding: 1rem 1.5rem;
   --crawl-input-btn-padding: 0.7rem 1.2rem;
@@ -12,6 +13,7 @@
   --bg: #ffffff;
   --light-text: #ffffff;
   --error: #ed5e5e;
+  --check: #5dc45d;
 }
 html {
   scroll-behavior: smooth;
@@ -345,4 +347,33 @@ body:has(.active-sb) {
 
 .sb-contents-container.inactive-list-container {
   display: none;
+}
+
+.wait-item {
+  align-items: center;
+  box-sizing: border-box;
+  display: flex;
+  background-color: var(--input-color);
+  width: 100%;
+  padding: var(--crawl-input-btn-padding);
+  justify-content: space-between;
+}
+
+.wait-item-icon {
+  width: var(--waiting-icon-size);
+  height: var(--waiting-icon-size);
+  display: inline-block;
+  box-sizing: border-box;
+  background-repeat: no-repeat;
+}
+.wait-item[data-state="done"] {
+  .wait-item-icon {
+    background-image: url("../assets/icons/check.svg");
+  }
+}
+
+.wait-item[data-state="error"] {
+  .wait-item-icon {
+    background-image: url("../assets/icons/error.svg");
+  }
 }
