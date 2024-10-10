@@ -258,6 +258,7 @@ body:has(.active-sb) {
     transition: outline 120ms ease-in;
   }
   button {
+    box-sizing: content-box;
     align-self: self-start;
     transition: outline 120ms ease-in;
     outline: 2px solid transparent;
@@ -267,7 +268,7 @@ body:has(.active-sb) {
     background-color: var(--black);
     border-radius: var(--rounded-full);
     height: 30px;
-    width: 35px;
+    width: 30px;
     margin-left: auto;
   }
 }
@@ -336,4 +337,12 @@ body:has(.active-sb) {
     margin-top: 0.6em;
     display: grid;
   }
+}
+
+.sb-contents-container.active-list-container {
+  display: block;
+}
+
+.sb-contents-container.inactive-list-container {
+  display: none;
 }
