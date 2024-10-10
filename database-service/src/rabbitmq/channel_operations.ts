@@ -64,9 +64,9 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
         data.properties.replyTo,
         Buffer.from(
           JSON.stringify({
-            message: "Success",
-            url: deserialize_data.Url,
-            webpage_count: deserialize_data.Webpages.length,
+            Message: "Success",
+            Url: deserialize_data.Url,
+            WebpageCount: deserialize_data.Webpages.length,
           }),
         ),
       );
