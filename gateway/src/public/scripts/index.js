@@ -90,7 +90,7 @@ pubsub.subscribe("crawlReceiver", (msg) => {
   const parseDecodedBuffer = JSON.parse(decodedBuffer);
 
   console.log(parseDecodedBuffer);
-  crawledData.set(parseDecodedBuffer.url, parseDecodedBuffer);
+  crawledData.set(parseDecodedBuffer.Url, parseDecodedBuffer);
   pubsub.publish("crawlNotify", parseDecodedBuffer);
   if (crawledData.size === Number(job_count)) {
     pubsub.publish("crawlDone", {});
@@ -104,13 +104,12 @@ pubsub.subscribe("crawlNotify", (currentCrawledObj) => {
   const waitItems = Array.from(document.querySelectorAll(".wait-item"));
   const updateItems = waitItems.map((waitItem) => {
     const itemText = waitItem.children[0].textContent;
-    const url = new URL(itemText);
-    if (url.hostname === currentCrawledObj.url) {
-      if (currentCrawledObj.message === "Success") {
+    if (itemText.includes(currentCrawledObj.Url)) {
+      if (currentCrawledObj.Message === "Success") {
         waitItem.dataset.state = "done";
-        return;
+      } else if (currentCrawledObj.Message === "Error") {
+        waitItem.dataset.state = "error";
       }
-      waitItem.dataset.state = "error";
     }
   });
 });
