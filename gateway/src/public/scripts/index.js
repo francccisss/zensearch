@@ -4,7 +4,7 @@ import ui from "./ui/index.js";
 import cookiesUtil from "./utils/cookies.js";
 import pubsub from "./utils/pubsub.js";
 import client from "./client_operations/index.js";
-import ws from "./client_operations/websocket.js";
+import clientws from "./client_operations/websocket.js";
 import crawl_input from "./components/crawl_input/index.js";
 
 const sidebar = document.getElementById("sidebar-container");
@@ -56,7 +56,7 @@ async function sendCrawlList() {
     // On Successful database check for unindexed list, send the list to the
     // websocket server to start crawling the unindexed list.
     const message = { message_type, unindexed_list, meta: { job_id } };
-    ws.send(JSON.stringify(message));
+    clientws.ws.send(JSON.stringify(message));
     // might return an error so we need to handle it before we transition
     // to waiting area.
 
@@ -91,6 +91,7 @@ pubsub.subscribe("crawlReceiver", (msg) => {
 
   console.log(parseDecodedBuffer);
   crawledData.set(parseDecodedBuffer.Url, parseDecodedBuffer);
+  clientws.ackMessage();
   pubsub.publish("crawlNotify", parseDecodedBuffer);
   if (crawledData.size === Number(job_count)) {
     pubsub.publish("crawlDone", {});

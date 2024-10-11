@@ -96,7 +96,7 @@ class RabbitMQClient {
    the search engine service.
   */
   async websocket_channel_listener(
-    cb: (data: Buffer | null, message_type: string) => void,
+    cb: (chan: Channel, data: ConsumeMessage, message_type: string) => void,
   ) {
     if (this.search_channel == null)
       throw new Error("ERROR: Search Channel is null.");
@@ -109,11 +109,10 @@ class RabbitMQClient {
       async (msg: ConsumeMessage | null) => {
         if (msg === null) throw new Error("Msg does not exist");
         console.log(msg);
-        await cb(msg.content, "searching");
         if (this.search_channel == null) {
           throw new Error("ERROR: Search Channel is null.");
         }
-        this.search_channel.ack(msg);
+        await cb(this.search_channel, msg, "searching");
       },
     );
 
@@ -124,14 +123,12 @@ class RabbitMQClient {
     // routing key after it finishes storing the indexed websites
     this.crawl_channel.consume(CRAWL_QUEUE_CB, async (msg) => {
       if (msg === null) throw new Error("No Response");
-      console.log("LOG: Response from Polled Job received");
+      console.log("LOG: Message received from crawling");
       if (this.crawl_channel == null) {
         throw new Error("ERROR: Search Channel is null.");
       }
-      await cb(msg.content, "crawling");
+      await cb(this.crawl_channel, msg, "crawling");
       console.log(msg.content.toString());
-      this.crawl_channel.ack(msg);
-      console.log("CONSUMED");
     });
   }
 
