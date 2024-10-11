@@ -5,6 +5,22 @@ ws.addEventListener("open", (msg) => {
   console.log("Connected to websocket server");
 });
 ws.addEventListener("message", (event) => {
+  /*
+   Just a work around for sending ping pong shenanigans
+   because client side doesn't support sending an on pong event
+   so the websocket server has to send a "pong" back to client,
+   when in ackshuality the server should be the one to listen
+   to pong events from the client side, so when server sends data (ping)
+   the client should send a pong with an ACK message, but instead
+   the client CAN only send a ping, so when the server receives the "ping"
+   the server then emits out a "pong" event with an "ACK" message, which
+   the rabbitmq handler will read that the client side has indeed received
+   the message.
+  */
+  //if (event.data.toString() === "ACK") {
+  //  console.log("Ack");
+  //  return;
+  //}
   const parse_message = JSON.parse(event.data);
 
   // Server side's `CRAWL_CB_QUEUE` consumer will push crawled
@@ -23,4 +39,8 @@ ws.addEventListener("message", (event) => {
   }
 });
 
-export default ws;
+function ackMessage() {
+  ws.send("pong");
+}
+
+export default { ws, ackMessage };
