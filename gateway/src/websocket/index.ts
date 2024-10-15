@@ -138,9 +138,8 @@ class WebsocketService {
   ) {
     this.wss.clients.forEach((ws) => {
       let isAck = { state: false };
-      if (ws.OPEN) {
-        console.log("Sending start");
-        /* Handling Disconnected clients
+      console.log("Sending start");
+      /* Handling Disconnected clients
 
          The requeuing of the message back to the message queue
          will call this function again.
@@ -151,7 +150,7 @@ class WebsocketService {
          When nack is called on message queue channel, the message will be requeued.
         */
 
-        /*
+      /*
          Error code 406 from rabbitmq because of an Unkown delivery tag
          after we ack the last message, this is called again, right after acknowledging
          the previous one. which is why it throws a 406 error code.
@@ -173,7 +172,7 @@ class WebsocketService {
          Server received ACK <-- Problem
         */
 
-        /*
+      /*
          Client does not need to send a "NACK" message since we can rely on tcp for currupted bits
          handling, but instead we will only handle lossy channel between client and server to
          retransmit messages from the message queue when client suddenly disconnects.
@@ -182,66 +181,66 @@ class WebsocketService {
          the previous listener still exists, ALWAYS REMOVE AN EVENT LISTENER AFTER USING IT,
          TO PREVENT DUPLICATE CALLS.
         */
-        const message_handler = function (message: RawData) {
-          const ack: "ACK" | "NACK" = message.toString() as "ACK" | "NACK";
-          if (ack === "ACK") {
-            console.log("Server received ACK");
-            isAck.state = true;
-            try {
-              if (isAck.state === true) {
-                console.log("LOG: Acknowledge message from message queue");
-                chan.ack(msg);
-              }
-            } catch (err) {
-              const error = err as Error;
-              console.log(
-                "LOG: An error has occured while acknowledging sent message",
-              );
-              console.error(error.name);
-              console.error(error.message);
-            } finally {
-              isAck.state = isAck.state == true ?? false;
-              ws.off("message", message_handler);
+      const message_handler = function (message: RawData) {
+        const ack: "ACK" | "NACK" = message.toString() as "ACK" | "NACK";
+        if (ack === "ACK") {
+          console.log("Server received ACK");
+          isAck.state = true;
+          try {
+            if (isAck.state === true) {
+              console.log("LOG: Acknowledge message from message queue");
+              chan.ack(msg);
             }
+          } catch (err) {
+            const error = err as Error;
+            console.log(
+              "LOG: An error has occured while acknowledging sent message",
+            );
+            console.error(error.name);
+            console.error(error.message);
+          } finally {
+            ws.off("message", message_handler);
           }
-        };
-        ws.on("message", message_handler);
+        }
+      };
+      ws.on("message", message_handler);
 
-        const sendReponseData = () => {
-          const responseData = JSON.stringify({
-            data_buffer: msg.content,
-            message_type,
-          });
-          /*
-          Start timer to determine if connection is closed and is unable
-          to send an Ack to the websocket sender if client disconnects while
-          sending this message.
-          This is only for the current message to be labeled as nack and requeued
-          */
-          setTimeout(() => {
-            if (isAck.state === false) {
-              // handle requeuing non-existing msg in message queue
-              if (msg === null) {
-                console.log("LOG: No message in the queue to be timedout.");
-                return;
-              }
-              console.log("LOG: Timeout, retransmit message.");
-              chan.nack(msg, false, true);
-            }
-          }, 3 * 1000);
-          return responseData;
-        };
-
-        ws.send(sendReponseData(), (err) => {
-          if (err) {
-            // This Nack will be labeled as a server | client error.
-            // Still dont know how to handle this
+      const responseData = JSON.stringify({
+        data_buffer: msg.content,
+        message_type,
+      });
+      ws.send(responseData, (err) => {
+        if (err) {
+          // This Nack will be labeled as a server | client error.
+          // Still dont know how to handle this
+          if (msg !== null) {
             chan.nack(msg, true, false);
-            console.error(err);
-            throw new Error("ERROR: Unable to send message to client.");
           }
-        });
-      }
+          console.error(err);
+          throw new Error("ERROR: Unable to send message to client.");
+        }
+      });
+
+      /*
+       Start timer to determine if connection is closed and is unable
+       to send an Ack to the websocket sender if client disconnects while
+       sending this message.
+
+       This is only for the current message to be labeled as nack and then requeued.
+       */
+      setTimeout(() => {
+        if (isAck.state === false) {
+          if (msg === null) {
+            console.log(
+              "LOG: No Message to be Timedout: wait for new message.",
+            );
+            return;
+          }
+          console.log("LOG: Timeout, retransmit message.");
+          chan.nack(msg, false, true);
+          ws.off("message", message_handler);
+        }
+      }, 3 * 1000);
     });
   }
 }
