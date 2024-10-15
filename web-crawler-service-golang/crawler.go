@@ -180,6 +180,7 @@ func (c Crawler) Start() Results {
 	)
 
 	// create crawlers
+	// TODO Improve this one it looks disgusting.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -254,13 +255,18 @@ func (ct CrawlTask) Crawl() (PageResult, error) {
 		indexer:      &indexer,
 		pagesVisited: map[string]string{},
 	}
-	_ = (*ct.wd).Get(ct.URL)
+
+	err = navigateRetry(3, ct.wd, ct.URL)
+	if err != nil {
+		return PageResult{}, err
+	}
 	title, _ := (*ct.wd).Title()
 	entry.Title = title
 	err = pageTraverser.traversePages()
 	if err != nil {
 		sendErrorOnWebpageCrawl(ct.URL)
-		fmt.Println("ERROR: Well something went wrong with the last stack.")
+		fmt.Println("LOG: Well something went wrong with the last stack.")
+		fmt.Println(err.Error())
 		return PageResult{}, err
 	}
 	result := PageResult{
@@ -294,9 +300,10 @@ func (pt *PageTraverser) traversePages() error {
 		fmt.Println("NOTIF: Page already visited")
 		return nil
 	}
-	err := (*pt.indexer.wd).Get(pt.currentUrl)
+
+	err := navigateRetry(3, pt.indexer.wd, pt.currentUrl)
 	if err != nil {
-		return fmt.Errorf("ERROR: Unable to visit the current link.")
+		return err
 	}
 	pt.pagesVisited[pt.currentUrl] = pt.currentUrl
 
@@ -453,4 +460,15 @@ func textContentByIndexSelector(wd *selenium.WebDriver, selector string) ([]stri
 
 func joinContents(tc []string) string {
 	return strings.Join(tc, " ")
+}
+
+func navigateRetry(retries int, wd *selenium.WebDriver, url string) error {
+	if retries > 0 {
+		err := (*wd).Get(url)
+		if err != nil {
+			return navigateRetry(retries-1, wd, url)
+		}
+		return nil
+	}
+	return fmt.Errorf("ERROR: Unable to visit the current link after multiple retries.")
 }
