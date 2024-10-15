@@ -88,7 +88,7 @@ function transitionToCrawlList() {
   }
   newListBtn.style.display = "none";
 }
-function transitionToWaitingList(unindexed_list) {
+function transitionToWaitingList(list) {
   const crawlList = document.getElementById("crawl-list-sb");
   const waitingList = document.getElementById("waiting-list-sb");
   if (crawlList.classList.contains("active-list-container")) {
@@ -101,17 +101,16 @@ function transitionToWaitingList(unindexed_list) {
       "active-list-container",
     );
   }
-
   const template = document.getElementById("waiting-item");
   const waitListContainer = document.getElementById("wait-list-container");
-  const createItems = unindexed_list.map((item) => {
+  const createItems = list.map((item) => {
     const container = document.createElement("div");
     container.append(template.content.cloneNode(true));
     container.setAttribute("class", "wait-item");
-    container.dataset.state = "loading";
+    container.dataset.state = item.state;
     const p = container.children[0];
     const icon = container.children[1];
-    p.textContent = item;
+    p.textContent = item.url;
     return container;
   });
   waitListContainer.replaceChildren(...createItems);
@@ -123,7 +122,7 @@ function init() {
 
   const cookies = cookiesUtil.extractCookies();
   if (cookies.message_type == "crawling") {
-    transitionToWaitingList();
+    transitionToWaitingList(JSON.parse(localStorage.getItem("list")));
     return;
   }
   initCrawlInputs();

@@ -60,7 +60,13 @@ async function sendCrawlList() {
     // might return an error so we need to handle it before we transition
     // to waiting area.
 
-    pubsub.publish("crawlStart", unindexed_list);
+    const mappedList = unindexed_list.map((item) => ({
+      url: item,
+      state: "loading",
+    }));
+    pubsub.publish("crawlStart", mappedList);
+    // will be used for persistent ui for crawling state
+    localStorage.setItem("list", JSON.stringify(mappedList));
   } catch (err) {
     console.error(err.message);
   }
@@ -111,14 +117,28 @@ pubsub.subscribe("crawlNotify", (currentCrawledObj) => {
       } else if (currentCrawledObj.Message === "Error") {
         waitItem.dataset.state = "error";
       }
+
+      // UPDATING LIST
+      const list = JSON.parse(localStorage.getItem("list"));
+      const updatedList = list.map((item) => {
+        console.log({ itemText, listItemText: item.url });
+        if (itemText === item.url) {
+          return { url: item.url, state: waitItem.dataset.state };
+        }
+        return item;
+      });
+      console.log(list);
+      localStorage.setItem("list", JSON.stringify(updatedList));
+      // UPDATING LIST
     }
   });
 });
 
 pubsub.subscribe("crawlDone", (currentCrawledObj) => {
+  console.log(localStorage);
   const newListBtn = document.getElementById("new-list-btn");
   newListBtn.style.display = "block";
-  // Remove cookies from browser
   cookiesUtil.clearAllCookies();
+  localStorage.clear();
   console.log("Transition to SEARCH");
 });
