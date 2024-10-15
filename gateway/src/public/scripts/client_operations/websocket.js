@@ -40,7 +40,8 @@ ws.addEventListener("message", (event) => {
 });
 
 function ackMessage() {
-  ws.send("pong");
+  console.log("ACK SENT FROM CLIENT");
+  ws.send("ACK");
 }
 
 export default { ws, ackMessage };
