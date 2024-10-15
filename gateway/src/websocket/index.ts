@@ -33,14 +33,14 @@ class WebsocketService {
   async handler() {
     this.wss.on(EVENTS.connection, async (ws: WebSocket) => {
       console.log("connected");
+      this.isAlive = true;
       ws.on(EVENTS.message, async (data: Data) => {
-        if (data.toString() === "pong") {
+        if (data.toString() === "ACK") {
           // Client cant send a pong to the server so, server will have to handle that
-          console.log("Client sent pong");
-          ws.pong("ACK");
+          // ignore this
+          console.log("Client sent ACK to websocket server.");
           return;
         }
-        this.isAlive = true;
         console.log("Message received");
         const decode_buffer: {
           message_type: "crawling" | "searching";
@@ -126,7 +126,10 @@ class WebsocketService {
     using the same ephemeral port that is stored as a client object
     in the server's memory once the client disconnects from the server
     so this will just be requeued indefinitely. Wow
+
+    Implement a websocket user authentication for client reconnection?
   */
+
   async send_results_to_client(
     chan: Channel,
     msg: ConsumeMessage,
@@ -147,16 +150,34 @@ class WebsocketService {
          When nack is called on message queue channel, the message will be requeued.
         */
 
-        // NOT LISTENING
-        ws.on("pong", (message) => {
+        /*
+         Error code 406 from rabbitmq because of an Unkown delivery tag
+         after we ack the last message, this is called again, right after acknowledging
+         the previous one. which is why it throws a 406 error code.
+
+
+         --LOGS--
+
+         LOG: Message received from crawling
+         Sending start
+         {"Message":"Success","Url":"fzaid.vercel.app","WebpageCount":5}
+         Client sent ACK
+         Server received ACK
+         Called from settimeout
+         LOG: Message received from crawling
+         Sending start
+         {"Message":"Success","Url":"m7mad.dev","WebpageCount":6}
+         Client sent ACK
+         Server received ACK
+         Server received ACK <-- Problem
+
+        */
+        ws.on("message", (message) => {
           const ack: "ACK" | "NACK" = message.toString() as "ACK" | "NACK";
-          console.log("Server received pong");
-          console.log(ack);
           if (ack === "ACK") {
-            console.log("Client ACK");
+            console.log("Server received ACK");
             isAck = true;
             chan.ack(msg);
-            return;
           }
           /*
            Client does not need to send a "NACK" message since we can rely on tcp for currupted bits

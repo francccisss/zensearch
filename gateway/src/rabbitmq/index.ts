@@ -125,7 +125,7 @@ class RabbitMQClient {
       if (msg === null) throw new Error("No Response");
       console.log("LOG: Message received from crawling");
       if (this.crawl_channel == null) {
-        throw new Error("ERROR: Search Channel is null.");
+        throw new Error("ERROR: Crawl Channel is null.");
       }
       await cb(this.crawl_channel, msg, "crawling");
       console.log(msg.content.toString());
