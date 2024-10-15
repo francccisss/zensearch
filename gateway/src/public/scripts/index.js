@@ -27,9 +27,7 @@ let isCrawling = false;
 // TODO Find a way for the crawler to immediately send message to the
 // database service if an error has occured or since it uses a replyqueue to crawl_poll_queue
 // let crawler send a message to the express websocket server with an error of the current crawl.
-window.addEventListener("load", () => {
-  ui.init();
-});
+window.addEventListener("load", ui.init);
 openSbBtn.addEventListener("click", () => {
   sidebar.classList.replace("inactive-sb", "active-sb");
 });

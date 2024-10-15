@@ -116,16 +116,20 @@ function transitionToWaitingList(list) {
   waitListContainer.replaceChildren(...createItems);
 }
 function init() {
-  // TODO When using init for transitionToWaitingList, need to make sure
-  // that unindexed list is persistent such that when user refreshes the page
-  // we can reattach the list again.
-
-  const cookies = cookiesUtil.extractCookies();
-  if (cookies.message_type == "crawling") {
-    transitionToWaitingList(JSON.parse(localStorage.getItem("list")));
+  if (document.cookie == "") {
+    initCrawlInputs();
     return;
   }
-  initCrawlInputs();
+  const { message_type } = cookiesUtil.extractCookies();
+  if (message_type == "crawling") {
+    const list = JSON.parse(localStorage.getItem("list"));
+    if (!list.every((item) => item.state === "done")) {
+      transitionToWaitingList(JSON.parse(localStorage.getItem("list")));
+      return;
+    }
+    cookiesUtil.clearAllCookies();
+    localStorage.clear();
+  }
 }
 
 export default {
