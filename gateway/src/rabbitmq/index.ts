@@ -104,32 +104,40 @@ class RabbitMQClient {
     if (this.crawl_channel == null)
       throw new Error("ERROR: Crawl Channel is null.");
 
-    await this.search_channel.consume(
-      SEARCH_QUEUE_CB,
-      async (msg: ConsumeMessage | null) => {
-        if (msg === null) throw new Error("Msg does not exist");
-        console.log(msg);
-        if (this.search_channel == null) {
-          throw new Error("ERROR: Search Channel is null.");
-        }
-        await cb(this.search_channel, msg, "searching");
-      },
-    );
+    try {
+      this.search_channel.consume(
+        SEARCH_QUEUE_CB,
+        async (msg: ConsumeMessage | null) => {
+          if (msg === null) throw new Error("Msg does not exist");
+          console.log(msg);
+          if (this.search_channel == null) {
+            throw new Error("ERROR: Search Channel is null.");
+          }
+          await cb(this.search_channel, msg, "searching");
+        },
+      );
 
-    // Consumes database service's output that was sent by the crawler service.
-    // client -> ws(CRAWL_QUEUE_CB)[CRAWL_QUEUE] -> [CRAWL_QUEUE]Crawler(CRAWL_QUEUE_CB)[db_indexing_crawler]
-    // -> [db_indexing_crawler]Database[CRAWL_QUEUE_CB] -> [CRAWL_QUEUE_CB]ws this listener -> client.
-    // Crawler service directs database service to send a message to the message queue with CRAWL_QUEUE_CB
-    // routing key after it finishes storing the indexed websites
-    this.crawl_channel.consume(CRAWL_QUEUE_CB, async (msg) => {
-      if (msg === null) throw new Error("No Response");
-      console.log("LOG: Message received from crawling");
-      if (this.crawl_channel == null) {
-        throw new Error("ERROR: Crawl Channel is null.");
-      }
-      await cb(this.crawl_channel, msg, "crawling");
-      console.log(msg.content.toString());
-    });
+      // Consumes database service's output that was sent by the crawler service.
+      // client -> ws(CRAWL_QUEUE_CB)[CRAWL_QUEUE] -> [CRAWL_QUEUE]Crawler(CRAWL_QUEUE_CB)[db_indexing_crawler]
+      // -> [db_indexing_crawler]Database[CRAWL_QUEUE_CB] -> [CRAWL_QUEUE_CB]ws this listener -> client.
+      // Crawler service directs database service to send a message to the message queue with CRAWL_QUEUE_CB
+      // routing key after it finishes storing the indexed websites
+      this.crawl_channel.consume(CRAWL_QUEUE_CB, async (msg) => {
+        if (msg === null) throw new Error("No Response");
+        console.log("LOG: Message received from crawling");
+        if (this.crawl_channel == null) {
+          throw new Error("ERROR: Crawl Channel is null.");
+        }
+        //this.crawl_channel.ack(msg);
+        await cb(this.crawl_channel, msg, "crawling");
+        console.log(msg.content.toString());
+      });
+    } catch (err) {
+      const error = err as Error;
+      console.log("LOG: Something went wrong with the channel listeners");
+      console.error(error.name);
+      console.error(error.message);
+    }
   }
 
   // Crawler Expects an Object to be unmarshalled where the
