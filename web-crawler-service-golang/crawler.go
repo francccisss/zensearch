@@ -166,64 +166,81 @@ func saveIndexedWebpages(jobID string, entry *WebpageEntry) error {
   be it success or fail.
 */
 
-func Start(URLs []string) Results {
-	aggregateChan := make(chan PageResult, len(URLs))
-	semaphore := make(chan struct{}, threadPool)
+type Spawner struct {
+	threadPool int
+	URLs       []string
+	wg         *sync.WaitGroup
+	ctx        context.Context
+	Spawn
+}
+type Spawn struct {
+	threadToken   chan struct{}
+	wg            *sync.WaitGroup
+	ctx           context.Context
+	URLs          []string
+	aggregateChan chan PageResult
+}
 
-	var (
-		wg  sync.WaitGroup
-		ctx context.Context
-	)
+func (sp *Spawn) CreateCrawler(doc string) {
+	defer func() {
+		<-sp.threadToken
+		log.Printf("NOTIF: Semaphore token release\n")
+	}()
+	defer sp.wg.Done()
+	wd, err := webdriver.CreateClient()
+	if err != nil {
+		log.Print(err.Error())
+		log.Printf("ERROR: Unable to create a new connection with Chrome Web Driver.\n")
+		return
+	}
+	crawler := Crawler{ctx: sp.ctx, URL: doc, wd: wd, docLen: len(sp.URLs)}
+	status, err := crawler.Crawl()
+	if err != nil {
+		log.Print(err.Error())
+		log.Printf("NOTIF: Semaphore token release due to error.\n")
+		return
+	}
+	sp.aggregateChan <- status
+}
 
-	// create crawlers
-	wg.Add(1)
+func (s *Spawner) SpawnCrawlers() int {
+	aggregateChan := make(chan PageResult, len(s.URLs))
+	threadToken := make(chan struct{}, s.threadPool)
+
+	s.wg.Add(1)
 	go func() {
-		defer wg.Done()
-		for _, doc := range URLs {
-			wg.Add(1)
-			semaphore <- struct{}{}
-			log.Printf("NOTIF: Semaphore token insert\n")
+		defer s.wg.Done()
+		for _, doc := range s.URLs {
+			s.wg.Add(1)
+			threadToken <- struct{}{}
+			log.Printf("NOTIF: Thread token insert\n")
+			spawn := Spawn{aggregateChan: aggregateChan, threadToken: threadToken, wg: s.wg, ctx: s.ctx, URLs: s.URLs}
+			go spawn.CreateCrawler(doc)
 			go func(doc string) {
-				defer func() {
-					<-semaphore
-					log.Printf("NOTIF: Semaphore token release\n")
-				}()
-				defer wg.Done()
-				wd, err := webdriver.CreateClient()
-				if err != nil {
-					log.Print(err.Error())
-					log.Printf("ERROR: Unable to create a new connection with Chrome Web Driver.\n")
-					return
-				}
-				crawler := Crawler{ctx: ctx, URL: doc, wd: wd, docLen: len(URLs)}
-				status, err := crawler.Crawl()
-				if err != nil {
-					log.Print(err.Error())
-					log.Printf("NOTIF: Semaphore token release due to error.\n")
-					return
-				}
-				aggregateChan <- status
 			}(doc)
 		}
 	}()
 
 	log.Printf("NOTIF: Wait for crawlers\n")
-	wg.Wait()
+	s.wg.Wait()
 	close(aggregateChan)
-
+	threadCount := 0
 	for crawler := range aggregateChan {
 		log.Printf("Crawled URL: %s\n", crawler.URL)
 		log.Printf("Crawl Message: %s\n", crawler.Message)
+		threadCount++
 	}
 
 	log.Println("NOTIF: All Process have finished.")
 
-	return Results{
-		Message:     "Crawled and indexed webpages",
-		ThreadsUsed: threadPool,
-		URLCount:    len(URLs),
-		PageResult:  aggregateChan,
-	}
+	return threadCount
+
+	// return Results{
+	// 	Message:     "Crawled and indexed webpages",
+	// 	ThreadsUsed: threadPool,
+	// 	URLCount:    len(URLs),
+	// 	PageResult:  aggregateChan,
+	// }
 }
 
 func (c Crawler) Crawl() (PageResult, error) {
