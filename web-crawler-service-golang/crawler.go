@@ -169,12 +169,9 @@ func saveIndexedWebpages(jobID string, entry *WebpageEntry) error {
 type Spawner struct {
 	threadPool int
 	URLs       []string
-	wg         *sync.WaitGroup
-	ctx        context.Context
-	Spawn
 }
 type Spawn struct {
-	threadToken   chan struct{}
+	threadSlot    chan struct{}
 	wg            *sync.WaitGroup
 	ctx           context.Context
 	URLs          []string
@@ -183,7 +180,7 @@ type Spawn struct {
 
 func (sp *Spawn) CreateCrawler(doc string) {
 	defer func() {
-		<-sp.threadToken
+		<-sp.threadSlot
 		log.Printf("NOTIF: Semaphore token release\n")
 	}()
 	defer sp.wg.Done()
@@ -203,44 +200,45 @@ func (sp *Spawn) CreateCrawler(doc string) {
 	sp.aggregateChan <- status
 }
 
-func (s *Spawner) SpawnCrawlers() int {
-	aggregateChan := make(chan PageResult, len(s.URLs))
-	threadToken := make(chan struct{}, s.threadPool)
+type ThreadToken struct{}
 
-	s.wg.Add(1)
+func (s *Spawner) SpawnCrawlers() Results {
+	aggregateChan := make(chan PageResult, len(s.URLs))
+	threadSlot := make(chan struct{}, s.threadPool)
+
+	var (
+		wg  sync.WaitGroup
+		ctx context.Context
+	)
+
+	wg.Add(1)
 	go func() {
-		defer s.wg.Done()
+		defer wg.Done()
 		for _, doc := range s.URLs {
-			s.wg.Add(1)
-			threadToken <- struct{}{}
+			wg.Add(1)
+			threadSlot <- ThreadToken{}
 			log.Printf("NOTIF: Thread token insert\n")
-			spawn := Spawn{aggregateChan: aggregateChan, threadToken: threadToken, wg: s.wg, ctx: s.ctx, URLs: s.URLs}
+			spawn := Spawn{aggregateChan: aggregateChan, threadSlot: threadSlot, wg: &wg, ctx: ctx, URLs: s.URLs}
 			go spawn.CreateCrawler(doc)
-			go func(doc string) {
-			}(doc)
 		}
 	}()
 
 	log.Printf("NOTIF: Wait for crawlers\n")
-	s.wg.Wait()
+	wg.Wait()
 	close(aggregateChan)
-	threadCount := 0
 	for crawler := range aggregateChan {
 		log.Printf("Crawled URL: %s\n", crawler.URL)
 		log.Printf("Crawl Message: %s\n", crawler.Message)
-		threadCount++
 	}
 
 	log.Println("NOTIF: All Process have finished.")
 
-	return threadCount
-
-	// return Results{
-	// 	Message:     "Crawled and indexed webpages",
-	// 	ThreadsUsed: threadPool,
-	// 	URLCount:    len(URLs),
-	// 	PageResult:  aggregateChan,
-	// }
+	return Results{
+		Message:     "Crawled and indexed webpages",
+		ThreadsUsed: threadPool,
+		URLCount:    len(s.URLs),
+		PageResult:  aggregateChan,
+	}
 }
 
 func (c Crawler) Crawl() (PageResult, error) {
@@ -287,7 +285,7 @@ func (c Crawler) Crawl() (PageResult, error) {
 	// are being sent at the same time
 	// create differet correlation IDs
 
-	saveIndexedWebpages(hostname, &entry)
+	// saveIndexedWebpages(hostname, &entry)
 
 	return result, nil
 

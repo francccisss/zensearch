@@ -1,11 +1,9 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
-	"sync"
 	rabbitmqclient "web-crawler-service-golang/pkg/rabbitmq_client"
 	webdriver "web-crawler-service-golang/pkg/webdriver"
 
@@ -100,14 +98,9 @@ func handleConnections(msg amqp.Delivery, chann *amqp.Channel) {
 	go spawner.SpawnCrawlers()
 }
 func NewSpawner(threadpool int, URLs []string) *Spawner {
-	var wg sync.WaitGroup
-	var ctx context.Context
-
 	return &Spawner{
 		threadPool: threadpool,
 		URLs:       URLs,
-		wg:         &wg,
-		ctx:        ctx,
 	}
 }
 
