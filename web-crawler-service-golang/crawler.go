@@ -32,10 +32,6 @@ type IndexedWebpage struct {
 }
 
 type Crawler struct {
-	URLs []string
-}
-
-type CrawlTask struct {
 	URL    string
 	ctx    context.Context
 	wd     *selenium.WebDriver
@@ -170,8 +166,8 @@ func saveIndexedWebpages(jobID string, entry *WebpageEntry) error {
   be it success or fail.
 */
 
-func (c Crawler) Start() Results {
-	aggregateChan := make(chan PageResult, len(c.URLs))
+func Start(URLs []string) Results {
+	aggregateChan := make(chan PageResult, len(URLs))
 	semaphore := make(chan struct{}, threadPool)
 
 	var (
@@ -183,7 +179,7 @@ func (c Crawler) Start() Results {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for _, doc := range c.URLs {
+		for _, doc := range URLs {
 			wg.Add(1)
 			semaphore <- struct{}{}
 			log.Printf("NOTIF: Semaphore token insert\n")
@@ -199,7 +195,7 @@ func (c Crawler) Start() Results {
 					log.Printf("ERROR: Unable to create a new connection with Chrome Web Driver.\n")
 					return
 				}
-				crawler := CrawlTask{ctx: ctx, URL: doc, wd: wd, docLen: len(c.URLs)}
+				crawler := Crawler{ctx: ctx, URL: doc, wd: wd, docLen: len(URLs)}
 				status, err := crawler.Crawl()
 				if err != nil {
 					log.Print(err.Error())
@@ -225,46 +221,46 @@ func (c Crawler) Start() Results {
 	return Results{
 		Message:     "Crawled and indexed webpages",
 		ThreadsUsed: threadPool,
-		URLCount:    len(c.URLs),
+		URLCount:    len(URLs),
 		PageResult:  aggregateChan,
 	}
 }
 
-func (ct CrawlTask) Crawl() (PageResult, error) {
+func (c Crawler) Crawl() (PageResult, error) {
 	defer log.Printf("NOTIF: Finished Crawling\n")
-	defer (*ct.wd).Close()
+	defer (*c.wd).Close()
 
 	// Initialization
 
-	log.Printf("NOTIF: Start Crawling %s\n", ct.URL)
-	indexer := PageIndexer{wd: ct.wd}
-	hostname, err := utilities.GetOrigin(ct.URL)
+	log.Printf("NOTIF: Start Crawling %s\n", c.URL)
+	indexer := PageIndexer{wd: c.wd}
+	hostname, err := utilities.GetOrigin(c.URL)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
 	entry := WebpageEntry{
-		URL:             ct.URL,
-		IndexedWebpages: make([]IndexedWebpage, 0, ct.docLen),
+		URL:             c.URL,
+		IndexedWebpages: make([]IndexedWebpage, 0, c.docLen),
 		hostname:        hostname,
 		Title:           "",
 	}
 	pageTraverser := PageTraverser{
 		entry:        &entry,
-		currentUrl:   ct.URL,
+		currentUrl:   c.URL,
 		indexer:      &indexer,
 		pagesVisited: map[string]string{},
 	}
-	_ = (*ct.wd).Get(ct.URL)
-	title, _ := (*ct.wd).Title()
+	_ = (*c.wd).Get(c.URL)
+	title, _ := (*c.wd).Title()
 	entry.Title = title
 	err = pageTraverser.traversePages()
 	if err != nil {
-		sendErrorOnWebpageCrawl(ct.URL)
+		sendErrorOnWebpageCrawl(c.URL)
 		fmt.Println("ERROR: Well something went wrong with the last stack.")
 		return PageResult{}, err
 	}
 	result := PageResult{
-		URL:         ct.URL,
+		URL:         c.URL,
 		CrawlStatus: crawlFail,
 		Message:     "Successfully Crawled & Indexed website",
 		TotalPages:  len(entry.IndexedWebpages),
