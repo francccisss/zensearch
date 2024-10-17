@@ -198,9 +198,11 @@ func (c Crawler) Crawl() (PageResult, error) {
 	err = pageNavigator.navigatePages()
 
 	/*
-	 TODO when other pages are already indexed, but only a single page throws an error
-	 then all progress with huge amounts of data will be lost, need to save these Results
-	 despite an error occurs instead of returning an zero byte result.
+			 TODO when other pages are already indexed, but only a single page throws an error
+			 then all progress with huge amounts of data will be lost, need to save these Results
+			 despite an error occurs instead of returning an zero byte result.
+
+		   TODO Improve error handling code, it looks ugly.
 	*/
 	if err != nil {
 		sendErrorOnWebpageCrawl(c.URL)
@@ -218,7 +220,12 @@ func (c Crawler) Crawl() (PageResult, error) {
 		Message:     "Successfully Crawled & Indexed website",
 		TotalPages:  len(entry.IndexedWebpages),
 	}
-	// saveIndexedWebpages(hostname, &entry)
+	if len(entry.IndexedWebpages) > 0 {
+		// saveIndexedWebpages(hostname, &entry)
+		return result, nil
+	}
+
+	// ???? do some error if IndexedWebpages is empty
 	return result, nil
 }
 
@@ -260,7 +267,7 @@ func (pn *PageNavigator) navigatePages() error {
 		as the child of the currently visited link
 	*/
 
-	children := make([]string, 0)
+	children := make([]string, 0, 10)
 	for _, link := range links {
 		// need to filter out links that is not the same as hostname
 		ref, _ := link.GetAttribute("href")
@@ -280,7 +287,7 @@ func (pn *PageNavigator) navigatePages() error {
 
 	indexedWebpage, err := pn.Index()
 	if err != nil {
-		log.Println("ERROR: Not handled yet")
+		return fmt.Errorf("ERROR: Something went wrong, unable to index current webpage.")
 	}
 	pn.entry.IndexedWebpages = append(pn.entry.IndexedWebpages, indexedWebpage)
 
@@ -307,7 +314,7 @@ func (pn *PageNavigator) navigatePages() error {
 func (pt PageNavigator) Index() (IndexedWebpage, error) {
 
 	/*
-		Iterating through the indexSelector, where each selector, we creates
+		Iterating through the elementSelector, where each selector, creates
 		a new go routine, so using a buffered channel with the exact length of
 		the indexSelector would make more sense.
 
@@ -315,7 +322,7 @@ func (pt PageNavigator) Index() (IndexedWebpage, error) {
 		limiting the buffered channel, if resource is an issue.
 	*/
 
-	textContentChan := make(chan string, len(elementSelector))
+	htmlTextElementChan := make(chan string, len(elementSelector))
 	var wg sync.WaitGroup
 
 	// Start wait group after go routine is processed on a different thread
@@ -323,39 +330,37 @@ func (pt PageNavigator) Index() (IndexedWebpage, error) {
 
 	// Go routine generator
 	go func() {
-		defer func() {
-			wg.Done()
-			log.Println("NOTIF: Text Extracted from elements.")
-		}()
+		defer wg.Done()
 		for _, selector := range elementSelector {
 			wg.Add(1)
 			go func(selector string) {
 				defer wg.Done()
-				textContents, err := textContentByElementSelector(pt.wd, selector)
+				textContents, err := extractTextContent(pt.wd, selector)
 				if err != nil {
-					textContentChan <- ""
+					htmlTextElementChan <- ""
 					return
 				}
-				textContentChan <- joinContents(textContents)
+
+				// Joins the array of text contents and returns as a whole string of text content
+				// from the current element.
+				htmlTextElementChan <- joinTextContents(textContents)
 			}(selector)
 		}
 	}()
 
 	fmt.Println("NOTIF: Waiting for page indexer")
 	wg.Wait()
-	close(textContentChan)
+	close(htmlTextElementChan)
 	textChanSlice := make([]string, 0, 100)
 
-	/*
-		create a select statement to catch an error returned by
-		invdividual go routine element selectors
-	*/
-
-	for elementContents := range textContentChan {
+	// for every joined text contents of each element on the current page,
+	// append each block of text into a new array then join to represent
+	// the whole contents of the page.
+	for elementContents := range htmlTextElementChan {
 		textChanSlice = append(textChanSlice, elementContents)
 	}
 
-	pageContents := joinContents(textChanSlice)
+	pageContents := joinTextContents(textChanSlice)
 	title, err := (*pt.wd).Title()
 	if err != nil {
 		log.Printf("ERROR: No title for this page")
@@ -377,7 +382,11 @@ func (pt PageNavigator) Index() (IndexedWebpage, error) {
 	return newIndexedPage, nil
 }
 
-func textContentByElementSelector(wd *selenium.WebDriver, selector string) ([]string, error) {
+/*
+Returns an array of text contents from an array of common elements specified
+by the current selector eg: p, a, span etc.
+*/
+func extractTextContent(wd *selenium.WebDriver, selector string) ([]string, error) {
 	elementTextContents := make([]string, 0, 10)
 	elements, err := (*wd).FindElements(selenium.ByCSSSelector, selector)
 	if err != nil {
@@ -391,11 +400,10 @@ func textContentByElementSelector(wd *selenium.WebDriver, selector string) ([]st
 		}
 		elementTextContents = append(elementTextContents, text)
 	}
-
 	return elementTextContents, nil
 }
 
-func joinContents(tc []string) string {
+func joinTextContents(tc []string) string {
 	return strings.Join(tc, " ")
 }
 
