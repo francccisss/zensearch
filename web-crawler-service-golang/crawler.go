@@ -260,6 +260,7 @@ func (c Crawler) Crawl() (PageResult, error) {
 		pagesVisited: map[string]string{},
 	}
 	_ = (*c.wd).Get(c.URL)
+	err = pageNavigate(3, c.URL, c.wd)
 	title, _ := (*c.wd).Title()
 	entry.Title = title
 	err = pageTraverser.traversePages()
@@ -278,6 +279,17 @@ func (c Crawler) Crawl() (PageResult, error) {
 	return result, nil
 }
 
+func pageNavigate(retries int, url string, wd *selenium.WebDriver) error {
+	if retries > 0 {
+		err := (*wd).Get(url)
+		if err != nil {
+			return pageNavigate(retries-1, url, wd)
+		}
+		return nil
+	}
+	return fmt.Errorf("ERROR: Unable to retrieve webpage after several retries.")
+}
+
 func (pt *PageTraverser) traversePages() error {
 
 	if _, visited := pt.pagesVisited[pt.currentUrl]; visited {
@@ -285,7 +297,7 @@ func (pt *PageTraverser) traversePages() error {
 		fmt.Println("NOTIF: Page already visited")
 		return nil
 	}
-	err := (*pt.wd).Get(pt.currentUrl)
+	err := pageNavigate(6, pt.currentUrl, pt.wd)
 	if err != nil {
 		return fmt.Errorf("ERROR: Unable to visit the current link.")
 	}
