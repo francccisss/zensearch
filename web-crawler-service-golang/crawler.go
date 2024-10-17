@@ -4,15 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/tebeka/selenium"
 	"log"
 	"strings"
 	"sync"
 	rabbitmqclient "web-crawler-service-golang/pkg/rabbitmq_client"
 	webdriver "web-crawler-service-golang/pkg/webdriver"
 	utilities "web-crawler-service-golang/utilities/links"
-
-	amqp "github.com/rabbitmq/amqp091-go"
-	"github.com/tebeka/selenium"
 )
 
 type Header struct {
@@ -38,7 +37,7 @@ type Crawler struct {
 	docLen int
 }
 
-var indexSelector = []string{
+var elementSelector = []string{
 	"a",
 	"p",
 	"span",
@@ -47,10 +46,6 @@ var indexSelector = []string{
 	"h2",
 	"h3",
 	"h4",
-}
-
-type PageIndexer struct {
-	wd *selenium.WebDriver
 }
 
 type Results struct {
@@ -71,6 +66,13 @@ const (
 	linkFilter = `a:not([href$=".zip"]):not([href$=".svg"]):not([href$=".scss"]):not([href$=".css"]):not([href$=".pdf"]):not([href$=".exe"]):not([href$=".jpg"]):not([href$=".png"]):not([href$=".tar.gz"]):not([href$=".rar"]):not([href$=".7z"]):not([href$=".mp3"]):not([href$=".mp4"]):not([href$=".mkv"]):not([href$=".tar"]):not([href$=".xz"]):not([href$=".msi"])`
 )
 
+type PageTraverser struct {
+	entry        *WebpageEntry
+	wd           *selenium.WebDriver
+	pagesVisited map[string]string
+	currentUrl   string
+}
+
 type PageResult struct {
 	URL         string
 	Message     string
@@ -87,6 +89,20 @@ type ErrorMessage struct {
 	Message string
 	Url     string
 }
+
+type Spawner struct {
+	threadPool int
+	URLs       []string
+}
+type Spawn struct {
+	threadSlot    chan struct{}
+	wg            *sync.WaitGroup
+	ctx           context.Context
+	URLs          []string
+	aggregateChan chan PageResult
+}
+
+type ThreadToken struct{}
 
 func sendErrorOnWebpageCrawl(hostname string) error {
 
@@ -119,7 +135,7 @@ func sendErrorOnWebpageCrawl(hostname string) error {
 	dataBuffer, err := json.Marshal(errorMessage)
 	expressErrorChannel.Publish("", crawlPollqueue, false, false, amqp.Publishing{
 		Type:    "text/plain",
-		Body:    []byte(dataBuffer), // TODO convert to buffer array / byte
+		Body:    []byte(dataBuffer),
 		ReplyTo: crawlPollqueue,
 	})
 	expressErrorChannel.Close()
@@ -153,29 +169,12 @@ func saveIndexedWebpages(jobID string, entry *WebpageEntry) error {
 	dataBuffer, err := json.Marshal(resultMessage)
 	dbChannel.Publish("", dbIndexingQueue, false, false, amqp.Publishing{
 		Type:          "text/plain",
-		Body:          []byte(dataBuffer), // TODO convert to buffer array / byte
+		Body:          []byte(dataBuffer),
 		CorrelationId: jobID,
 		ReplyTo:       crawlPollqueue,
 	})
 	dbChannel.Close()
 	return nil
-}
-
-/*
-  TODO need to close down chrome driver session after every crawl
-  be it success or fail.
-*/
-
-type Spawner struct {
-	threadPool int
-	URLs       []string
-}
-type Spawn struct {
-	threadSlot    chan struct{}
-	wg            *sync.WaitGroup
-	ctx           context.Context
-	URLs          []string
-	aggregateChan chan PageResult
 }
 
 func (sp *Spawn) CreateCrawler(doc string) {
@@ -194,13 +193,11 @@ func (sp *Spawn) CreateCrawler(doc string) {
 	status, err := crawler.Crawl()
 	if err != nil {
 		log.Print(err.Error())
-		log.Printf("NOTIF: Semaphore token release due to error.\n")
+		log.Printf("NOTIF: Thread token release due to error.\n")
 		return
 	}
 	sp.aggregateChan <- status
 }
-
-type ThreadToken struct{}
 
 func (s *Spawner) SpawnCrawlers() Results {
 	aggregateChan := make(chan PageResult, len(s.URLs))
@@ -245,11 +242,8 @@ func (c Crawler) Crawl() (PageResult, error) {
 	defer log.Printf("NOTIF: Finished Crawling\n")
 	defer (*c.wd).Close()
 
-	// Initialization
-
 	log.Printf("NOTIF: Start Crawling %s\n", c.URL)
-	indexer := PageIndexer{wd: c.wd}
-	hostname, err := utilities.GetOrigin(c.URL)
+	hostname, err := utilities.GetHostname(c.URL)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
@@ -262,7 +256,7 @@ func (c Crawler) Crawl() (PageResult, error) {
 	pageTraverser := PageTraverser{
 		entry:        &entry,
 		currentUrl:   c.URL,
-		indexer:      &indexer,
+		wd:           c.wd,
 		pagesVisited: map[string]string{},
 	}
 	_ = (*c.wd).Get(c.URL)
@@ -280,22 +274,8 @@ func (c Crawler) Crawl() (PageResult, error) {
 		Message:     "Successfully Crawled & Indexed website",
 		TotalPages:  len(entry.IndexedWebpages),
 	}
-	// if > 1 threads a have finished processing
-	// and pass webpages into the save function, and both of them
-	// are being sent at the same time
-	// create differet correlation IDs
-
 	// saveIndexedWebpages(hostname, &entry)
-
 	return result, nil
-
-}
-
-type PageTraverser struct {
-	entry        *WebpageEntry
-	indexer      *PageIndexer
-	pagesVisited map[string]string
-	currentUrl   string
 }
 
 func (pt *PageTraverser) traversePages() error {
@@ -305,13 +285,13 @@ func (pt *PageTraverser) traversePages() error {
 		fmt.Println("NOTIF: Page already visited")
 		return nil
 	}
-	err := (*pt.indexer.wd).Get(pt.currentUrl)
+	err := (*pt.wd).Get(pt.currentUrl)
 	if err != nil {
 		return fmt.Errorf("ERROR: Unable to visit the current link.")
 	}
 	pt.pagesVisited[pt.currentUrl] = pt.currentUrl
 
-	links, err := (*pt.indexer.wd).FindElements(selenium.ByCSSSelector, linkFilter)
+	links, err := (*pt.wd).FindElements(selenium.ByCSSSelector, linkFilter)
 
 	// no children/error
 	if err != nil {
@@ -330,7 +310,7 @@ func (pt *PageTraverser) traversePages() error {
 		// need to filter out links that is not the same as origin
 		ref, _ := link.GetAttribute("href")
 		cleanedRef, _, _ := strings.Cut(ref, "#")
-		childHostname, err := utilities.GetOrigin(cleanedRef)
+		childHostname, err := utilities.GetHostname(cleanedRef)
 
 		if err != nil {
 			fmt.Println(err.Error())
@@ -344,7 +324,7 @@ func (pt *PageTraverser) traversePages() error {
 	/*
 		Start indexing the current page and pushing into the indexed webpages slice
 	*/
-	indexedWebpage, err := pt.indexer.Index()
+	indexedWebpage, err := pt.Index()
 	if err != nil {
 		log.Println("ERROR: Not handled yet")
 	}
@@ -370,7 +350,7 @@ func (pt *PageTraverser) traversePages() error {
 	}
 	return nil
 }
-func (p PageIndexer) Index() (IndexedWebpage, error) {
+func (pt PageTraverser) Index() (IndexedWebpage, error) {
 
 	/*
 		Iterating through the indexSelector, where each selector, we creates
@@ -381,7 +361,7 @@ func (p PageIndexer) Index() (IndexedWebpage, error) {
 		limiting the buffered channel, if resource is an issue.
 	*/
 
-	textContentChan := make(chan string, len(indexSelector))
+	textContentChan := make(chan string, len(elementSelector))
 	var wg sync.WaitGroup
 
 	// Start wait group after go routine is processed on a different thread
@@ -393,12 +373,12 @@ func (p PageIndexer) Index() (IndexedWebpage, error) {
 			wg.Done()
 			log.Println("NOTIF: Text Extracted from elements.")
 		}()
-		for _, selector := range indexSelector {
+		for _, selector := range elementSelector {
 			wg.Add(1)
 			go func(selector string) {
 				defer wg.Done()
 				defer fmt.Printf("NOTIF: Selector: %s done\n", selector)
-				textContents, err := textContentByIndexSelector(p.wd, selector)
+				textContents, err := textContentByElementSelector(pt.wd, selector)
 				if err != nil {
 					textContentChan <- ""
 					return
@@ -423,12 +403,12 @@ func (p PageIndexer) Index() (IndexedWebpage, error) {
 	}
 
 	pageContents := joinContents(textChanSlice)
-	title, err := (*p.wd).Title()
+	title, err := (*pt.wd).Title()
 	if err != nil {
 		log.Printf("ERROR: No title for this page")
 	}
 
-	url, err := (*p.wd).CurrentURL()
+	url, err := (*pt.wd).CurrentURL()
 	if err != nil {
 		log.Printf("ERROR: No url for this page")
 	}
@@ -444,7 +424,7 @@ func (p PageIndexer) Index() (IndexedWebpage, error) {
 	return newIndexedPage, nil
 }
 
-func textContentByIndexSelector(wd *selenium.WebDriver, selector string) ([]string, error) {
+func textContentByElementSelector(wd *selenium.WebDriver, selector string) ([]string, error) {
 	elementTextContents := make([]string, 0, 10)
 	elements, err := (*wd).FindElements(selenium.ByCSSSelector, selector)
 	if err != nil {
