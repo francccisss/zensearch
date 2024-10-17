@@ -259,19 +259,34 @@ func (c Crawler) Crawl() (PageResult, error) {
 		wd:           c.wd,
 		pagesVisited: map[string]string{},
 	}
-	_ = (*c.wd).Get(c.URL)
-	err = pageNavigate(3, c.URL, c.wd)
+	err = pageNavigateWithRetries(3, c.URL, c.wd)
+	if err != nil {
+		sendErrorOnWebpageCrawl(c.URL)
+		fmt.Println(err.Error())
+		return PageResult{}, fmt.Errorf("ERROR: Unable to navigate to the website entry point.")
+	}
 	title, _ := (*c.wd).Title()
 	entry.Title = title
 	err = pageTraverser.traversePages()
+
+	/*
+	 TODO when other pages are already indexed, but only a single page throws an error
+	 then all progress with huge amounts of data will be lost, need to save these Results
+	 despite an error occurs instead of returning an zero byte result.
+	*/
 	if err != nil {
 		sendErrorOnWebpageCrawl(c.URL)
 		fmt.Println("ERROR: Well something went wrong with the last stack.")
-		return PageResult{}, err
+		return PageResult{
+			URL:         c.URL,
+			CrawlStatus: crawlFail,
+			Message:     "An Error has occured while crawling the current url.",
+			TotalPages:  len(entry.IndexedWebpages),
+		}, nil
 	}
 	result := PageResult{
 		URL:         c.URL,
-		CrawlStatus: crawlFail,
+		CrawlStatus: crawlSuccess,
 		Message:     "Successfully Crawled & Indexed website",
 		TotalPages:  len(entry.IndexedWebpages),
 	}
@@ -279,11 +294,11 @@ func (c Crawler) Crawl() (PageResult, error) {
 	return result, nil
 }
 
-func pageNavigate(retries int, url string, wd *selenium.WebDriver) error {
+func pageNavigateWithRetries(retries int, url string, wd *selenium.WebDriver) error {
 	if retries > 0 {
 		err := (*wd).Get(url)
 		if err != nil {
-			return pageNavigate(retries-1, url, wd)
+			return pageNavigateWithRetries(retries-1, url, wd)
 		}
 		return nil
 	}
@@ -297,7 +312,7 @@ func (pt *PageTraverser) traversePages() error {
 		fmt.Println("NOTIF: Page already visited")
 		return nil
 	}
-	err := pageNavigate(6, pt.currentUrl, pt.wd)
+	err := pageNavigateWithRetries(6, pt.currentUrl, pt.wd)
 	if err != nil {
 		return fmt.Errorf("ERROR: Unable to visit the current link.")
 	}
