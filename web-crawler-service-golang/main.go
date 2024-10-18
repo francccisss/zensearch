@@ -52,7 +52,7 @@ func main() {
 	}
 
 	service, err := webdriver.CreateWebDriverServer()
-	defer (*service).Stop()
+	defer service.Stop()
 	if err != nil {
 		log.Print("INFO: Retry web driver server or the application.\n")
 		log.Print(err.Error())

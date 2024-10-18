@@ -115,6 +115,7 @@ func (sp *Spawn) SpawnCrawler(doc string) {
 		log.Printf("ERROR: Unable to create a new connection with Chrome Web Driver.\n")
 		return
 	}
+	defer (*wd).Quit()
 	crawler := Crawler{ctx: sp.ctx, URL: doc, wd: wd}
 	result, err := crawler.Crawl()
 	if err != nil {
@@ -203,6 +204,10 @@ func (c Crawler) Crawl() (PageResult, error) {
 	}
 	err = pageNavigator.navigatePages()
 
+	// clean up memory resource since it will linger in memory in the heap
+	// once this function is removed from the stack.
+	defer clear(entry.IndexedWebpages)
+
 	/*
 			 TODO when other pages are already indexed, but only a single page throws an error
 			 then all progress with huge amounts of data will be lost, need to save these Results
@@ -231,6 +236,7 @@ func (c Crawler) Crawl() (PageResult, error) {
 		TotalPages:  len(entry.IndexedWebpages),
 	}
 	err = sendResult(entry.saveIndexedWebpages, "db_indexing_crawler", "crawl_poll_queue")
+
 	return result, nil
 }
 
