@@ -187,8 +187,14 @@ func (c Crawler) Crawl() (PageResult, error) {
 	}
 	err = pageNavigator.navigatePageWithRetries(maxRetries)
 	if err != nil {
-		sendErrorOnWebpageCrawl(c.URL)
-		fmt.Println(err.Error())
+		errorMessage := ErrorMessage{
+			Message: "Error",
+			Url:     hostname,
+		}
+		err = sendResult(errorMessage.sendErrorOnWebpageCrawl, "crawl_poll_queue", "")
+		if err != nil {
+			fmt.Printf(err.Error())
+		}
 		return PageResult{}, fmt.Errorf("ERROR: Unable to navigate to the website entry point.")
 	}
 	title, err := (*c.wd).Title()
@@ -205,7 +211,11 @@ func (c Crawler) Crawl() (PageResult, error) {
 		   TODO Improve error handling code, it looks ugly.
 	*/
 	if err != nil {
-		sendErrorOnWebpageCrawl(c.URL)
+		errorMessage := ErrorMessage{
+			Message: "Error",
+			Url:     hostname,
+		}
+		err = sendResult(errorMessage.sendErrorOnWebpageCrawl, "crawl_poll_queue", "")
 		fmt.Println("ERROR: Well something went wrong with the last stack.")
 		return PageResult{
 			URL:         c.URL,
@@ -220,12 +230,7 @@ func (c Crawler) Crawl() (PageResult, error) {
 		Message:     "Successfully Crawled & Indexed website",
 		TotalPages:  len(entry.IndexedWebpages),
 	}
-	if len(entry.IndexedWebpages) > 0 {
-		// saveIndexedWebpages(hostname, &entry)
-		return result, nil
-	}
-
-	// ???? do some error if IndexedWebpages is empty
+	err = sendResult(entry.saveIndexedWebpages, "db_indexing_crawler", "crawl_poll_queue")
 	return result, nil
 }
 
@@ -412,7 +417,7 @@ const (
 	crawlPollqueue  = "crawl_poll_queue"
 )
 
-func sendResult(constructMessage func() ([]byte, error), routingKey string, callbackQueue string) (bool, error) {
+func sendResult(constructMessage func() ([]byte, error), routingKey string, callbackQueue string) error {
 	conn, err := rabbitmqclient.GetConnection("receiverConn")
 	if err != nil {
 		fmt.Print(err.Error())
@@ -420,50 +425,54 @@ func sendResult(constructMessage func() ([]byte, error), routingKey string, call
 	}
 	channel, err := conn.Channel()
 	if err != nil {
-		log.Printf("ERROR: Unable to create a database channel.")
-		return false, fmt.Errorf(err.Error())
+		log.Printf("ERROR: Unable to create a new channel.\n")
+		return err
 	}
+
+	defer channel.Close()
 
 	messageBuffer, err := constructMessage()
 	if err != nil {
-		return false, err
+		return err
 	}
 
-	channel.QueueDeclare(routingKey, false, false, false, false, nil)
-	channel.Publish("", routingKey, false, false, amqp.Publishing{
+	// need to  check declaration and publication before returning nil
+	_, err = channel.QueueDeclare(routingKey, false, false, false, false, nil)
+	if err != nil {
+		log.Printf("ERROR: Unable to declare %s channel.\n", routingKey)
+		return err
+	}
+	err = channel.Publish("", routingKey, false, false, amqp.Publishing{
 		Type:    "text/plain",
 		Body:    []byte(messageBuffer),
 		ReplyTo: callbackQueue,
 	})
-	channel.Close()
-	return true, nil
+	if err != nil {
+		log.Printf("ERROR: Unable to publish message to %s channel.\n", routingKey)
+		return err
+	}
+	return nil
 }
 
-func sendErrorOnWebpageCrawl(hostname string) ([]byte, error) {
-	errorMessage := ErrorMessage{
-		Message: "Error",
-		Url:     hostname,
-	}
-	const crawlPollqueue = "crawl_poll_queue"
-
-	dataBuffer, err := json.Marshal(errorMessage)
+func (e ErrorMessage) sendErrorOnWebpageCrawl() ([]byte, error) {
+	dataBuffer, err := json.Marshal(e)
 	if err != nil {
 		return []byte{}, fmt.Errorf("ERROR: Unable to marshal Error Message.")
 	}
 	return dataBuffer, nil
 }
 
-func saveIndexedWebpages(jobID string, entry *WebpageEntry) ([]byte, error) {
-	resultMessage := Message{
-		Webpages: entry.IndexedWebpages,
+func (e *WebpageEntry) saveIndexedWebpages() ([]byte, error) {
+	message := Message{
+		Webpages: e.IndexedWebpages,
 		Header: Header{
-			Title: entry.Title,
-			Url:   entry.hostname,
+			Title: e.Title,
+			Url:   e.hostname,
 		},
 	}
-	dataBuffer, err := json.Marshal(resultMessage)
+	dataBuffer, err := json.Marshal(message)
 	if err != nil {
-		return []byte{}, fmt.Errorf("ERROR: Unable to marshal Error Message.")
+		return []byte{}, fmt.Errorf("ERROR: Unable to marshal message")
 	}
 	return dataBuffer, nil
 }
