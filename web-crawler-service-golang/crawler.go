@@ -407,56 +407,53 @@ func joinTextContents(tc []string) string {
 	return strings.Join(tc, " ")
 }
 
-func sendErrorOnWebpageCrawl(hostname string) error {
+const (
+	dbIndexingQueue = "db_indexing_crawler"
+	crawlPollqueue  = "crawl_poll_queue"
+)
 
-	/*
-	 expressErrorChannel is used to pass a message from crawl service
-	 to the express websocket server using the `crawl_poll_queue` (Might change routing key name)
-	 routing key to notify users immediately that an error occured for the current
-	 to notify users immediately that an error occured for the current url
-	*/
-
-	fmt.Println("ERROR Crawl")
+func sendResult(constructMessage func() ([]byte, error), routingKey string, callbackQueue string) (bool, error) {
 	conn, err := rabbitmqclient.GetConnection("receiverConn")
 	if err != nil {
 		fmt.Print(err.Error())
-		log.Panicln("ERROR: Unable to get connection.")
+		log.Panicf("ERROR: Unable to get %s connection.\n", "receiverConn")
 	}
-	expressErrorChannel, err := conn.Channel()
+	channel, err := conn.Channel()
 	if err != nil {
 		log.Printf("ERROR: Unable to create a database channel.")
-		return fmt.Errorf(err.Error())
+		return false, fmt.Errorf(err.Error())
 	}
 
+	messageBuffer, err := constructMessage()
+	if err != nil {
+		return false, err
+	}
+
+	channel.QueueDeclare(routingKey, false, false, false, false, nil)
+	channel.Publish("", routingKey, false, false, amqp.Publishing{
+		Type:    "text/plain",
+		Body:    []byte(messageBuffer),
+		ReplyTo: callbackQueue,
+	})
+	channel.Close()
+	return true, nil
+}
+
+func sendErrorOnWebpageCrawl(hostname string) ([]byte, error) {
 	errorMessage := ErrorMessage{
 		Message: "Error",
 		Url:     hostname,
 	}
 	const crawlPollqueue = "crawl_poll_queue"
 
-	expressErrorChannel.QueueDeclare(crawlPollqueue, false, false, false, false, nil)
 	dataBuffer, err := json.Marshal(errorMessage)
-	expressErrorChannel.Publish("", crawlPollqueue, false, false, amqp.Publishing{
-		Type:    "text/plain",
-		Body:    []byte(dataBuffer),
-		ReplyTo: crawlPollqueue,
-	})
-	expressErrorChannel.Close()
-	return nil
+	if err != nil {
+		return []byte{}, fmt.Errorf("ERROR: Unable to marshal Error Message.")
+	}
+	return dataBuffer, nil
 }
 
-func saveIndexedWebpages(jobID string, entry *WebpageEntry) error {
-	conn, err := rabbitmqclient.GetConnection("receiverConn")
-	if err != nil {
-		fmt.Print(err.Error())
-		log.Panicln("ERROR: Unable to get connection.")
-	}
-	dbChannel, err := conn.Channel()
-	if err != nil {
-		log.Printf("ERROR: Unable to create a database channel.")
-		return fmt.Errorf(err.Error())
-	}
-
+func saveIndexedWebpages(jobID string, entry *WebpageEntry) ([]byte, error) {
 	resultMessage := Message{
 		Webpages: entry.IndexedWebpages,
 		Header: Header{
@@ -464,18 +461,9 @@ func saveIndexedWebpages(jobID string, entry *WebpageEntry) error {
 			Url:   entry.hostname,
 		},
 	}
-	const (
-		dbIndexingQueue = "db_indexing_crawler"
-		crawlPollqueue  = "crawl_poll_queue"
-	)
-	dbChannel.QueueDeclare(dbIndexingQueue, false, false, false, false, nil)
 	dataBuffer, err := json.Marshal(resultMessage)
-	dbChannel.Publish("", dbIndexingQueue, false, false, amqp.Publishing{
-		Type:          "text/plain",
-		Body:          []byte(dataBuffer),
-		CorrelationId: jobID,
-		ReplyTo:       crawlPollqueue,
-	})
-	dbChannel.Close()
-	return nil
+	if err != nil {
+		return []byte{}, fmt.Errorf("ERROR: Unable to marshal Error Message.")
+	}
+	return dataBuffer, nil
 }
