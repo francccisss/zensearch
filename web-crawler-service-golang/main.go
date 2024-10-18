@@ -52,7 +52,7 @@ func main() {
 	}
 
 	service, err := webdriver.CreateWebDriverServer()
-	defer (*service).Stop()
+	defer service.Stop()
 	if err != nil {
 		log.Print("INFO: Retry web driver server or the application.\n")
 		log.Print(err.Error())
@@ -94,8 +94,14 @@ func handleConnections(msg amqp.Delivery, chann *amqp.Channel) {
 	defer chann.Ack(msg.DeliveryTag, false)
 	webpageIndex := parseIncomingData(msg.Body)
 	fmt.Printf("Docs: %+v\n", webpageIndex.Docs)
-	crawler := Crawler{URLs: webpageIndex.Docs}
-	go crawler.Start()
+	spawner := NewSpawner(10, webpageIndex.Docs)
+	go spawner.SpawnCrawlers()
+}
+func NewSpawner(threadpool int, URLs []string) *Spawner {
+	return &Spawner{
+		threadPool: threadpool,
+		URLs:       URLs,
+	}
 }
 
 func parseIncomingData(data []byte) CrawlList {
