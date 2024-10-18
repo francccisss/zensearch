@@ -27,6 +27,12 @@ func main() {
 	failOnError(err, "Failed to create a new Channel")
 	// DECLARING CHANNELS
 
+	defer func() {
+		conn.Close()
+		mainChannel.Close()
+		dbQueryChannel.Close()
+	}()
+
 	// DECLARING QUEUES
 	mainChannel.QueueDeclare(rabbitmq.SEARCH_QUEUE, false, false, false, false, nil)
 	failOnError(err, "Failed to create search queue")
