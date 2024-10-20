@@ -12,7 +12,7 @@ A distributed search engine where user's are able to control what they can searc
 
 - Despite it being fast to determine the ranking of each document relative to the user's search query, it disregards the context of the query as long as a document matches the terms in the search query eg: "dog bites man" or "man bites dog" does not matter in the context of this model.
 
-**Document Length Normalization**: Is a technique which mitigates the length bias of a document whose context might not be relevant to the query of a user but because a document's length is greater than all other documents that contains the user's query, the *term frequency* of a longer document would be much more higher compared to all other documents if we disregard the concentration of a lengthy document to the term. 
+**Document Length Normalization**: Is a technique which mitigates the length bias of a document whose context might not be relevant to the query of a user, because a document's length is greater than all other documents that contains the user's query, the *term frequency* of a longer document **might** be much more higher compared to all other documents if we disregard the concentration of a lengthy document to the term. 
 
 - The Document length normalization mitigates the length of a long document by dividing: currentDocLength / avgDocLength and controlled by `b` which controls the normalization of the document to determine the concentration of the term in that document. if the term frequency is proportionate to the document length then that means the current document is relevant to the query, else if the document is longer than average and is not proportionate to the term frequency then it is most likely no the main focus of the document.
 
