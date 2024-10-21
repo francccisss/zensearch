@@ -7,9 +7,10 @@ import (
 	"testing"
 )
 
+const query = "for each"
+
 func TestBM25Rating(t *testing.T) {
 
-	const query = "community"
 	IDF := CalculateIDF(query, &utilities.Webpages)
 	err := TF(query, &utilities.Webpages)
 	if err != nil {
@@ -29,7 +30,6 @@ func TestBM25Rating(t *testing.T) {
 }
 
 func TestTokenizedQuery(t *testing.T) {
-	query := "Learn more"
 	tokenizedQuery := utilities.Tokenizer(query)
 
 	// get IDF and TF for each token

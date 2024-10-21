@@ -10,6 +10,9 @@ func CalculateIDF(term string, webpages *[]utilities.WebpageTFIDF) float64 {
 
 	numberOfDocumentsInCorpa := float64(len(*webpages))
 	documentCountWithTerm := float64(termCountInCorpa(term, webpages))
+	if documentCountWithTerm == 0 {
+		return 0.0
+	}
 	return math.Log(numberOfDocumentsInCorpa / documentCountWithTerm)
 }
 
