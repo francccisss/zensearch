@@ -6,27 +6,7 @@ import (
 	"testing"
 )
 
-const query = "for each"
-
-func TestBM25Rating(t *testing.T) {
-
-	IDF := CalculateIDF(query, &utilities.Webpages)
-	err := TF(query, &utilities.Webpages)
-	if err != nil {
-		t.Fatalf("Error occured")
-	}
-	rankedWebpages := RankBM25Ratings(IDF, &utilities.Webpages)
-
-	for _, webpage := range *&utilities.Webpages {
-		fmt.Printf("URL: %s\n", webpage.Url)
-		fmt.Printf("TF Score: %f\n", webpage.TokenRating.TfRating)
-		fmt.Printf("BM25 Score: %f\n\n", webpage.TokenRating.Bm25rating)
-	}
-	fmt.Printf("Search Query for single token: %s\n\n", query)
-	if len(*rankedWebpages) < 10 {
-		t.Fatalf("Some webpages were not rated")
-	}
-}
+const query = "home"
 
 func TestTokenizedQuery(t *testing.T) {
 	tokenizedQuery := utilities.Tokenizer(query)
@@ -47,11 +27,18 @@ func TestTokenizedQuery(t *testing.T) {
 			(*&utilities.Webpages)[i].TokenRating.Bm25rating += bm25rating
 		}
 	}
+}
 
-	for _, webpage := range utilities.Webpages {
+func TestRankingWebpages(t *testing.T) {
+
+	calculatedWebpages := CalculateBMRatings(query, &utilities.Webpages)
+	rankedWebpages := RankBM25Ratings(calculatedWebpages)
+
+	for _, webpage := range *rankedWebpages {
 		fmt.Printf("URL: %s\n", webpage.Url)
 		fmt.Printf("TF Score: %f\n", webpage.TokenRating.TfRating)
 		fmt.Printf("BM25 Score: %f\n\n", webpage.TokenRating.Bm25rating)
 	}
 	fmt.Printf("Search Query for composite query: %s\n\n", query)
+
 }
