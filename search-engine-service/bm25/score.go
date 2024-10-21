@@ -10,14 +10,32 @@ type WebpageRanking struct {
 	Rating float64
 }
 
-func RankBM25Ratings(IDF float64, webpages *[]utilities.WebpageTFIDF) *[]utilities.WebpageTFIDF {
-	for i := range *webpages {
-		BM25Rating := BM25(IDF, (*webpages)[i].TokenRating.TfRating)
-		(*webpages)[i].TokenRating.Bm25rating = BM25Rating
-	}
+func CalculateBMRatings(query string, webpages *[]utilities.WebpageTFIDF) *[]utilities.WebpageTFIDF {
+	tokenizedQuery := utilities.Tokenizer(query)
 
-	// need to filter out 0 score
+	// get IDF and TF for each token
+	for i := range tokenizedQuery {
+		// IDF is a constant throughout the current term
+		IDF := CalculateIDF(tokenizedQuery[i], &utilities.Webpages)
+
+		// First calculate term frequency of each webpage for each token
+		// TF(q1,webpages) -> TF(qT2,webpages)...
+		_ = TF(tokenizedQuery[i], &utilities.Webpages)
+
+		// for each token calculate BM25Rating for each webpages
+		// by summing the rating from the previous tokens
+		for i := range *webpages {
+			bm25rating := BM25(IDF, (*&utilities.Webpages)[i].TfRating)
+			(*&utilities.Webpages)[i].TokenRating.Bm25rating += bm25rating
+		}
+	}
+	return webpages
+}
+
+func RankBM25Ratings(webpages *[]utilities.WebpageTFIDF) *[]utilities.WebpageTFIDF {
 	webpagesSlice := (*webpages)[:]
+
+	// TODO replace sort.Slice with slices.SortFunc
 	sort.Slice(webpagesSlice, func(i, j int) bool {
 		return webpagesSlice[i].TokenRating.Bm25rating > webpagesSlice[j].TokenRating.Bm25rating
 	})

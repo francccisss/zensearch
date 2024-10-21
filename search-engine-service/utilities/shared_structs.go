@@ -13,12 +13,6 @@ type TokenRating struct {
 	IdfRating  float64
 }
 
-type Webpage struct {
-	Contents string
-	Title    string
-	Url      string
-}
-
 type Term struct {
 	term       string
 	BM25Rating float64
