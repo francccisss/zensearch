@@ -3,7 +3,6 @@ package bm25
 import (
 	"fmt"
 	"search-engine-service/utilities"
-	"sort"
 	"testing"
 )
 
@@ -34,15 +33,12 @@ func TestTokenizedQuery(t *testing.T) {
 
 	// get IDF and TF for each token
 	for i := range tokenizedQuery {
-
 		// IDF is a constant throughout the current term
 		IDF := CalculateIDF(tokenizedQuery[i], &utilities.Webpages)
 
-		// FIX THIS REASSIGNING NEW TF RATING FOR EACH WEBPAGE
 		// First calculate term frequency of each webpage for each token
 		// TF(q1,webpages) -> TF(qT2,webpages)...
 		_ = TF(tokenizedQuery[i], &utilities.Webpages)
-		// FIX THIS REASSIGNING NEW TF RATING FOR EACH WEBPAGE
 
 		// for each token calculate BM25Rating for each webpages
 		// by summing the rating from the previous tokens
@@ -52,11 +48,7 @@ func TestTokenizedQuery(t *testing.T) {
 		}
 	}
 
-	webpagesSlice := (*&utilities.Webpages)[:]
-	sort.Slice(webpagesSlice, func(i, j int) bool {
-		return webpagesSlice[i].TokenRating.Bm25rating > webpagesSlice[j].TokenRating.Bm25rating
-	})
-	for _, webpage := range webpagesSlice[:5] {
+	for _, webpage := range utilities.Webpages {
 		fmt.Printf("URL: %s\n", webpage.Url)
 		fmt.Printf("TF Score: %f\n", webpage.TokenRating.TfRating)
 		fmt.Printf("BM25 Score: %f\n\n", webpage.TokenRating.Bm25rating)
