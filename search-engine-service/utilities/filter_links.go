@@ -10,7 +10,7 @@ package utilities
 func Filter(webpages []WebpageTFIDF) []WebpageTFIDF {
 	tmp := make([]WebpageTFIDF, 0)
 	for _, webpage := range webpages {
-		if webpage.BM25Rating == 0 {
+		if webpage.TokenRating.Bm25rating == 0 {
 			break
 		}
 		tmp = append(tmp, webpage)

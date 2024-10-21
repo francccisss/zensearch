@@ -12,14 +12,14 @@ type WebpageRanking struct {
 
 func RankBM25Ratings(IDF float64, webpages *[]utilities.WebpageTFIDF) *[]utilities.WebpageTFIDF {
 	for i := range *webpages {
-		BM25Rating := BM25(IDF, (*webpages)[i])
-		(*webpages)[i].BM25Rating = BM25Rating
+		BM25Rating := BM25(IDF, (*webpages)[i].TokenRating.TfRating)
+		(*webpages)[i].TokenRating.Bm25rating = BM25Rating
 	}
 
 	// need to filter out 0 score
 	webpagesSlice := (*webpages)[:]
 	sort.Slice(webpagesSlice, func(i, j int) bool {
-		return webpagesSlice[i].BM25Rating > webpagesSlice[j].BM25Rating
+		return webpagesSlice[i].TokenRating.Bm25rating > webpagesSlice[j].TokenRating.Bm25rating
 	})
 	// filteredWebpages := utilities.Filter(webpagesSlice)
 
@@ -28,8 +28,8 @@ func RankBM25Ratings(IDF float64, webpages *[]utilities.WebpageTFIDF) *[]utiliti
 	return &webpagesSlice
 }
 
-func BM25(IDF float64, webpage utilities.WebpageTFIDF) float64 {
-	return IDF * webpage.TFScore
+func BM25(IDF, TF float64) float64 {
+	return IDF * TF
 }
 
 // BM25 combines term frequency, inverse document frequency, and document length normalization to provide a balanced relevance score.

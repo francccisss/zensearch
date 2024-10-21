@@ -20,7 +20,7 @@ func TF(searchQuery string, webpages *[]utilities.WebpageTFIDF) error {
 
 		numerator := rawTermCount * (k1 + 1.0)
 		denominator := (rawTermCount + k1) * ((1.0 - b + b) * (currentDocLength / AvgDocLen(webpages)))
-		(*webpages)[i].TFScore = numerator / denominator
+		(*webpages)[i].TokenRating.TfRating = numerator / denominator
 	}
 	return nil
 }
