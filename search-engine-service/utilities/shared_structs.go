@@ -1,11 +1,16 @@
 package utilities
 
 type WebpageTFIDF struct {
-	Contents   string
-	Title      string
-	Url        string
-	TFScore    float64
-	BM25Rating float64
+	Contents string
+	Title    string
+	Url      string
+	TokenRating
+}
+
+type TokenRating struct {
+	Bm25rating float64
+	TfRating   float64
+	IdfRating  float64
 }
 
 type Webpage struct {
