@@ -27,13 +27,3 @@ func termCountInCorpa(term string, corpa *[]utilities.WebpageTFIDF) int {
 	}
 	return documentCount
 }
-
-func wordCountInCorpa(corpa *[]utilities.WebpageTFIDF) int {
-	wordCount := 0
-	for i := range *corpa {
-		webpageWords := utilities.DocumentWordCount((*corpa)[i].Contents)
-		wordCount += webpageWords
-	}
-	return wordCount
-
-}
