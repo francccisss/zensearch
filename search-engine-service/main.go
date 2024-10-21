@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"search-engine-service/rabbitmq"
-	tfidf "search-engine-service/tf-idf"
 	"search-engine-service/utilities"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -14,7 +13,6 @@ import (
 // subsequent requests are not being pushed
 func main() {
 	searchQuery := ""
-	jobID := ""
 
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	failOnError(err, "Failed to create a new TCP Connection")
@@ -70,7 +68,6 @@ func main() {
 		case userSearch := <-msgs:
 			{
 				searchQuery = string(userSearch.Body)
-				jobID = userSearch.CorrelationId
 				if searchQuery == "" {
 					fmt.Print("Search Query is empty\n")
 					continue
@@ -86,21 +83,7 @@ func main() {
 					continue
 				}
 				fmt.Print("Data from Database service retrieved\n")
-				webpages := parseWebpageQuery(data.Body)
-				fmt.Printf("\nWebpages: %+v\n", webpages[0])
-				fmt.Printf("\nCorID: %s\n", jobID)
-				// assign tfscore to each webpages.
-				tfidf.CalculateTF(searchQuery, &webpages)
-				IDF := tfidf.CalculateIDF(searchQuery, &webpages)
-				rankedWebpages := tfidf.RankTFIDFRatings(IDF, &webpages)
-				for _, page := range *rankedWebpages {
-					fmt.Printf("Search Query: %s\n", searchQuery)
-					fmt.Printf("Webpage: %s\n", page.Title)
-					fmt.Printf("TFScore: %f\n", page.TFScore)
-					fmt.Printf("TFIDF Ratings: %f\n", page.TFIDFRating)
-				}
-				dbQueryChannel.Ack(data.DeliveryTag, true)
-				rabbitmq.PublishScoreRanking(rankedWebpages, mainChannel, jobID)
+				_ = parseWebpageQuery(data.Body)
 			}
 		}
 	}
@@ -109,7 +92,7 @@ func main() {
 // maybe use message for cache validation later on for optimization
 
 func parseWebpageQuery(data []byte) []utilities.WebpageTFIDF {
-	var webpages []utilities.WebpageTFIDF // I dont know why it doesnt work
+	var webpages []utilities.WebpageTFIDF
 	err := json.Unmarshal(data, &webpages)
 	failOnError(err, "Unable to Decode json data from database.")
 	return webpages

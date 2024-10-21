@@ -12,20 +12,19 @@ type WebpageRanking struct {
 	Rating float64
 }
 
-// WHY DOES LOG RETURN NAN ON BOTH floats
-func RankTFIDFRatings(IDF float64, webpages *[]utilities.WebpageTFIDF) *[]utilities.WebpageTFIDF {
+func RankBM25Ratings(IDF float64, webpages *[]utilities.WebpageTFIDF) *[]utilities.WebpageTFIDF {
 	for i := range *webpages {
-		tfidfRating := calculateTFIDF(IDF, (*webpages)[i])
-		if math.IsNaN(tfidfRating) {
-			tfidfRating = 0
+		BM25Rating := BM25(IDF, (*webpages)[i])
+		if math.IsNaN(BM25Rating) {
+			BM25Rating = 0
 		}
-		(*webpages)[i].TFIDFRating = tfidfRating
+		(*webpages)[i].BM25Rating = BM25Rating
 	}
 
 	// need to filter out 0 score
 	webpagesSlice := (*webpages)[:]
 	sort.Slice(webpagesSlice, func(i, j int) bool {
-		return webpagesSlice[i].TFIDFRating > webpagesSlice[j].TFIDFRating
+		return webpagesSlice[i].BM25Rating > webpagesSlice[j].BM25Rating
 	})
 	filteredWebpages := utilities.Filter(webpagesSlice)
 
@@ -34,6 +33,6 @@ func RankTFIDFRatings(IDF float64, webpages *[]utilities.WebpageTFIDF) *[]utilit
 	return &filteredWebpages
 }
 
-func calculateTFIDF(IDF float64, webpage utilities.WebpageTFIDF) float64 {
+func BM25(IDF float64, webpage utilities.WebpageTFIDF) float64 {
 	return webpage.TFScore * IDF
 }
