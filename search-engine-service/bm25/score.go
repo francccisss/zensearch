@@ -1,7 +1,6 @@
 package bm25
 
 import (
-	// "fmt"
 	"search-engine-service/utilities"
 	"sort"
 )

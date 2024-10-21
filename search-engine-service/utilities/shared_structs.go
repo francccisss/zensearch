@@ -14,7 +14,13 @@ type Webpage struct {
 	Url      string
 }
 
-var webpages = []Webpage{
+type Term struct {
+	term       string
+	BM25Rating float64
+	index      int
+}
+
+var Webpages = []WebpageTFIDF{
 	{
 		Contents: "Welcome to the homepage!",
 		Title:    "Home",
