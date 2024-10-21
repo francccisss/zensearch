@@ -1,6 +1,7 @@
 package utilities
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -17,5 +18,6 @@ func Tokenizer(query string) []string {
 	}
 	// add the remaining character after reaching null byte
 	tmpSlice = append(tmpSlice, strings.Trim(charHolder, " "))
+	fmt.Printf("Length of Token: %d\n", len(tmpSlice))
 	return tmpSlice
 }

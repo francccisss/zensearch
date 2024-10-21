@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	k1 = 0.5
+	k1 = 1
 	b  = .75 // controlling document normalization
 )
 
@@ -19,7 +19,7 @@ func TF(searchQuery string, webpages *[]utilities.WebpageTFIDF) error {
 		rawTermCount := float64(strings.Count(strings.ToLower(currentDocument), strings.ToLower(searchQuery)))
 
 		numerator := rawTermCount * (k1 + 1.0)
-		denominator := (rawTermCount + k1) * (1.0 - b + b*currentDocLength/AvgDocLen(webpages))
+		denominator := (rawTermCount + k1) * ((1.0 - b + b) * (currentDocLength / AvgDocLen(webpages)))
 		(*webpages)[i].TFScore = numerator / denominator
 	}
 	return nil
