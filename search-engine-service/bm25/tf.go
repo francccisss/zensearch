@@ -1,4 +1,4 @@
-package tfidf
+package bm25
 
 import (
 	"search-engine-service/utilities"
@@ -7,18 +7,22 @@ import (
 
 const (
 	k1 = 0.5
-	b  = 1 // controlling document normalization
+	b  = .75 // controlling document normalization
 )
 
-func TF(searchQuery string, webpage *utilities.WebpageTFIDF, webpages *[]utilities.WebpageTFIDF) *utilities.WebpageTFIDF {
-	currentDocument := &webpage.Contents
-	currentDocLength := float64(utilities.DocLength(*currentDocument))
-	rawTermCount := float64(strings.Count(strings.ToLower(*currentDocument), strings.ToLower(searchQuery)))
+func TF(searchQuery string, webpages *[]utilities.WebpageTFIDF) error {
 
-	numerator := rawTermCount * (k1 + 1.0)
-	denominator := (rawTermCount + k1) * (1.0 - b + b*currentDocLength/AvgDocLen(webpages))
-	webpage.TFScore = numerator / denominator
-	return webpage
+	for i := range *webpages {
+
+		currentDocument := (*webpages)[i].Contents
+		currentDocLength := float64(utilities.DocLength(currentDocument))
+		rawTermCount := float64(strings.Count(strings.ToLower(currentDocument), strings.ToLower(searchQuery)))
+
+		numerator := rawTermCount * (k1 + 1.0)
+		denominator := (rawTermCount + k1) * (1.0 - b + b*currentDocLength/AvgDocLen(webpages))
+		(*webpages)[i].TFScore = numerator / denominator
+	}
+	return nil
 }
 
 func AvgDocLen(webpages *[]utilities.WebpageTFIDF) float64 {
