@@ -32,10 +32,10 @@ const PORT = 8080;
    function from the websocket server that pushes messages back to the client
    once the websocket_channel_listener consumes a message from the search engine  or Web crawler service.
   */
-  await rbq_client.init_websocket_channel_queues();
+  await rbq_client.init_channel_queues();
   // ERROR this object undefined when used as callback function
   await rbq_client.websocket_channel_listener(
-    ws_service.send_results_to_client.bind(ws_service),
+    ws_service.send_crawl_results_to_client.bind(ws_service),
   );
 
   // Start HTTP server
