@@ -33,12 +33,14 @@ func PublishScoreRanking(rankedWebpages *[]utilities.WebpageTFIDF, ch *amqp.Chan
 	err = ch.Publish(
 		"",
 		PUBLISH_QUEUE,
-		false, false, amqp.Publishing{
+		false,
+		false,
+		amqp.Publishing{
 			ContentType: "text/plain",
 			Body:        encodedWebpages,
 		})
+	// TODO Dont panic its organic
 	if err != nil {
 		log.Panicf(err.Error())
 	}
-
 }

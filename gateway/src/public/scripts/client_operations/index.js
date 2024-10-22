@@ -1,4 +1,5 @@
 import pubsub from "../utils/pubsub.js";
+const ORIGIN = "http://localhost:8080";
 
 // Upgrade http to websocket connection
 async function checkListAndUpgrade(webUrls) {
@@ -6,7 +7,7 @@ async function checkListAndUpgrade(webUrls) {
   let responseObj = {};
   try {
     pubsub.publish("checkAndUpgradeStart");
-    const sendWebUrls = await fetch("http://localhost:8080/crawl", {
+    const sendWebUrls = await fetch(`${ORIGIN}/crawl`, {
       mode: "cors",
       method: "POST",
       headers: {
@@ -38,5 +39,54 @@ async function checkListAndUpgrade(webUrls) {
     return null;
   }
 }
+async function sendCrawlList() {
+  const unhiddenInputs = document.querySelectorAll(
+    'input.crawl-input:not([data-hidden="true"])',
+  );
+  const inputValues = Array.from(unhiddenInputs).map((input) => input.value);
+  try {
+    // checkListAndUpgrade returns the list else throws an error and returns null.
+    const unindexed_list = await client.checkListAndUpgrade(inputValues);
+    console.log("Transition to waiting area for crawled list.");
 
-export default { checkListAndUpgrade };
+    const { message_type, job_id } = cookiesUtil.extractCookies();
+    // On Successful database check for unindexed list, send the list to the
+    // websocket server to start crawling the unindexed list.
+    const message = { message_type, unindexed_list, meta: { job_id } };
+    clientws.ws.send(JSON.stringify(message));
+    // might return an error so we need to handle it before we transition
+    // to waiting area.
+
+    const mappedList = unindexed_list.map((item) => ({
+      url: item,
+      state: "loading",
+    }));
+    pubsub.publish("crawlStart", mappedList);
+    // will be used for persistent ui for crawling state
+    localStorage.setItem("list", JSON.stringify(mappedList));
+  } catch (err) {
+    console.error(err.message);
+  }
+}
+
+async function sendSearchQuery() {
+  const searchInput = document.querySelector('input[type="search"]');
+  console.log("send");
+  if (searchInput.value == "") {
+    // do nothing
+    return;
+  }
+  try {
+    const sendQuery = await fetch(`${ORIGIN}/search?q=${searchInput.value}`);
+    const response = await sendQuery.json();
+    console.log(response);
+  } catch (err) {
+    console.log(
+      "ERROR: Something went wrong while sending the search query %s",
+      searchInput.value,
+    );
+    console.error(err.message);
+  }
+}
+
+export default { checkListAndUpgrade, sendCrawlList, sendSearchQuery };
