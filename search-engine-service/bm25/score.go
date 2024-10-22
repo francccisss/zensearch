@@ -1,6 +1,7 @@
 package bm25
 
 import (
+	"fmt"
 	"search-engine-service/utilities"
 	"sort"
 )
@@ -12,21 +13,23 @@ type WebpageRanking struct {
 
 func CalculateBMRatings(query string, webpages *[]utilities.WebpageTFIDF) *[]utilities.WebpageTFIDF {
 	tokenizedQuery := utilities.Tokenizer(query)
+	fmt.Println(tokenizedQuery)
 
 	// get IDF and TF for each token
 	for i := range tokenizedQuery {
 		// IDF is a constant throughout the current term
-		IDF := CalculateIDF(tokenizedQuery[i], &utilities.Webpages)
+		IDF := CalculateIDF(tokenizedQuery[i], webpages)
 
 		// First calculate term frequency of each webpage for each token
 		// TF(q1,webpages) -> TF(qT2,webpages)...
-		_ = TF(tokenizedQuery[i], &utilities.Webpages)
+		_ = TF(tokenizedQuery[i], webpages)
 
 		// for each token calculate BM25Rating for each webpages
 		// by summing the rating from the previous tokens
-		for i := range *webpages {
-			bm25rating := BM25(IDF, (*&utilities.Webpages)[i].TfRating)
-			(*&utilities.Webpages)[i].TokenRating.Bm25rating += bm25rating
+		for j := range *webpages {
+			fmt.Println(j)
+			bm25rating := BM25(IDF, (*webpages)[j].TfRating)
+			(*webpages)[j].TokenRating.Bm25rating += bm25rating
 		}
 	}
 	return webpages
