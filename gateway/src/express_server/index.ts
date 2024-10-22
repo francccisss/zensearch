@@ -8,6 +8,7 @@ import {
   SEARCH_QUEUE_CB,
 } from "../rabbitmq/routing_keys";
 import rabbitmq from "../rabbitmq";
+import { Data } from "ws";
 rabbitmq;
 
 const cors = require("cors");
@@ -130,19 +131,22 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
 
 app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
   const job_id = uuidv4();
+  const q = req.query.q;
+  console.log("NOTIF: Message received from client:  search query: %s", q);
   try {
-    //res.setHeader("Connection", "Upgrade");
-    //res.setHeader("Upgrade", "Websocket");
+    const is_sent = await rabbitmq.client.send_search_query(q as string);
+    if (!is_sent) {
+      throw new Error("ERROR: Unable to send search query.");
+    }
+    console.log("NOTIF: Search query sent to the search engine service.");
 
-    /*
-      Need to job_id such that different messages in the message queue `SEARCH_QUEUE_CB`,
-      the websocket listener will be able to determine which job's which.
-      eg: user sends "fzaid projects" search query then that will have its own job_id
-      specifically for that search query in the message queue.
-    */
+    // Throws an error that will be caught by the route handler.
+    const msg = await rabbitmq.client.search_channel_listener();
+    // Throws an error that will be caught by the route handler.
+    console.log("NOTIF: Results from search engine service retrieved.");
 
-    res.cookie("job_id", job_id);
-    res.sendFile(path.join(...public_route, "search.html"));
+    console.log(msg);
+    res.json({ msg, success: true });
   } catch (err) {
     const error = err as Error;
     console.error(error.message);

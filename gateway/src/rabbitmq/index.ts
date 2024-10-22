@@ -36,7 +36,7 @@ class RabbitMQClient {
     return this;
   }
 
-  async init_websocket_channel_queues() {
+  async init_channel_queues() {
     try {
       if (this.connection == null) {
         throw new Error("ERROR: Connection interface is null.");
@@ -71,21 +71,13 @@ class RabbitMQClient {
    This Function sends a new search query to the SEARCH ENGINE SERVICE.
    returns a bool to check if it has been sent
   */
-  async send_search_query(job: {
-    q: string;
-    job_id: string;
-  }): Promise<boolean> {
+  async send_search_query(q: string): Promise<boolean> {
     if (this.search_channel == null) {
       return false;
     }
-    return await this.search_channel.sendToQueue(
-      SEARCH_QUEUE,
-      Buffer.from(job.q),
-      {
-        correlationId: job.job_id,
-        replyTo: SEARCH_QUEUE_CB,
-      },
-    );
+    return await this.search_channel.sendToQueue(SEARCH_QUEUE, Buffer.from(q), {
+      replyTo: SEARCH_QUEUE_CB,
+    });
   }
 
   /*
@@ -98,25 +90,10 @@ class RabbitMQClient {
   async websocket_channel_listener(
     cb: (chan: Channel, data: ConsumeMessage, message_type: string) => void,
   ) {
-    if (this.search_channel == null)
-      throw new Error("ERROR: Search Channel is null.");
-
     if (this.crawl_channel == null)
       throw new Error("ERROR: Crawl Channel is null.");
 
     try {
-      this.search_channel.consume(
-        SEARCH_QUEUE_CB,
-        async (msg: ConsumeMessage | null) => {
-          if (msg === null) throw new Error("Msg does not exist");
-          console.log(msg);
-          if (this.search_channel == null) {
-            throw new Error("ERROR: Search Channel is null.");
-          }
-          await cb(this.search_channel, msg, "searching");
-        },
-      );
-
       // Consumes database service's output that was sent by the crawler service.
       // client -> ws(CRAWL_QUEUE_CB)[CRAWL_QUEUE] -> [CRAWL_QUEUE]Crawler(CRAWL_QUEUE_CB)[db_indexing_crawler]
       // -> [db_indexing_crawler]Database[CRAWL_QUEUE_CB] -> [CRAWL_QUEUE_CB]ws this listener -> client.
@@ -138,6 +115,29 @@ class RabbitMQClient {
       console.error(error.name);
       console.error(error.message);
     }
+  }
+
+  // Channel Listener used by express server for listening for the
+  // search channel queue callback for webpages retrieval
+  async search_channel_listener(): Promise<ConsumeMessage> {
+    if (this.search_channel == null)
+      throw new Error("ERROR: Search Channel is null.");
+    let msg: ConsumeMessage | null = null;
+    await this.search_channel.consume(
+      SEARCH_QUEUE_CB,
+      async (data: ConsumeMessage | null) => {
+        if (data === null) throw new Error("Msg does not exist");
+        if (this.search_channel == null) {
+          throw new Error("ERROR: Search Channel is null.");
+        }
+        msg = data;
+        this.search_channel.ack(data);
+      },
+    );
+    if (msg === null) {
+      throw new Error("ERROR: Unable to retrieve Message from message queue.");
+    }
+    return msg;
   }
 
   // Crawler Expects an Object to be unmarshalled where the

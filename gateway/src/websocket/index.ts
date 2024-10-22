@@ -64,10 +64,6 @@ class WebsocketService {
             );
           }
         }
-        if (decode_buffer.message_type === "searching") {
-          //this.search_handler(data);
-          console.log("Search");
-        }
       });
 
       ws.on("close", () => {
@@ -75,39 +71,6 @@ class WebsocketService {
         console.log("Connection closed is alive is false");
       });
     });
-  }
-
-  /*
-    This Callback function is executed right after the handler() has received a new search query
-    object from the client, it calls the `send_search_query` to send.. a search query as the name
-    implies to the search engine service for processing.
-   */
-  private async search_handler(data: Data) {
-    const { q, job_id }: { q: string; job_id: string } = JSON.parse(
-      data.toString(),
-    );
-    try {
-      const is_sent = await rabbitmq.client.send_search_query({
-        q,
-        job_id,
-      });
-      if (!is_sent) {
-        throw new Error("ERROR: Unable to send search query.");
-      }
-      console.log(
-        "NOTIF: Message received from client: { search query: %s, job id: %s",
-        q,
-        job_id,
-      );
-      console.log("NOTIF: Search query sent to the search engine service.");
-    } catch (err) {
-      // TODO need to send an error back to the user.
-      const error = err as Error;
-      console.log(
-        "LOG: Something went wrong while processing message from websocket.",
-      );
-      console.error(error.message);
-    }
   }
 
   /*
@@ -131,7 +94,7 @@ class WebsocketService {
     Implement a websocket user authentication for client reconnection?
   */
 
-  async send_results_to_client(
+  async send_crawl_results_to_client(
     chan: Channel,
     msg: ConsumeMessage,
     message_type: string,
