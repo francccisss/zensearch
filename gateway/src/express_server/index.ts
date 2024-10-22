@@ -130,23 +130,25 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
 */
 
 app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
-  const job_id = uuidv4();
   const q = req.query.q;
-  console.log("NOTIF: Message received from client:  search query: %s", q);
   try {
+    console.log("NOTIF: Search Query sent");
+    console.log("SEARCH QUERY: %s", q);
     const is_sent = await rabbitmq.client.send_search_query(q as string);
     if (!is_sent) {
       throw new Error("ERROR: Unable to send search query.");
     }
-    console.log("NOTIF: Search query sent to the search engine service.");
 
     // Throws an error that will be caught by the route handler.
-    const msg = await rabbitmq.client.search_channel_listener();
+    const data = await rabbitmq.client.search_channel_listener();
+    if (data == null) {
+      throw new Error("ERROR: Data is null.");
+    }
+    const parse_ranked_pages = JSON.parse(data.content.toString());
+    console.log(parse_ranked_pages);
     // Throws an error that will be caught by the route handler.
-    console.log("NOTIF: Results from search engine service retrieved.");
-
-    console.log(msg);
-    res.json({ msg, success: true });
+    console.log("NOTIF: Search query sent to the client .");
+    res.json({ msg: parse_ranked_pages, success: true, query: q });
   } catch (err) {
     const error = err as Error;
     console.error(error.message);

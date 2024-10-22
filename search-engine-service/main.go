@@ -87,7 +87,7 @@ func main() {
 				webpages := parseWebpageQuery(data.Body)
 				fmt.Println(len(*webpages))
 
-				dbQueryChannel.Ack(data.DeliveryTag, true)
+				dbQueryChannel.Ack(data.DeliveryTag, false)
 				calculatedRatings := bm25.CalculateBMRatings(searchQuery, webpages)
 				rankedWebpages := bm25.RankBM25Ratings(calculatedRatings)
 				for _, webpage := range *rankedWebpages {
