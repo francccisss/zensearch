@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"search-engine-service/bm25"
 	"search-engine-service/rabbitmq"
 	"search-engine-service/utilities"
 
@@ -83,7 +84,17 @@ func main() {
 					continue
 				}
 				fmt.Print("Data from Database service retrieved\n")
-				_ = parseWebpageQuery(data.Body)
+				webpages := parseWebpageQuery(data.Body)
+				dbQueryChannel.Ack(data.DeliveryTag, true)
+				calculatedRatings := bm25.CalculateBMRatings(searchQuery, webpages)
+				rankedWebpages := bm25.RankBM25Ratings(calculatedRatings)
+				for _, webpage := range *rankedWebpages {
+					fmt.Printf("URL: %s\n", webpage.Url)
+					fmt.Printf("TF Score: %f\n", webpage.TokenRating.TfRating)
+					fmt.Printf("BM25 Score: %f\n\n", webpage.TokenRating.Bm25rating)
+				}
+				fmt.Printf("Search Query for composite query: %s\n\n", searchQuery)
+				rabbitmq.PublishScoreRanking(rankedWebpages, mainChannel)
 			}
 		}
 	}
@@ -91,11 +102,11 @@ func main() {
 
 // maybe use message for cache validation later on for optimization
 
-func parseWebpageQuery(data []byte) []utilities.WebpageTFIDF {
+func parseWebpageQuery(data []byte) *[]utilities.WebpageTFIDF {
 	var webpages []utilities.WebpageTFIDF
 	err := json.Unmarshal(data, &webpages)
 	failOnError(err, "Unable to Decode json data from database.")
-	return webpages
+	return &webpages
 }
 
 func failOnError(err error, msg string) {

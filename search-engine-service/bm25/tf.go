@@ -19,13 +19,13 @@ func TF(searchQuery string, webpages *[]utilities.WebpageTFIDF) error {
 		rawTermCount := float64(strings.Count(strings.ToLower(currentDocument), strings.ToLower(searchQuery)))
 
 		numerator := rawTermCount * (k1 + 1.0)
-		denominator := (rawTermCount + k1) * ((1.0 - b + b) * (currentDocLength / AvgDocLen(webpages)))
+		denominator := (rawTermCount + k1) * ((1.0 - b + b) * (currentDocLength / avgDocLen(webpages)))
 		(*webpages)[i].TokenRating.TfRating = numerator / denominator
 	}
 	return nil
 }
 
-func AvgDocLen(webpages *[]utilities.WebpageTFIDF) float64 {
+func avgDocLen(webpages *[]utilities.WebpageTFIDF) float64 {
 	totalTermCount := 0
 	for i := range *webpages {
 		docLength := utilities.DocLength((*webpages)[i].Contents)
