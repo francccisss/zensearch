@@ -1,0 +1,108 @@
+<body>
+  <div id="sidebar-container" class="inactive-sb">
+    <div
+      class="sb-contents-container inactive-list-container"
+      id="waiting-list-sb"
+    >
+      <div class="sb-list-header" id="waiting-list-header">
+        <span>
+          <h2>Crawling</h2>
+          <p>
+            Please wait while we crawl your list of Urls, you can start search
+            once one of your entry has been crawled.
+          </p>
+        </span>
+        <button id="close-sb-btn" type="button">X</button>
+      </div>
+      <div class="sb-list-container">
+        <div id="wait-list-container" class="list-container"></div>
+        <div id="sb-btns">
+          <button class="capsule-btn" id="new-list-btn">
+            Create new list
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="sb-contents-container active-list-container" id="crawl-list-sb">
+      <div class="sb-list-header" id="crawl-list-header">
+        <span>
+          <h2>Crawl list</h2>
+          <p>
+            If one of your entries already exists on the database, we will
+            report it back to you immediately :D
+          </p>
+        </span>
+        <button id="close-sb-btn" type="button">X</button>
+      </div>
+      <div class="sb-list-container">
+        <div id="crawl-list-container" class="list-container"></div>
+        <div id="sb-btns">
+          <span class="crawl-loader"></span>
+          <button class="capsule-btn crawl-btn">Start crawl</button>
+          <button class="capsule-btn new-entry-btn">New entry</button>
+        </div>
+        <span hidden id="list-error-popup-container">
+          <p></p>
+          <div></div>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!--SEARCH PAGE-->
+  <main id="search-page">
+    <nav>
+      <a id="logo-link" href="#">ZenSearch</a>
+      <div class="search-outer-container">
+            <form method="get" action="/search" id="search-input">
+              <input
+                placeholder="Computer networking, how many avocados can i eat before i puke?, how to hack nasa..."
+                type="search"
+                name="q"
+                value={{query}}
+              />
+              <button id="search-btn" type="submit">Search</button>
+            </form>
+      </div>
+    </nav>
+    <section id="search-results-contain">
+   {{#each search_results}}
+    <div class="search-item">
+      <div class="search-item-contents">
+        <a class="page-link" href={{this.Url}}>
+        <div class="logo-crumbs-container">
+          <span class="page-logo">S</span>
+          <span class="title-crumbs-cont">
+            <span class="page-origin">Origin</span>
+            <span class="page-url-crumbs">Title.com > en-us</span>
+          </span>
+        </div>
+          <div class="page-title">{{this.Title}}</div>
+        </a>
+        <p>{{this.Contents}}</p>
+      </div>
+    </div>
+   {{/each}}
+  </section>
+  </main>
+  <footer>Footer</footer>
+  <!--SEARCH PAGE-->
+  <template id="crawl-input-template">
+    <input
+      data-hidden="false"
+      placeholder="Enter a url to crawl"
+      type="text"
+      class="crawl-input"
+      value=""
+    />
+    <button
+      type="button"
+      class="hide-reveal-entry-btn reveal-entry-btn"
+    ></button>
+    <button type="button" class="remove-entry-btn"></button>
+  </template>
+  <template id="waiting-item">
+    <p class="wait-item-url" data-waiting="true"></p>
+    <span class="wait-item-icon"></span>
+  </template>
+</body>

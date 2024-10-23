@@ -9,8 +9,7 @@ import {
 } from "../rabbitmq/routing_keys";
 import rabbitmq from "../rabbitmq";
 import { Data } from "ws";
-import { EventEmitter } from "stream";
-rabbitmq;
+import { engine } from "express-handlebars";
 
 const cors = require("cors");
 const body_parser = require("body-parser");
@@ -21,6 +20,10 @@ app.use(body_parser.urlencoded({ extended: false }));
 app.use(body_parser.json());
 app.use(cors());
 app.use(express.static(path.join(...public_route)));
+
+app.engine("handlebars", engine());
+app.set("view engine", "handlebars");
+app.set("views", path.join(__dirname, "views"));
 app.use(
   express.static(path.join(__dirname, "..", "public/scripts")),
   (req: Request, res: Response, next: NextFunction) => {
@@ -126,10 +129,6 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
 */
 
 app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
-  res.sendFile(path.join(...public_route, "search.html"));
-});
-
-app.get("/query", async (req: Request, res: Response, next: NextFunction) => {
   const q = req.query.q;
   function eventListener(msg: { data: ConsumeMessage; err: Error | null }) {
     if (msg.err !== null) {
@@ -138,7 +137,9 @@ app.get("/query", async (req: Request, res: Response, next: NextFunction) => {
     const parse_ranked_pages = JSON.parse(msg.data.content.toString());
     console.log(parse_ranked_pages[0]);
     console.log("NOTIF: Search query sent to the client .");
-    res.json({ msg: parse_ranked_pages, success: true, query: q });
+
+    res.render("search", { search_results: parse_ranked_pages, query: q });
+    //res.json({ msg: parse_ranked_pages, success: true, query: q });
     rabbitmq.client.eventEmitter.removeAllListeners("searchResults");
   }
   try {

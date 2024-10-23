@@ -1,4 +1,3 @@
-import navigation from "./client_navigation/navigation.js";
 import crawlInput from "./components/crawl_input/index.js";
 import ui from "./ui/index.js";
 import cookiesUtil from "./utils/cookies.js";

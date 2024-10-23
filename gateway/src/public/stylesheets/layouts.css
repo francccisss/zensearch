@@ -1,4 +1,5 @@
 :root {
+  --outline-color: #1e1e1e20;
   --waiting-icon-size: 25px;
   --rounded-full: 9999px;
   --input-btn-padding: 1rem 1.5rem;
