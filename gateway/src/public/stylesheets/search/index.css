@@ -2,11 +2,22 @@
 @import url("../loader.css");
 @import url("../sidebar.css");
 
+nav {
+  display: flex;
+  align-items: center;
+  padding: 2em 0em;
+  border-bottom: 2px solid var(--low-light-text);
+}
+#logo-link {
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: var(--accent);
+  margin-inline: 1em;
+}
 .search-outer-container {
-  margin-top: 1.8em;
   display: flex;
   flex-direction: column;
-  width: 100%;
+  width: 50%;
   .github-link {
     margin-top: 1em;
     display: flex;
@@ -27,25 +38,29 @@
       background-repeat: no-repeat;
     }
   }
+  #search-input {
+    position: relative;
+    input,
+    button {
+      padding: var(--input-btn-padding);
+      border-radius: 9999px;
+    }
+    input[type="search"] {
+      background-color: var(--input-color);
+      width: 100%;
+    }
+
+    button[type="submit"] {
+      background-color: var(--black);
+      color: var(--light-text);
+      position: absolute;
+      right: 0%;
+    }
+    margin-bottom: 0.5em;
+  }
 }
 
-#search-input {
-  position: relative;
-  input,
-  button {
-    padding: var(--input-btn-padding);
-    border-radius: 9999px;
-  }
-  input[type="search"] {
-    background-color: var(--input-color);
-    width: 100%;
-  }
-
-  button[type="submit"] {
-    background-color: var(--black);
-    color: var(--light-text);
-    position: absolute;
-    right: 0%;
-  }
-  margin-bottom: 0.5em;
+section {
+  padding: 2em 0em;
+  margin-left: 10em;
 }
