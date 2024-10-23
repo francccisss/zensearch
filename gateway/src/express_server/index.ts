@@ -118,15 +118,10 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
 /*
   Hmm might change this next time idk.
 
-  Upgrades http protocol to websocket so that we dont need to poll
-  for the search engine service's search results, and instead we can just create an
-  persistent tcp connection using websocket protocol, the websocket server will
-  be responsible for listening/consuming the search results from the
-  search engine service, and then send back the search result data back to the client.
-
-  - search queue handlers for rabbitmq is in the `rabbitmq/` folder
-  - search channel listeners are in the `websocket/` folder
-
+  As of now, im creating and desstroying a listener for every requests
+  this might add some significant overhead that im not aware of but right now
+  it works, i could change this by using an event emmiter and just call the listener
+  on init.
 */
 
 app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
@@ -134,19 +129,20 @@ app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
   try {
     console.log("NOTIF: Search Query sent");
     console.log("SEARCH QUERY: %s", q);
+    // Creates a search channel
     const is_sent = await rabbitmq.client.send_search_query(q as string);
     if (!is_sent) {
       throw new Error("ERROR: Unable to send search query.");
     }
 
-    // Throws an error that will be caught by the route handler.
-    const data = await rabbitmq.client.search_channel_listener();
-    if (data == null) {
-      throw new Error("ERROR: Data is null.");
+    // Consumes message from the search channel routing key "SEARCH_QUEUE_CB"
+    const { data, err } = await rabbitmq.client.search_channel_listener();
+    // hehe golang error handling pattern
+    if (err !== null) {
+      throw new Error(err.message);
     }
     const parse_ranked_pages = JSON.parse(data.content.toString());
     console.log(parse_ranked_pages);
-    // Throws an error that will be caught by the route handler.
     console.log("NOTIF: Search query sent to the client .");
     res.json({ msg: parse_ranked_pages, success: true, query: q });
   } catch (err) {

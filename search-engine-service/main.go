@@ -35,6 +35,8 @@ func main() {
 	// DECLARING QUEUES
 	mainChannel.QueueDeclare(rabbitmq.SEARCH_QUEUE, false, false, false, false, nil)
 	failOnError(err, "Failed to create search queue")
+	mainChannel.QueueDeclare(rabbitmq.PUBLISH_QUEUE, false, false, false, false, nil)
+	failOnError(err, "Failed to create publish queue")
 	dbQueryChannel.QueueDeclare(rabbitmq.DB_QUERY_QUEUE, false, false, false, false, nil)
 	failOnError(err, "Failed to create query queue")
 	dbQueryChannel.QueueDeclare(rabbitmq.DB_RESPONSE_QUEUE, false, false, false, false, nil)
@@ -87,7 +89,6 @@ func main() {
 				webpages := parseWebpageQuery(data.Body)
 				fmt.Println(len(*webpages))
 
-				dbQueryChannel.Ack(data.DeliveryTag, false)
 				calculatedRatings := bm25.CalculateBMRatings(searchQuery, webpages)
 				rankedWebpages := bm25.RankBM25Ratings(calculatedRatings)
 				for _, webpage := range *rankedWebpages {
@@ -97,6 +98,7 @@ func main() {
 				}
 				fmt.Printf("Search Query for composite query: %s\n\n", searchQuery)
 				rabbitmq.PublishScoreRanking(rankedWebpages, mainChannel)
+				dbQueryChannel.Ack(data.DeliveryTag, true)
 			}
 		}
 	}

@@ -41,17 +41,7 @@ class RabbitMQClient {
       if (this.connection == null) {
         throw new Error("ERROR: Connection interface is null.");
       }
-      this.search_channel = await this.connection.createChannel();
-
       this.crawl_channel = await this.connection.createChannel();
-      this.search_channel.assertQueue(SEARCH_QUEUE, {
-        exclusive: false,
-        durable: false,
-      });
-      this.search_channel.assertQueue(SEARCH_QUEUE_CB, {
-        exclusive: false,
-        durable: false,
-      });
 
       this.crawl_channel.assertQueue(CRAWL_QUEUE_CB, {
         exclusive: false,
@@ -72,9 +62,14 @@ class RabbitMQClient {
    returns a bool to check if it has been sent
   */
   async send_search_query(q: string): Promise<boolean> {
-    if (this.search_channel == null) {
-      return false;
+    if (this.connection == null) {
+      throw new Error("ERROR: Connection is null");
     }
+    this.search_channel = await this.connection.createChannel();
+    this.search_channel.assertQueue(SEARCH_QUEUE, {
+      exclusive: false,
+      durable: false,
+    });
     return await this.search_channel.sendToQueue(SEARCH_QUEUE, Buffer.from(q), {
       replyTo: SEARCH_QUEUE_CB,
     });
@@ -119,27 +114,36 @@ class RabbitMQClient {
 
   // Channel Listener used by express server for listening for the
   // search channel queue callback for webpages retrieval
-  async search_channel_listener(): Promise<ConsumeMessage | null> {
+  async search_channel_listener(): Promise<{
+    data: ConsumeMessage;
+    err: Error | null;
+  }> {
     return new Promise(async (resolve, reject) => {
       try {
         if (this.search_channel == null) {
-          throw new Error("ERROR: Search Channel is null.");
+          throw new Error("ERROR: Search channel does not exist.");
         }
+        this.search_channel.assertQueue(SEARCH_QUEUE_CB, {
+          exclusive: false,
+          durable: false,
+        });
         await this.search_channel.consume(
           SEARCH_QUEUE_CB,
           (data: ConsumeMessage | null) => {
             if (data === null) {
+              this.search_channel!.close();
               throw new Error("Msg does not exist");
             }
-            if (this.search_channel == null) {
-              throw new Error("ERROR: Search Channel is null.");
-            }
-            resolve(data);
-            this.search_channel.ack(data);
+            // bruh it should already exist if we're calling consume.. the frick!
+            this.search_channel!.ack(data);
+            this.search_channel!.close();
+            resolve({ data, err: null });
           },
+          { noAck: false },
         );
       } catch (err) {
-        reject(null);
+        console.error(err);
+        reject({ data: null, err });
       }
     });
   }
