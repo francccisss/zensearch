@@ -37,6 +37,7 @@ const PORT = 8080;
   await rbq_client.websocket_channel_listener(
     ws_service.send_crawl_results_to_client.bind(ws_service),
   );
+  await rbq_client.search_channel_listener();
 
   // Start HTTP server
   http_server.listen(PORT, () => {

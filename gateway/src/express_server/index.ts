@@ -9,6 +9,7 @@ import {
 } from "../rabbitmq/routing_keys";
 import rabbitmq from "../rabbitmq";
 import { Data } from "ws";
+import { EventEmitter } from "stream";
 rabbitmq;
 
 const cors = require("cors");
@@ -126,6 +127,16 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
 
 app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
   const q = req.query.q;
+  function eventListener(msg: { data: ConsumeMessage; err: Error | null }) {
+    if (msg.err !== null) {
+      throw new Error(msg.err.message);
+    }
+    const parse_ranked_pages = JSON.parse(msg.data.content.toString());
+    console.log(parse_ranked_pages[0]);
+    console.log("NOTIF: Search query sent to the client .");
+    res.json({ msg: parse_ranked_pages, success: true, query: q });
+    rabbitmq.client.eventEmitter.removeAllListeners("searchResults");
+  }
   try {
     console.log("NOTIF: Search Query sent");
     console.log("SEARCH QUERY: %s", q);
@@ -134,18 +145,9 @@ app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
     if (!is_sent) {
       throw new Error("ERROR: Unable to send search query.");
     }
-
-    // Consumes message from the search channel routing key "SEARCH_QUEUE_CB"
-    const { data, err } = await rabbitmq.client.search_channel_listener();
-    // hehe golang error handling pattern
-    if (err !== null) {
-      throw new Error(err.message);
-    }
-    const parse_ranked_pages = JSON.parse(data.content.toString());
-    console.log(parse_ranked_pages);
-    console.log("NOTIF: Search query sent to the client .");
-    res.json({ msg: parse_ranked_pages, success: true, query: q });
+    rabbitmq.client.eventEmitter.on("searchResults", eventListener);
   } catch (err) {
+    console.log("It jumped to here just after sending it");
     const error = err as Error;
     console.error(error.message);
     next(err);
