@@ -126,6 +126,10 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
 */
 
 app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
+  res.sendFile(path.join(...public_route, "search.html"));
+});
+
+app.get("/query", async (req: Request, res: Response, next: NextFunction) => {
   const q = req.query.q;
   function eventListener(msg: { data: ConsumeMessage; err: Error | null }) {
     if (msg.err !== null) {
