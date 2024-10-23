@@ -37,7 +37,6 @@
           </div>
         </div>
       </div>
-
       <div
         class="sb-contents-container active-list-container"
         id="crawl-list-sb"
@@ -66,18 +65,43 @@
         </div>
       </div>
     </div>
-    <main id="home">
-      <div class="search-outer-container">
-        <div id="search-input">
-          <input
-            placeholder="Computer networking, how many avocados can i eat before i puke?, how to hack nasa..."
-            type="search"
-            name="searchQuery"
-          />
-          <button id="search-btn" type="submit">Search</button>
+
+    <!--SEARCH PAGE-->
+    <main id="search-page">
+      <nav>
+        <a id="logo-link" href="#">ZenSearch</a>
+        <div class="search-outer-container">
+          <div id="search-input">
+            <input
+              placeholder="Computer networking, how many avocados can i eat before i puke?, how to hack nasa..."
+              type="search"
+              name="searchQuery"
+            />
+            <button id="search-btn" type="submit">Search</button>
+          </div>
         </div>
-      </div>
+      </nav>
+      <section id="search-results-section"></section>
     </main>
+    <footer>Footer</footer>
+    <!--SEARCH PAGE-->
+
+    <template id="search-result-template">
+      <li class="search-result">
+        <div class="search-result-container">
+          <a class="page-link" href="#">
+            <span class="page-logo">S</span>
+            <span class="title-crumbs-cont">
+              <span class="page-origin">Origin</span>
+              <span class="page-url-crumbs">Title.com > en-us</span>
+            </span>
+          </a>
+          <a class="page-link2" href="#">Page Title </a>
+          <p>Small description about this page</p>
+        </div>
+      </li>
+    </template>
+
     <template id="crawl-input-template">
       <input
         data-hidden="false"
