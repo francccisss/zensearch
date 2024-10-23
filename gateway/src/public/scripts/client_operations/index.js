@@ -78,8 +78,6 @@ async function sendSearchQuery() {
   }
   try {
     const sendQuery = await fetch(`${ORIGIN}/search?q=${searchInput.value}`);
-    const response = await sendQuery.json();
-    console.log(response);
   } catch (err) {
     console.log(
       "ERROR: Something went wrong while sending the search query %s",

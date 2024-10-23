@@ -26,3 +26,5 @@ function appendSearchResults(searchResults) {
   const updateResults = searchResults.map((result) => createComponent(result));
   searchResultsContainer.replaceChildren(...updateResults);
 }
+
+export default { appendSearchResults, createComponent };
