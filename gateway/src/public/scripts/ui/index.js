@@ -38,10 +38,7 @@ function popUpOnAddEntry(entries) {
 }
 function initCrawlInputs() {
   const listContainer = document.querySelector("#crawl-list-container");
-  listContainer.appendChild(crawlInput.createComponent("https://m7mad.dev"));
-  listContainer.appendChild(
-    crawlInput.createComponent("https://fzaid.vercel.app/"),
-  );
+  listContainer.appendChild(crawlInput.createComponent(""));
 }
 
 function sidebarActions(event) {
