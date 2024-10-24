@@ -67,21 +67,31 @@ section {
   border: 2px solid var(--outline-color);
   border-radius: 7px;
   padding: 1.5em;
+  transition: 150ms ease-out box-shadow;
+}
+
+.search-item:hover {
+  box-shadow: 1px 2px 10px 5px #1e1e1e10;
+  transition: 150ms ease-out box-shadow;
 }
 .search-item:nth-child(n + 2) {
   margin-top: 2em;
 }
 .search-item-contents {
+  .page-link {
+    text-decoration: none;
+  }
   .page-title {
     font-size: 1.7rem;
     font-weight: 600;
     color: var(--black);
 
-    width: 250px;
+    width: 600px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
+
   .page-logo {
     --icon-size: 30px;
     display: inline-block;
@@ -117,4 +127,12 @@ section {
     overflow: hidden;
     text-overflow: ellipsis;
   }
+}
+
+footer {
+  border-top: 2px solid var(--outline-color);
+  padding: 2em;
+  text-align: center;
+  place-content: center;
+  display: flex;
 }

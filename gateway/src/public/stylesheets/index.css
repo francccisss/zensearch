@@ -37,13 +37,14 @@ header.title-container {
       text-decoration: underline;
     }
     span.github-icon {
+      background: url("../assets/icons/Github.png");
+
       margin-right: 0.5rem;
       --icon-size: 30px;
       display: inline-block;
       width: var(--icon-size);
       height: var(--icon-size);
       background-size: var(--icon-size);
-      background: url("../assets/icons/Github.png");
       background-position: center;
       background-repeat: no-repeat;
     }
@@ -57,6 +58,7 @@ header.title-container {
     padding: var(--input-btn-padding);
     border-radius: 9999px;
   }
+
   input[type="search"] {
     background-color: var(--input-color);
     width: 100%;
