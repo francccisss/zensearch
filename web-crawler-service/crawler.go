@@ -9,9 +9,9 @@ import (
 	"log"
 	"strings"
 	"sync"
-	rabbitmqclient "web-crawler-service-golang/pkg/rabbitmq_client"
-	webdriver "web-crawler-service-golang/pkg/webdriver"
-	utilities "web-crawler-service-golang/utilities/links"
+	rabbitmqclient "web-crawler-service/pkg/rabbitmq_client"
+	webdriver "web-crawler-service/pkg/webdriver"
+	utilities "web-crawler-service/utilities/links"
 )
 
 type Header struct {
