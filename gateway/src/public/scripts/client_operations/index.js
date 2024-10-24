@@ -1,4 +1,6 @@
+import cookiesUtil from "../utils/cookies.js";
 import pubsub from "../utils/pubsub.js";
+import clientws from "./websocket.js";
 const ORIGIN = "http://localhost:8080";
 
 // Upgrade http to websocket connection
@@ -46,7 +48,7 @@ async function sendCrawlList() {
   const inputValues = Array.from(unhiddenInputs).map((input) => input.value);
   try {
     // checkListAndUpgrade returns the list else throws an error and returns null.
-    const unindexed_list = await client.checkListAndUpgrade(inputValues);
+    const unindexed_list = await checkListAndUpgrade(inputValues);
     console.log("Transition to waiting area for crawled list.");
 
     const { message_type, job_id } = cookiesUtil.extractCookies();
@@ -69,22 +71,4 @@ async function sendCrawlList() {
   }
 }
 
-async function sendSearchQuery() {
-  const searchInput = document.querySelector('input[type="search"]');
-  console.log("send");
-  if (searchInput.value == "") {
-    // do nothing
-    return;
-  }
-  try {
-    const sendQuery = await fetch(`${ORIGIN}/search?q=${searchInput.value}`);
-  } catch (err) {
-    console.log(
-      "ERROR: Something went wrong while sending the search query %s",
-      searchInput.value,
-    );
-    console.error(err.message);
-  }
-}
-
-export default { checkListAndUpgrade, sendCrawlList, sendSearchQuery };
+export default { checkListAndUpgrade, sendCrawlList };

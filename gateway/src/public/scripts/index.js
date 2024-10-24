@@ -29,10 +29,6 @@ sidebar.addEventListener("click", async (e) => {
   }
 });
 
-searchBtn.addEventListener("click", async () => {
-  await client.sendSearchQuery();
-});
-
 /* Pubsub utility is used to handle UI reactivity on data change
  */
 

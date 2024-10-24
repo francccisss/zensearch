@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	rabbitmqclient "web-crawler-service-golang/pkg/rabbitmq_client"
-	webdriver "web-crawler-service-golang/pkg/webdriver"
+	rabbitmqclient "web-crawler-service/pkg/rabbitmq_client"
+	webdriver "web-crawler-service/pkg/webdriver"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
