@@ -41,6 +41,11 @@ app.engine(
       textInitial: (title: string): string => {
         return title[0];
       },
+      crumbs: (url: string): string => {
+        const u = new URL(url);
+        const path = u.pathname;
+        return u.hostname + path.split("/").join(" > ");
+      },
     },
   }).engine,
 );
