@@ -19,8 +19,8 @@ client (this program) to the Web browser's devtools using WebDriver protocol.
 */
 func CreateWebDriverServer() (*selenium.Service, error) {
 	opts := []selenium.ServiceOption{
-		selenium.StartFrameBuffer(),
-		selenium.ChromeDriver(chromeDriverPath),
+		selenium.StartFrameBuffer(),             // THIS USES THE DEPENDENCY X VIRTUAL FRAME BUFFER
+		selenium.ChromeDriver(chromeDriverPath), // THIS USES THE DEPENDENCY CHROME WEB DRIVER
 		// selenium.Output(os.Stderr),
 	}
 	service, err := selenium.NewChromeDriverService(chromeDriverPath, port, opts...)
