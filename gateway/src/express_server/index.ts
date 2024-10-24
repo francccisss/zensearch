@@ -9,7 +9,7 @@ import {
 } from "../rabbitmq/routing_keys";
 import rabbitmq from "../rabbitmq";
 import { Data } from "ws";
-import { engine } from "express-handlebars";
+import { create } from "express-handlebars";
 
 const cors = require("cors");
 const body_parser = require("body-parser");
@@ -21,7 +21,29 @@ app.use(body_parser.json());
 app.use(cors());
 app.use(express.static(path.join(...public_route)));
 
-app.engine("handlebars", engine());
+app.engine(
+  "handlebars",
+  create({
+    runtimeOptions: {
+      allowProtoPropertiesByDefault: true,
+    },
+
+    helpers: {
+      checkLength: (text: string): string => {
+        return text.trim().length === 0 || text === undefined
+          ? "No description."
+          : text;
+      },
+      urlOrigin: (url: string): string => {
+        return new URL(url).hostname;
+      },
+
+      textInitial: (title: string): string => {
+        return title[0];
+      },
+    },
+  }).engine,
+);
 app.set("view engine", "handlebars");
 app.set("views", path.join(__dirname, "views"));
 app.use(
@@ -135,7 +157,7 @@ app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
       throw new Error(msg.err.message);
     }
     const parse_ranked_pages = JSON.parse(msg.data.content.toString());
-    console.log(parse_ranked_pages[0]);
+    console.log(parse_ranked_pages[3]);
     console.log("NOTIF: Search query sent to the client .");
 
     res.render("search", { search_results: parse_ranked_pages, query: q });
