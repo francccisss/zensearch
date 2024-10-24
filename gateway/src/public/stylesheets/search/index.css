@@ -23,29 +23,10 @@ nav {
 }
 .search-outer-container {
   display: flex;
-  flex-direction: column;
-  width: 50%;
-  .github-link {
-    margin-top: 1em;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    a:hover {
-      text-decoration: underline;
-    }
-    span.github-icon {
-      margin-right: 0.5rem;
-      --icon-size: 30px;
-      display: inline-block;
-      width: var(--icon-size);
-      height: var(--icon-size);
-      background-size: var(--icon-size);
-      background: url("../assets/icons/Github.png");
-      background-position: center;
-      background-repeat: no-repeat;
-    }
-  }
+  width: 70%;
   #search-input {
+    margin-bottom: 0 !important;
+    width: 100%;
     position: relative;
     input,
     button {
@@ -67,12 +48,21 @@ nav {
   }
 }
 
-section {
-  padding: 2em 0em;
-  margin-inline: 10em;
-  max-width: 1280px;
+#add-entry-sb-btn {
+  margin-top: 0 !important;
+  margin-left: 1em !important;
+  font-size: 0.7rem !important;
+}
+.capsule-btn {
+  padding: var(--input-btn-padding);
 }
 
+section {
+  padding: 2em 0em;
+  margin-left: 10em;
+  margin-right: 5em;
+  max-width: 1280px;
+}
 .search-item {
   border: 2px solid var(--outline-color);
   border-radius: 7px;
@@ -86,6 +76,11 @@ section {
     font-size: 1.7rem;
     font-weight: 600;
     color: var(--black);
+
+    width: 250px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .page-logo {
     --icon-size: 30px;
@@ -102,7 +97,7 @@ section {
     border-radius: var(--rounded-full);
   }
   .logo-crumbs-container {
-    margin-bottom: 1.4em;
+    margin-bottom: 0.4em;
     display: flex;
     align-items: center;
     gap: 1.5em;
@@ -114,5 +109,12 @@ section {
   .page-origin {
     font-size: 1.6rem;
     font-weight: 500;
+  }
+  p {
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }

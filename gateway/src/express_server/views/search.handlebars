@@ -64,6 +64,9 @@
               <button id="search-btn" type="submit">Search</button>
             </form>
       </div>
+          <button type="button" id="add-entry-sb-btn" class="capsule-btn">
+            Add entries
+          </button>
     </nav>
     <section id="search-results-contain">
    {{#each search_results}}
@@ -71,15 +74,15 @@
       <div class="search-item-contents">
         <a class="page-link" href={{this.Url}}>
         <div class="logo-crumbs-container">
-          <span class="page-logo">S</span>
+          <span class="page-logo">{{textInitial this.Title}}</span>
           <span class="title-crumbs-cont">
-            <span class="page-origin">Origin</span>
+            <span class="page-origin">{{urlOrigin this.Url}}</span>
             <span class="page-url-crumbs">Title.com > en-us</span>
           </span>
         </div>
           <div class="page-title">{{this.Title}}</div>
         </a>
-        <p>{{this.Contents}}</p>
+        <p>{{checkLength this.Contents}}</p>
       </div>
     </div>
    {{/each}}
