@@ -71,6 +71,7 @@ type PageNavigator struct {
 	wd           *selenium.WebDriver
 	pagesVisited map[string]string
 	currentUrl   string
+	queue        Queue
 }
 
 type PageResult struct {
@@ -185,6 +186,9 @@ func (c Crawler) Crawl() (PageResult, error) {
 		currentUrl:   c.URL,
 		wd:           c.wd,
 		pagesVisited: map[string]string{},
+		queue: Queue{
+			array: []string{c.URL},
+		},
 	}
 	err = pageNavigator.navigatePageWithRetries(maxRetries)
 	if err != nil {
@@ -207,13 +211,10 @@ func (c Crawler) Crawl() (PageResult, error) {
 	// clean up memory resource since it will linger in memory in the heap
 	// once this function is removed from the stack.
 	defer clear(entry.IndexedWebpages)
+	defer clear(pageNavigator.pagesVisited)
 
 	/*
-			 TODO when other pages are already indexed, but only a single page throws an error
-			 then all progress with huge amounts of data will be lost, need to save these Results
-			 despite an error occurs instead of returning an zero byte result.
-
-		   TODO Improve error handling code, it looks ugly.
+	   TODO Improve error handling code, it looks ugly.
 	*/
 	if err != nil {
 		errorMessage := ErrorMessage{
@@ -253,7 +254,9 @@ func (pn *PageNavigator) navigatePageWithRetries(retries int) error {
 
 func (pn *PageNavigator) navigatePages() error {
 
-	if _, visited := pn.pagesVisited[pn.currentUrl]; visited {
+	pn.currentUrl = pn.queue.Dequeue()
+	_, visited := pn.pagesVisited[pn.currentUrl]
+	if visited {
 		// its so that we can grab unique links and append to children of the current page
 		fmt.Println("NOTIF: Page already visited")
 		return nil
@@ -264,7 +267,7 @@ func (pn *PageNavigator) navigatePages() error {
 	}
 	pn.pagesVisited[pn.currentUrl] = pn.currentUrl
 
-	links, err := (*pn.wd).FindElements(selenium.ByCSSSelector, linkFilter)
+	pageLinks, err := (*pn.wd).FindElements(selenium.ByCSSSelector, linkFilter)
 
 	// no children/error
 	if err != nil {
@@ -278,8 +281,7 @@ func (pn *PageNavigator) navigatePages() error {
 		as the child of the currently visited link
 	*/
 
-	children := make([]string, 0, 10)
-	for _, link := range links {
+	for _, link := range pageLinks {
 		// need to filter out links that is not the same as hostname
 		ref, _ := link.GetAttribute("href")
 		cleanedRef, _, _ := strings.Cut(ref, "#")
@@ -289,10 +291,12 @@ func (pn *PageNavigator) navigatePages() error {
 			fmt.Println(err.Error())
 			continue
 		}
-		if _, visited := pn.pagesVisited[cleanedRef]; !visited && pn.entry.hostname == childHostname {
+		// enqueue links that have not been visited yet and that are the same as the hostname
+		_, visited := pn.pagesVisited[cleanedRef]
+		if !visited && pn.entry.hostname == childHostname {
 			// if so that we can grab unique links and append to children of the current page
 			// and ignore links not relative to the entry point link
-			children = append(children, cleanedRef)
+			pn.queue.Enqueue(cleanedRef)
 		}
 	}
 
@@ -307,18 +311,13 @@ func (pn *PageNavigator) navigatePages() error {
 	 then go to its next child in the children array.
 	*/
 
-	if len(children) == 0 {
-		return nil
-	}
-	for _, child := range children {
-		pn.currentUrl = child
+	for _, _ = range pn.queue.array {
 		err := pn.navigatePages()
 		// if error occured from traversing or any error has occured
 		// just move to the next child
 		if err != nil {
 			continue
 		}
-
 	}
 	return nil
 }
