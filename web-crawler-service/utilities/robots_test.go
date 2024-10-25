@@ -4,7 +4,7 @@ import "testing"
 
 func TestRobotExtraction(t *testing.T) {
 
-	arr, err := ExtractTxt("https://fzaid.vercel.app/")
+	arr, err := ExtractRobotsTxt("https://docs.python.org/")
 	if err != nil {
 		t.Fatalf(err.Error())
 	}

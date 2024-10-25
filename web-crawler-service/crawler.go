@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	amqp "github.com/rabbitmq/amqp091-go"
-	"github.com/tebeka/selenium"
 	"log"
 	"strings"
 	"sync"
 	rabbitmqclient "web-crawler-service/pkg/rabbitmq_client"
 	webdriver "web-crawler-service/pkg/webdriver"
-	utilities "web-crawler-service/utilities/links"
+	utilities "web-crawler-service/utilities"
+
+	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/tebeka/selenium"
 )
 
 type Header struct {
@@ -67,11 +68,12 @@ const (
 )
 
 type PageNavigator struct {
-	entry        *WebpageEntry
-	wd           *selenium.WebDriver
-	pagesVisited map[string]string
-	currentUrl   string
-	queue        Queue
+	entry           *WebpageEntry
+	wd              *selenium.WebDriver
+	pagesVisited    map[string]string
+	currentUrl      string
+	queue           Queue
+	disallowedPaths []string
 }
 
 type PageResult struct {
@@ -171,7 +173,11 @@ func (c Crawler) Crawl() (PageResult, error) {
 	defer (*c.wd).Close()
 
 	log.Printf("NOTIF: Start Crawling %s\n", c.URL)
-	hostname, err := utilities.GetHostname(c.URL)
+	hostname, _, err := utilities.GetHostname(c.URL)
+	disallowedPaths, err := utilities.ExtractRobotsTxt(c.URL)
+	if err != nil {
+		disallowedPaths = []string{}
+	}
 	if err != nil {
 		fmt.Println(err.Error())
 	}
@@ -189,6 +195,7 @@ func (c Crawler) Crawl() (PageResult, error) {
 		queue: Queue{
 			array: []string{c.URL},
 		},
+		disallowedPaths: disallowedPaths,
 	}
 	err = pageNavigator.navigatePageWithRetries(maxRetries)
 	if err != nil {
@@ -216,29 +223,29 @@ func (c Crawler) Crawl() (PageResult, error) {
 	/*
 	   TODO Improve error handling code, it looks ugly.
 	*/
-	if err != nil {
-		errorMessage := ErrorMessage{
-			Message: "Error",
-			Url:     hostname,
-		}
-		err = sendResult(errorMessage.sendErrorOnWebpageCrawl, "crawl_poll_queue", "")
-		fmt.Println("ERROR: Well something went wrong with the last stack.")
-		return PageResult{
-			URL:         c.URL,
-			CrawlStatus: crawlFail,
-			Message:     "An Error has occured while crawling the current url.",
-			TotalPages:  len(entry.IndexedWebpages),
-		}, nil
-	}
-	result := PageResult{
-		URL:         c.URL,
-		CrawlStatus: crawlSuccess,
-		Message:     "Successfully Crawled & Indexed website",
-		TotalPages:  len(entry.IndexedWebpages),
-	}
-	err = sendResult(entry.saveIndexedWebpages, "db_indexing_crawler", "crawl_poll_queue")
+	// if err != nil {
+	// 	errorMessage := ErrorMessage{
+	// 		Message: "Error",
+	// 		Url:     hostname,
+	// 	}
+	// 	err = sendResult(errorMessage.sendErrorOnWebpageCrawl, "crawl_poll_queue", "")
+	// 	fmt.Println("ERROR: Well something went wrong with the last stack.")
+	// 	return PageResult{
+	// 		URL:         c.URL,
+	// 		CrawlStatus: crawlFail,
+	// 		Message:     "An Error has occured while crawling the current url.",
+	// 		TotalPages:  len(entry.IndexedWebpages),
+	// 	}, nil
+	// }
+	// result := PageResult{
+	// 	URL:         c.URL,
+	// 	CrawlStatus: crawlSuccess,
+	// 	Message:     "Successfully Crawled & Indexed website",
+	// 	TotalPages:  len(entry.IndexedWebpages),
+	// }
+	// err = sendResult(entry.saveIndexedWebpages, "db_indexing_crawler", "crawl_poll_queue")
 
-	return result, nil
+	return PageResult{}, nil
 }
 
 func (pn *PageNavigator) navigatePageWithRetries(retries int) error {
@@ -250,6 +257,15 @@ func (pn *PageNavigator) navigatePageWithRetries(retries int) error {
 		return nil
 	}
 	return fmt.Errorf("ERROR: Unable to retrieve webpage after several retries.")
+}
+
+func (pn *PageNavigator) isPathAllowed(path string) bool {
+	for _, dapath := range pn.disallowedPaths {
+		if strings.Contains(path, dapath) {
+			return false
+		}
+	}
+	return true
 }
 
 func (pn *PageNavigator) navigatePages() error {
@@ -285,10 +301,16 @@ func (pn *PageNavigator) navigatePages() error {
 		// need to filter out links that is not the same as hostname
 		ref, _ := link.GetAttribute("href")
 		cleanedRef, _, _ := strings.Cut(ref, "#")
-		childHostname, err := utilities.GetHostname(cleanedRef)
+		childHostname, path, err := utilities.GetHostname(cleanedRef)
 
 		if err != nil {
 			fmt.Println(err.Error())
+			continue
+		}
+
+		isAllowed := pn.isPathAllowed(path)
+		if !isAllowed {
+			fmt.Printf("Url path not allowed by robot txt: %s\n\n", path)
 			continue
 		}
 		// enqueue links that have not been visited yet and that are the same as the hostname

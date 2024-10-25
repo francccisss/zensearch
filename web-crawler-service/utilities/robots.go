@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	utilities "web-crawler-service/utilities/links"
 )
 
-func ExtractTxt(url string) ([]string, error) {
-	hostname, err := utilities.GetHostname(url)
+func ExtractRobotsTxt(url string) ([]string, error) {
+	hostname, _, err := GetHostname(url)
 	if err != nil {
 		return []string{}, err
 	}
@@ -20,7 +19,8 @@ func ExtractTxt(url string) ([]string, error) {
 	}
 
 	fmt.Printf("Url: %s\n", resp.Request.URL)
-	disallowedArr := make([]string, 10)
+	disallowedArr := []string{}
+
 	scanner := bufio.NewScanner(resp.Body)
 	isAll := false
 	for scanner.Scan() {
