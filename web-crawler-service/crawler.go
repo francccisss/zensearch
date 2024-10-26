@@ -179,7 +179,6 @@ func (c Crawler) Crawl() (PageResult, error) {
 	}
 	pageNavigator := PageNavigator{
 		entry:        &entry,
-		currentUrl:   c.URL,
 		wd:           c.wd,
 		pagesVisited: map[string]string{},
 		queue: Queue{
@@ -187,7 +186,7 @@ func (c Crawler) Crawl() (PageResult, error) {
 		},
 		disallowedPaths: disallowedPaths,
 	}
-	err = pageNavigator.navigatePageWithRetries(maxRetries)
+	err = pageNavigator.navigatePageWithRetries(maxRetries, c.URL)
 	if err != nil {
 		errorMessage := ErrorMessage{
 			Message: "Error",
@@ -203,7 +202,7 @@ func (c Crawler) Crawl() (PageResult, error) {
 	if err == nil {
 		entry.Title = title
 	}
-	err = pageNavigator.navigatePages()
+	err = pageNavigator.navigatePages(c.URL)
 
 	// clean up memory resource since it will linger in memory in the heap
 	// once this function is removed from the stack.
