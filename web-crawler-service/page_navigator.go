@@ -15,7 +15,6 @@ type PageNavigator struct {
 	entry           *WebpageEntry
 	wd              *selenium.WebDriver
 	pagesVisited    map[string]string
-	currentUrl      string
 	queue           Queue
 	disallowedPaths []string
 	RequestTime
@@ -26,13 +25,13 @@ type RequestTime struct {
 	mselapsed int
 }
 
-func (pn *PageNavigator) navigatePageWithRetries(retries int) error {
+func (pn *PageNavigator) navigatePageWithRetries(retries int, currentUrl string) error {
 	startTimer := time.Now()
 
 	if retries > 0 {
-		err := (*pn.wd).Get(pn.currentUrl)
+		err := (*pn.wd).Get(currentUrl)
 		if err != nil {
-			return pn.navigatePageWithRetries(retries - 1)
+			return pn.navigatePageWithRetries(retries-1, currentUrl)
 		}
 
 		timeout := time.Now()
@@ -76,21 +75,35 @@ func (pn *PageNavigator) requestDelay(multiplier int) {
 	}
 }
 
-func (pn *PageNavigator) navigatePages() error {
+func (pn *PageNavigator) navigatePages(currentUrl string) error {
 
-	pn.currentUrl = pn.queue.Dequeue()
-	_, visited := pn.pagesVisited[pn.currentUrl]
+	fmt.Printf("NOTIF: Queue length %d.\n", len(pn.queue.array))
+
+	if len(pn.queue.array) == 0 {
+		fmt.Printf("NOTIF: Queue is empty.\n")
+		return nil
+	}
+	// Oh and while I was debugging, i forgot to call Dequeue and kept wondering
+	// why the first element is not being removed... almost an hour i guess before
+	// i figured it out.
+	pn.queue.Dequeue()
+	fmt.Printf("NOTIF: `%s` has popped from queue.\n", currentUrl)
+	_, visited := pn.pagesVisited[currentUrl]
 	if visited {
 		// its so that we can grab unique links and append to children of the current page
-		fmt.Println("NOTIF: Page already visited")
+		fmt.Printf("NOTIF: Page already visited\n\n")
 		return nil
 	}
 	pn.requestDelay(5)
-	err := pn.navigatePageWithRetries(maxRetries)
+	err := pn.navigatePageWithRetries(maxRetries, currentUrl)
 	if err != nil {
+		fmt.Println(err.Error())
 		return err
 	}
-	pn.pagesVisited[pn.currentUrl] = pn.currentUrl
+	pn.pagesVisited[currentUrl] = currentUrl
+
+	fmt.Println("NOTIF: Page set to visited.")
+	fmt.Printf("NOTIF: Visited pages curent state %+v\n", pn.pagesVisited)
 
 	pageLinks, err := (*pn.wd).FindElements(selenium.ByCSSSelector, linkFilter)
 
@@ -124,18 +137,20 @@ func (pn *PageNavigator) navigatePages() error {
 			continue
 		}
 		// enqueue links that have not been visited yet and that are the same as the hostname
-		_, visited := pn.pagesVisited[cleanedRef]
 
+		_, visited := pn.pagesVisited[cleanedRef]
+		// I KEEP ADDING THE SAME ELEMENTS IN THE QUEUE I DONT UNDERSTAND!!!!
 		if !visited && pn.entry.hostname == childHostname {
-			// if so that we can grab unique links and append to children of the current page
-			// and ignore links not relative to the entry point link
+			fmt.Printf("Not visited yet: %s\n", cleanedRef)
 			pn.queue.Enqueue(cleanedRef)
 		}
 	}
 
 	indexedWebpage, err := pn.Index()
 	if err != nil {
-		return fmt.Errorf("ERROR: Something went wrong, unable to index current webpage.")
+		// then skip this page
+		fmt.Printf("ERROR: Something went wrong, unable to index current webpage.\n")
+		return nil
 	}
 	pn.entry.IndexedWebpages = append(pn.entry.IndexedWebpages, indexedWebpage)
 
@@ -144,11 +159,15 @@ func (pn *PageNavigator) navigatePages() error {
 	 then go to its next child in the children array.
 	*/
 
-	for _, _ = range pn.queue.array {
-		err := pn.navigatePages()
+	fmt.Printf("NOTIF: Current Queue State: %+v\n\n", pn.queue.array)
+	for _, next := range pn.queue.array {
+
+		err := pn.navigatePages(next)
 		// if error occured from traversing or any error has occured
 		// just move to the next child
 		if err != nil {
+			fmt.Printf("ERROR: Unable to navigate to `%s` just continue.\n", next)
+			// im saying continue when length of queue is 0
 			continue
 		}
 	}
