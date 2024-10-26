@@ -15,7 +15,7 @@ func TestTraversal(t *testing.T) {
 		log.Print(err.Error())
 	}
 
-	Docs := []string{"https://go.dev/doc/"}
+	Docs := []string{"https://docs.python.org"}
 	spawner := NewSpawner(10, Docs)
 	spawner.SpawnCrawlers()
 
