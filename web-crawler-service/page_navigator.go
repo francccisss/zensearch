@@ -52,16 +52,24 @@ func (pn *PageNavigator) isPathAllowed(path string) bool {
 	return true
 }
 
-func (pn *PageNavigator) requestDelay(threshold int) {
-	fmt.Printf("{elapsed: %d, threshold: %d}\n", pn.mselapsed, threshold)
+/*
+TODO
+Need to improve this, because whenever elapsed time is > min && elapsed < max
+the value significantly reduces if it is faster compared to when elapsed > 1000ms
+which is already slow and shouldnt be slowed down that much, im doing the opposite where
+my goal was to make it sleep for longer if it is faster and dont sleep at all if it is
+going too slow.
+*/
+func (pn *PageNavigator) requestDelay(multiplier int) {
+	fmt.Printf("{elapsed: %d, threshold: %d}\n", pn.mselapsed, multiplier)
 	min := 500
 	max := 1500
 	if pn.mselapsed < max {
 		fmt.Printf("Too fast: %d\n", pn.mselapsed)
-		time.Sleep(time.Duration(pn.mselapsed * 1000000 * threshold))
+		time.Sleep(time.Duration((pn.mselapsed * 1000000) * multiplier))
 	} else if pn.mselapsed < min {
 		fmt.Printf("Too FAAAST: %d\n", pn.mselapsed)
-		time.Sleep(time.Duration(pn.mselapsed*1000000*threshold + 5))
+		time.Sleep(time.Duration((pn.mselapsed * 1000000) * (multiplier * 3)))
 	} else {
 		fmt.Printf("Too slow: %d\n", pn.mselapsed)
 		fmt.Printf("No Sleep\n")
