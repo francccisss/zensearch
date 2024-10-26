@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/tebeka/selenium"
 	"log"
 	"strings"
 	"sync"
+	"time"
 	"web-crawler-service/utilities"
+
+	"github.com/tebeka/selenium"
 )
 
 type PageNavigator struct {
@@ -16,15 +18,25 @@ type PageNavigator struct {
 	currentUrl      string
 	queue           Queue
 	disallowedPaths []string
-	time            float64
+	RequestTime
+}
+
+type RequestTime struct {
+	a         float32
+	mselapsed int
 }
 
 func (pn *PageNavigator) navigatePageWithRetries(retries int) error {
+	startTimer := time.Now()
+
 	if retries > 0 {
 		err := (*pn.wd).Get(pn.currentUrl)
 		if err != nil {
 			return pn.navigatePageWithRetries(retries - 1)
 		}
+
+		timeout := time.Now()
+		pn.mselapsed = int(timeout.Sub(startTimer) / 1000000)
 		return nil
 	}
 	return fmt.Errorf("ERROR: Unable to retrieve webpage after several retries.")
@@ -40,8 +52,20 @@ func (pn *PageNavigator) isPathAllowed(path string) bool {
 	return true
 }
 
-func (pn *PageNavigator) getRTT() {
-
+func (pn *PageNavigator) requestDelay(threshold int) {
+	fmt.Printf("{elapsed: %d, threshold: %d}\n", pn.mselapsed, threshold)
+	min := 500
+	max := 1500
+	if pn.mselapsed < max {
+		fmt.Printf("Too fast: %d\n", pn.mselapsed)
+		time.Sleep(time.Duration(pn.mselapsed * 1000000 * threshold))
+	} else if pn.mselapsed < min {
+		fmt.Printf("Too FAAAST: %d\n", pn.mselapsed)
+		time.Sleep(time.Duration(pn.mselapsed*1000000*threshold + 5))
+	} else {
+		fmt.Printf("Too slow: %d\n", pn.mselapsed)
+		fmt.Printf("No Sleep\n")
+	}
 }
 
 func (pn *PageNavigator) navigatePages() error {
@@ -53,6 +77,7 @@ func (pn *PageNavigator) navigatePages() error {
 		fmt.Println("NOTIF: Page already visited")
 		return nil
 	}
+	pn.requestDelay(5)
 	err := pn.navigatePageWithRetries(maxRetries)
 	if err != nil {
 		return err
