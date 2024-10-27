@@ -101,7 +101,7 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 		fmt.Printf("NOTIF: Page already visited\n\n")
 		return nil
 	}
-	pn.requestDelay(0)
+	pn.requestDelay(2)
 	err := pn.navigatePageWithRetries(maxRetries, currentUrl)
 	if err != nil {
 		fmt.Println(err.Error())
