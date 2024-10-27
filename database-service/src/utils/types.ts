@@ -1,4 +1,6 @@
 export type data_t = {
+  Message: string;
+  CrawlStatus: number;
   Webpages: Array<{
     Header: header;
     Contents: string;

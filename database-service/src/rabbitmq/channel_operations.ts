@@ -52,19 +52,15 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
     const decoded_data = decoder.decode(data.content as ArrayBuffer);
     const deserialize_data: data_t = JSON.parse(decoded_data);
     try {
-      // if ever an error occurs while saving new indexed webpages.
-      // send message to the client with a message of "Error" with the.
-      // current url.
       database_channel.ack(data);
-      // sqlite is asynchronous, after calling this function
-      // it will call sqlite query function asynchronously, so this one should return
-      // immediately
       await database_operations.index_webpages(db, deserialize_data);
+
       database_channel.sendToQueue(
         data.properties.replyTo,
         Buffer.from(
           JSON.stringify({
-            Message: "Success",
+            isSuccess: deserialize_data.CrawlStatus,
+            Message: deserialize_data.Message,
             Url: deserialize_data.Url,
             WebpageCount: deserialize_data.Webpages.length,
           }),
@@ -79,9 +75,11 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
         data.properties.replyTo,
         Buffer.from(
           JSON.stringify({
-            message: "Error",
-            url: deserialize_data.Url,
-            webpage_count: 0,
+            isSuccess: false,
+            Message:
+              "Something went wrong with the database service, please retry the application.",
+            Url: deserialize_data.Url,
+            WebpageCount: 0,
           }),
         ),
       );
