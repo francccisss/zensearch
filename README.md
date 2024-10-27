@@ -16,15 +16,58 @@ A distributed search engine where user's are able to control what they can searc
 
 - The Document length normalization mitigates the length of a long document by dividing: currentDocLength / avgDocLength and controlled by `b` which controls the normalization of the document to determine the concentration of the term in that document. if the term frequency is proportionate to the document length then that means the current document is relevant to the query, else if the document is longer than average and is not proportionate to the term frequency then it is most likely no the main focus of the document.
 
-**Beyond TF-IDF using BM25**: (Needs documentation.)
+**Beyond TF-IDF using BM25**: I am no expert but from my understanding of the BM25 Model is that it is an instance of the TF-IDF but with super powers, where the relevancy of a document is controlled by constants `k1` & `b` where `k1` controls the weight of a term frequency in a document or how much impact this term has throughout a document.
+
+- In `k1` if the constant is set to a lower value, it saturates the term very quickly which diminishes the term frequency as the term grows and stops to a certain point but if it is set to a higher value eg: `k1 = 2` it will grow a bit slower up to a point where it begins slow down the rate as the term grows.
+
+- The `b` controls the normalization of the length of the document relative to the term's relevancy or controls the concentration of the term in the document, if the term is sparse and is not mentioned enough in a long document and if `b` is high from 0-1, then long documents will be punished which means they will be scored lower, but if a document mentions the term more frequently and is more concetrated throughout the whole document, the document will be scored higher, using `0` normalization will render the document to only consider the term frequency and not consider if the document is relative to the term.
 
 
 ## TODO
 - [ ] Save the most recently crawled webpage for continuation.
 - [ ] Create cancellation for crawling but still save the indexed pages up to that point.
 - [ ] One click to clear database.
+- [ ] Let users delete a website from the sqlite database from the client-side.
 - [ ] Documentation.
 
+## IMPORTANT FOR USERS OF THIS PROJECT
+You will take full responsibility in the event that you will be blocked by a website author whose website you're crawling, so make sure you're crawling a website that would generally accept web crawlers and has a rate-limiting mechanism in their services, I have implemented a rudimentary rate-limiting mechanism in the crawler in `crawler/page_navigator.go` file called `requestDelay()`.
+
+
+```
+/*
+using elapsed time from start to end of request in milliseconds and compressing
+it using log to smooth the values for increasing intervals for each requests
+such that it doesnt grow too much when multiplying intervals.
+
+multiplier values:
+  - 0 ignores all intervals
+  - 1 increases slowly but is still fast and might be blocked
+  - 2 sweet middleground
+
+The first check for pn.interval < min is hack i dont know what else to do.
+*/
+func (pn *PageNavigator) requestDelay(multiplier int) {
+	min := 600
+	max := 10000
+	base := int(math.Log(float64(pn.mselapsed)))
+
+	fmt.Printf("CURRENT ELAPSED TIME: %d\n", pn.mselapsed)
+	if pn.interval < min {
+		pn.interval = (pn.interval + base) * multiplier * 2
+		fmt.Printf("INCREASE INTERVAL x2: %d\n", pn.interval)
+	} else if pn.interval < max {
+		pn.interval = (pn.interval + base) * multiplier
+		fmt.Printf("INCREASE INTERVAL: %d\n", pn.interval)
+	} else if pn.interval > max {
+		fmt.Printf("RESET INTERVAL: %d\n", pn.interval)
+		pn.interval = 0
+	}
+	time.Sleep(time.Duration(pn.interval * 1000000))
+}
+```
+
+So be careful and read their `robots.txt` file from their website `https://<website-hostname>/robots.txt`.
 
 ## Testing
 Run this command to create an instance of rabbitmq Message broker.
@@ -32,7 +75,7 @@ Run this command to create an instance of rabbitmq Message broker.
 # latest RabbitMQ 4.0.x
 docker run -it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4.0-management
 ```
-(Need to create a script to run each services)
+(Need to create a script to run each services for testing.)
 
 
 # Tools and Dependencies
@@ -59,7 +102,7 @@ docker run -it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4.0-man
 #### Selenium Driver Dependencies (IMPORTANT)
 [Chrome Driver Docs](https://developer.chrome.com/docs/chromedriver)
 - Chrome Web Driver is within the `web-crawler-service/pkg/chrome` folder.
-- This is needed for the client (crawler) to communicate with the web driver server via http and pass any api calls from the web driver server to the Web Devtools via web driver protocol. eg: `client (http)-> web driver (web driver protocol)-> devtools` 
+- This is needed for the client (crawler) to communicate with the web driver server via http and pass any api calls from the web driver server to the Web Devtools via web driver protocol. eg: `client (http)-> web driver (web driver protocol)-> devtools`
 
 
 [Chrome Browser](https://www.google.com/chrome/)
