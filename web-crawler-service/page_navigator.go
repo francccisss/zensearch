@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -21,7 +22,7 @@ type PageNavigator struct {
 }
 
 type RequestTime struct {
-	a         float32
+	interval  int
 	mselapsed int
 }
 
@@ -52,32 +53,37 @@ func (pn *PageNavigator) isPathAllowed(path string) bool {
 }
 
 /*
-TODO
-Need to improve this, because whenever elapsed time is > min && elapsed < max
-the value significantly reduces if it is faster compared to when elapsed > 1000ms
-which is already slow and shouldnt be slowed down that much, im doing the opposite where
-my goal was to make it sleep for longer if it is faster and dont sleep at all if it is
-going too slow.
+using elapsed time from start to end of request in milliseconds and compressing
+it using log to smooth the values for increasing intervals for each requests
+such that it doesnt grow too much when multiplying intervals.
+
+multiplier values:
+  - 0 ignores all intervals
+  - 1 increases slowly but is still fast and might be blocked
+  - 2 sweet middleground
+
+The first check for pn.interval < min is hack i dont know what else to do.
 */
 func (pn *PageNavigator) requestDelay(multiplier int) {
-	fmt.Printf("{elapsed: %d, threshold: %d}\n", pn.mselapsed, multiplier)
-	min := 500
-	max := 1500
-	if pn.mselapsed < max {
-		fmt.Printf("Too fast: %d\n", pn.mselapsed)
-		time.Sleep(time.Duration((pn.mselapsed * 1000000) * multiplier))
-	} else if pn.mselapsed < min {
-		fmt.Printf("Too FAAAST: %d\n", pn.mselapsed)
-		time.Sleep(time.Duration((pn.mselapsed * 1000000) * (multiplier * 3)))
-	} else {
-		fmt.Printf("Too slow: %d\n", pn.mselapsed)
-		fmt.Printf("No Sleep\n")
+	min := 600
+	max := 10000
+	base := int(math.Log(float64(pn.mselapsed)))
+
+	fmt.Printf("CURRENT ELAPSED TIME: %d\n", pn.mselapsed)
+	if pn.interval < min {
+		pn.interval = (pn.interval + base) * multiplier * 2
+		fmt.Printf("INCREASE INTERVAL x2: %d\n", pn.interval)
+	} else if pn.interval < max {
+		pn.interval = (pn.interval + base) * multiplier
+		fmt.Printf("INCREASE INTERVAL: %d\n", pn.interval)
+	} else if pn.interval > max {
+		fmt.Printf("RESET INTERVAL: %d\n", pn.interval)
+		pn.interval = 0
 	}
+	time.Sleep(time.Duration(pn.interval * 1000000))
 }
 
 func (pn *PageNavigator) navigatePages(currentUrl string) error {
-
-	fmt.Printf("NOTIF: Queue length %d.\n", len(pn.queue.array))
 
 	if len(pn.queue.array) == 0 {
 		fmt.Printf("NOTIF: Queue is empty.\n")
@@ -95,7 +101,7 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 		fmt.Printf("NOTIF: Page already visited\n\n")
 		return nil
 	}
-	// pn.requestDelay(5)
+	pn.requestDelay(0)
 	err := pn.navigatePageWithRetries(maxRetries, currentUrl)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -105,7 +111,6 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 	pn.pagesVisited[currentUrl] = currentUrl
 
 	fmt.Println("NOTIF: Page set to visited.")
-	fmt.Printf("NOTIF: Visited pages curent state %+v\n", pn.pagesVisited)
 
 	pageLinks, err := (*pn.wd).FindElements(selenium.ByCSSSelector, linkFilter)
 
@@ -143,7 +148,6 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 		_, visited := pn.pagesVisited[cleanedRef]
 		// I KEEP ADDING THE SAME ELEMENTS IN THE QUEUE I DONT UNDERSTAND!!!!
 		if !visited && pn.entry.hostname == childHostname {
-			fmt.Printf("Not visited yet: %s\n", cleanedRef)
 			pn.queue.Enqueue(cleanedRef)
 		}
 	}
@@ -161,7 +165,6 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 	 then go to its next child in the children array.
 	*/
 
-	fmt.Printf("NOTIF: Current Queue State: %+v\n\n", pn.queue.array)
 	for _, next := range pn.queue.array {
 
 		err := pn.navigatePages(next)

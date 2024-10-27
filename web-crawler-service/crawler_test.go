@@ -15,7 +15,7 @@ func TestTraversal(t *testing.T) {
 		log.Print(err.Error())
 	}
 
-	Docs := []string{"https://fzaid.vercel.app"}
+	Docs := []string{"https://courses.lumenlearning.com/wm-prealgebra/chapter/using-the-distance-rate-and-time-formula/"}
 	spawner := NewSpawner(10, Docs)
 	spawner.SpawnCrawlers()
 
