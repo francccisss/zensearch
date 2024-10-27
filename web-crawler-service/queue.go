@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"slices"
 )
 
@@ -15,7 +14,6 @@ func (q *Queue) Enqueue(item string) {
 	for _, queuedItem := range q.array {
 		if item == queuedItem {
 			// dont add the item
-			fmt.Printf("NOTIF: Duplicate item removed: %s.\n", item)
 			return
 		}
 	}
@@ -25,5 +23,4 @@ func (q *Queue) Enqueue(item string) {
 
 func (q *Queue) Dequeue() {
 	q.array = slices.Delete(q.array, 0, 1)
-	fmt.Printf("NOTIF: QUEUE after dequeue: %v\n", q.array)
 }
