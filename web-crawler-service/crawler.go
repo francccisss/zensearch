@@ -208,6 +208,14 @@ func (c Crawler) Crawl() (PageResult, error) {
 	if err == nil {
 		entry.Title = title
 	}
+
+	// to prevent duplicates if user adds a url that does not have a suffix of `/`
+	// the hashmap will consider it as not the same, and we cant use strings.Contain().
+	// I know its ugly.
+	if c.URL[len(c.URL)-1] != '/' {
+		c.URL += "/"
+	}
+
 	err = pageNavigator.navigatePages(c.URL)
 
 	// clean up memory resource since it will linger in memory in the heap

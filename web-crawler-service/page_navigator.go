@@ -87,6 +87,7 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 	// why the first element is not being removed... almost an hour i guess before
 	// i figured it out.
 	pn.queue.Dequeue()
+
 	fmt.Printf("NOTIF: `%s` has popped from queue.\n", currentUrl)
 	_, visited := pn.pagesVisited[currentUrl]
 	if visited {
@@ -94,12 +95,13 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 		fmt.Printf("NOTIF: Page already visited\n\n")
 		return nil
 	}
-	pn.requestDelay(5)
+	// pn.requestDelay(5)
 	err := pn.navigatePageWithRetries(maxRetries, currentUrl)
 	if err != nil {
 		fmt.Println(err.Error())
 		return err
 	}
+
 	pn.pagesVisited[currentUrl] = currentUrl
 
 	fmt.Println("NOTIF: Page set to visited.")
