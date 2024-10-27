@@ -73,14 +73,17 @@ type PageResult struct {
 	TotalPages  int
 }
 
-type Message struct {
+type MessageResult struct {
 	Webpages []IndexedWebpage
 	Header
+	Message     string
+	CrawlStatus int
 }
 
 type ErrorMessage struct {
-	Message string
-	Url     string
+	Message     string
+	Url         string
+	CrawlStatus int
 }
 
 type Spawner struct {
@@ -189,10 +192,13 @@ func (c Crawler) Crawl() (PageResult, error) {
 	err = pageNavigator.navigatePageWithRetries(maxRetries, c.URL)
 	if err != nil {
 		errorMessage := ErrorMessage{
-			Message: "Error",
-			Url:     hostname,
+			CrawlStatus: crawlFail,
+			Url:         hostname,
+			Message:     "Unable to start crawling please check your url and make sure it has a prefix of `http://` or `https://`",
 		}
-		err = sendResult(errorMessage.sendErrorOnWebpageCrawl, "crawl_poll_queue", "")
+
+		// Error for when the crawler was not able to start crawling from the source.
+		err = sendResult(errorMessage.sendErrorOnWebpageCrawl, "crawl_poll_queue", "", "")
 		if err != nil {
 			fmt.Printf(err.Error())
 		}
@@ -212,36 +218,35 @@ func (c Crawler) Crawl() (PageResult, error) {
 	/*
 	   TODO Improve error handling code, it looks ugly.
 	*/
-	// if err != nil {
-	// 	errorMessage := ErrorMessage{
-	// 		Message: "Error",
-	// 		Url:     hostname,
-	// 	}
-	// 	err = sendResult(errorMessage.sendErrorOnWebpageCrawl, "crawl_poll_queue", "")
-	// 	fmt.Println("ERROR: Well something went wrong with the last stack.")
-	// 	return PageResult{
-	// 		URL:         c.URL,
-	// 		CrawlStatus: crawlFail,
-	// 		Message:     "An Error has occured while crawling the current url.",
-	// 		TotalPages:  len(entry.IndexedWebpages),
-	// 	}, nil
-	// }
-	// result := PageResult{
-	// 	URL:         c.URL,
-	// 	CrawlStatus: crawlSuccess,
-	// 	Message:     "Successfully Crawled & Indexed website",
-	// 	TotalPages:  len(entry.IndexedWebpages),
-	// }
-	// err = sendResult(entry.saveIndexedWebpages, "db_indexing_crawler", "crawl_poll_queue")
+	var result PageResult
+	if err != nil {
+		// Error for when crawler is not able to crawl and index the remaining webpages.
+		err = sendResult(entry.saveIndexedWebpages, "db_indexing_crawler", "crawl_poll_queue", "Crawler was stopped but was able to index the website.")
+		fmt.Println("ERROR: Well something went wrong with the last stack.")
+		result = PageResult{
+			URL:         c.URL,
+			CrawlStatus: crawlSuccess,
+			Message:     "An Error has occured while crawling the current url.",
+			TotalPages:  len(entry.IndexedWebpages),
+		}
+		return result, nil
+	}
+	result = PageResult{
+		URL:         c.URL,
+		CrawlStatus: crawlSuccess,
+		Message:     "Successfully Crawled & Indexed website",
+		TotalPages:  len(entry.IndexedWebpages),
+	}
+	err = sendResult(entry.saveIndexedWebpages, "db_indexing_crawler", "crawl_poll_queue", "Successfully Crawled and Indexed Website.")
 
-	return PageResult{}, nil
+	return result, nil
 }
 
 /*
 Returns an array of text contents from an array of common elements specified
 by the current selector eg: p, a, span etc.
 */
-func sendResult(constructMessage func() ([]byte, error), routingKey string, callbackQueue string) error {
+func sendResult(constructMessage func(message string) ([]byte, error), routingKey string, callbackQueue string, message string) error {
 	conn, err := rabbitmqclient.GetConnection("receiverConn")
 	if err != nil {
 		fmt.Print(err.Error())
@@ -255,7 +260,7 @@ func sendResult(constructMessage func() ([]byte, error), routingKey string, call
 
 	defer channel.Close()
 
-	messageBuffer, err := constructMessage()
+	messageBuffer, err := constructMessage(message)
 	if err != nil {
 		return err
 	}
@@ -278,7 +283,7 @@ func sendResult(constructMessage func() ([]byte, error), routingKey string, call
 	return nil
 }
 
-func (e ErrorMessage) sendErrorOnWebpageCrawl() ([]byte, error) {
+func (e ErrorMessage) sendErrorOnWebpageCrawl(message string) ([]byte, error) {
 	dataBuffer, err := json.Marshal(e)
 	if err != nil {
 		return []byte{}, fmt.Errorf("ERROR: Unable to marshal Error Message.")
@@ -286,14 +291,16 @@ func (e ErrorMessage) sendErrorOnWebpageCrawl() ([]byte, error) {
 	return dataBuffer, nil
 }
 
-func (e *WebpageEntry) saveIndexedWebpages() ([]byte, error) {
+func (e *WebpageEntry) saveIndexedWebpages(message string) ([]byte, error) {
 
-	dataBuffer, err := json.Marshal(Message{
+	dataBuffer, err := json.Marshal(MessageResult{
 		Webpages: e.IndexedWebpages,
 		Header: Header{
 			Title: e.Title,
 			Url:   e.hostname,
 		},
+		Message:     message,
+		CrawlStatus: crawlSuccess,
 	},
 	)
 	if err != nil {
