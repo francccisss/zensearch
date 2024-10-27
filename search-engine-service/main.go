@@ -88,6 +88,11 @@ func main() {
 				fmt.Print("Data from Database service retrieved\n")
 				webpages := parseWebpageQuery(data.Body)
 				fmt.Println(len(*webpages))
+				if len(*webpages) == 0 {
+					rabbitmq.PublishScoreRanking([]any{}, mainChannel)
+					dbQueryChannel.Ack(data.DeliveryTag, true)
+					continue
+				}
 
 				calculatedRatings := bm25.CalculateBMRatings(searchQuery, webpages)
 				rankedWebpages := bm25.RankBM25Ratings(calculatedRatings)

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
-	"search-engine-service/utilities"
 )
 
 func QueryDatabase(message string, ch *amqp.Channel) {
@@ -24,7 +23,7 @@ func QueryDatabase(message string, ch *amqp.Channel) {
 	log.Printf("End of Query\n")
 }
 
-func PublishScoreRanking(rankedWebpages *[]utilities.WebpageTFIDF, ch *amqp.Channel) {
+func PublishScoreRanking(rankedWebpages any, ch *amqp.Channel) {
 	ch.QueueDeclare(PUBLISH_QUEUE, false, false, false, false, nil)
 	encodedWebpages, err := json.Marshal(rankedWebpages)
 	if err != nil {

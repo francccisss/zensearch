@@ -46,6 +46,10 @@ app.engine(
         const path = u.pathname;
         return u.hostname + path.split("/").join(" > ");
       },
+
+      noResults: (results: []): boolean => {
+        return results.length == 0;
+      },
     },
   }).engine,
 );
@@ -162,10 +166,13 @@ app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
       throw new Error(msg.err.message);
     }
     const parse_ranked_pages = JSON.parse(msg.data.content.toString());
-    console.log(parse_ranked_pages[3]);
+    console.log(parse_ranked_pages);
     console.log("NOTIF: Search query sent to the client .");
 
-    res.render("search", { search_results: parse_ranked_pages, query: q });
+    res.render("search", {
+      search_results: parse_ranked_pages.length === 0 ? [] : parse_ranked_pages,
+      query: q,
+    });
     //res.json({ msg: parse_ranked_pages, success: true, query: q });
     rabbitmq.client.eventEmitter.removeAllListeners("searchResults");
   }
@@ -179,7 +186,6 @@ app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
     }
     rabbitmq.client.eventEmitter.on("searchResults", eventListener);
   } catch (err) {
-    console.log("It jumped to here just after sending it");
     const error = err as Error;
     console.error(error.message);
     next(err);

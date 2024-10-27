@@ -42,11 +42,11 @@ func RankBM25Ratings(webpages *[]utilities.WebpageTFIDF) *[]utilities.WebpageTFI
 	sort.Slice(webpagesSlice, func(i, j int) bool {
 		return webpagesSlice[i].TokenRating.Bm25rating > webpagesSlice[j].TokenRating.Bm25rating
 	})
-	// filteredWebpages := utilities.Filter(webpagesSlice)
+	filteredWebpages := utilities.Filter(webpagesSlice)
 
 	// fmt.Printf("Filtered: %+v\n", filteredWebpages)
 
-	return &webpagesSlice
+	return &filteredWebpages
 }
 
 func BM25(IDF, TF float64) float64 {

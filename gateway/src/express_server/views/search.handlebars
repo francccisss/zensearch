@@ -69,6 +69,10 @@
           </button>
     </nav>
     <section id="search-results-contain">
+    {{#if (noResults search_results)}}
+      <div id="no-results-notif" class="info-large">There are 0 results for "{{query}}"</div>
+      <a href="/" id="no-results-back" class="info-small">Go back and crawl the web.</a>
+    {{/if}}
    {{#each search_results}}
     <div class="search-item">
       <div class="search-item-contents">
