@@ -69,10 +69,12 @@ pubsub.subscribe("crawlNotify", (currentCrawledObj) => {
   const updateItems = waitItems.map((waitItem) => {
     const itemText = waitItem.children[0].textContent;
     if (itemText.includes(currentCrawledObj.Url)) {
-      if (currentCrawledObj.Message === "Success") {
+      if (currentCrawledObj.isSuccess) {
         waitItem.dataset.state = "done";
-      } else if (currentCrawledObj.Message === "Error") {
+        console.log(currentCrawledObj.Message);
+      } else {
         waitItem.dataset.state = "error";
+        console.log(currentCrawledObj.Message);
       }
 
       // UPDATING LIST

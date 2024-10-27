@@ -21,6 +21,7 @@
     "typescript": "^5.5.4"
   },
   "dependencies": {
+    "amqplib": "^0.10.4",
     "sqlite3": "^5.1.7"
   }
 }
