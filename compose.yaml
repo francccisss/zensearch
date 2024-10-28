@@ -1,0 +1,48 @@
+services:
+  rabbitmq:
+    image: rabbitmq
+    networks:
+      - network
+    healthcheck:
+      test: ["CMD","echo","Testing"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
+  web:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+        restart: true
+    ports:
+      - "8080:8080"
+    networks:
+      - network
+  db:
+    build:
+      context: ./database-service/
+      dockerfile: Dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+        restart: true
+    networks:
+      - network
+  searchengine:
+    build:
+      context: ./search-engine-service/
+      dockerfile: Dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+        restart: true
+    networks:
+      - network
+
+# name resolves to `zensearch_network`
+networks:
+  network:
+    driver: bridge

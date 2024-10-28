@@ -1,8 +1,7 @@
 node_modules/
 dist/
 data.json
-btree.json
-*.yaml
 Journey.md
 *.db
-web-crawler-service-go
+web-crawler-service
+search-engine-service
