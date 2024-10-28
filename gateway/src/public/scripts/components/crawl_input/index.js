@@ -17,7 +17,6 @@ function createComponent(url) {
   container.classList.add("url-entry");
   container.classList.add("reveal-entry");
   container.setAttribute("id", newId);
-  console.log(container);
 
   const input = container.querySelector("input");
   input.value = url;
@@ -68,7 +67,6 @@ function revealEntry(ref) {
  */
 function removeEntry(ref) {
   const entries = Array.from(document.querySelectorAll(".url-entry"));
-  console.log(entries.length);
   if (entries.length < 2) {
     return;
   }
@@ -83,7 +81,6 @@ function updateEntries(newEntries) {
   if (newEntries !== null) {
     crawlListContainer.replaceChildren(...newEntries);
   }
-  console.log(crawlListContainer);
 }
 
 function submitCrawlList() {}

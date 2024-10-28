@@ -80,13 +80,11 @@ pubsub.subscribe("crawlNotify", (currentCrawledObj) => {
       // UPDATING LIST
       const list = JSON.parse(localStorage.getItem("list"));
       const updatedList = list.map((item) => {
-        console.log({ itemText, listItemText: item.url });
         if (itemText === item.url) {
           return { url: item.url, state: waitItem.dataset.state };
         }
         return item;
       });
-      console.log(list);
       localStorage.setItem("list", JSON.stringify(updatedList));
       // UPDATING LIST
     }
