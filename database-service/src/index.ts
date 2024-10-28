@@ -6,7 +6,8 @@ import channel_operations from "./rabbitmq/channel_operations";
 
 const db = init_database();
 (async () => {
-  const connection = await amqp.connect("amqp://localhost");
+  const connection = await amqp.connect("amqp://rabbitmq:5672");
+
   const database_channel = await connection.createChannel();
   await channel_operations.channel_handler(db, database_channel);
 })();

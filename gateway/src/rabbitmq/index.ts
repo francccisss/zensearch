@@ -24,7 +24,7 @@ class RabbitMQClient {
     */
     if (this.connection == null) {
       try {
-        this.connection = await amqp.connect("amqp://localhost");
+        this.connection = await amqp.connect("amqp://rabbitmq:5672");
       } catch (err) {
         const error = err as Error;
         console.error(

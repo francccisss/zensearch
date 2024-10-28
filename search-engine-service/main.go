@@ -15,7 +15,7 @@ import (
 func main() {
 	searchQuery := ""
 
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	conn, err := amqp.Dial("amqp://rabbitmq:5672/")
 	failOnError(err, "Failed to create a new TCP Connection")
 	fmt.Printf("Established TCP Connection with RabbitMQ\n")
 
