@@ -2,15 +2,17 @@ package webdriver
 
 import (
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+
 	"github.com/tebeka/selenium"
 	"github.com/tebeka/selenium/chrome"
-	"log"
 )
 
 const (
-	chromeDriverPath = "pkg/chrome/chromedriver"
-	port             = 4444
-	webDriverURL     = "http://localhost:%d/wd/hub"
+	port         = 4444
+	webDriverURL = "http://localhost:%d/wd/hub"
 )
 
 /*
@@ -18,6 +20,9 @@ Starts up new Chrome Driver server to handle requests via http from a remote
 client (this program) to the Web browser's devtools using WebDriver protocol.
 */
 func CreateWebDriverServer() (*selenium.Service, error) {
+	path, _ := os.Getwd()
+	chromeDriverPath := filepath.Join(path, "pkg", "webdriver", "chromedriver")
+	fmt.Printf("Chrome Driver file path found: %s", chromeDriverPath)
 	opts := []selenium.ServiceOption{
 		selenium.StartFrameBuffer(),             // THIS USES THE DEPENDENCY X VIRTUAL FRAME BUFFER
 		selenium.ChromeDriver(chromeDriverPath), // THIS USES THE DEPENDENCY CHROME WEB DRIVER
@@ -26,7 +31,6 @@ func CreateWebDriverServer() (*selenium.Service, error) {
 	service, err := selenium.NewChromeDriverService(chromeDriverPath, port, opts...)
 	if err != nil {
 		log.Print(err.Error())
-		service.Stop()
 		return nil, fmt.Errorf("ERROR: Unable to create a Web driver server")
 	}
 	log.Printf("INFO: Web Driver Server Created.\n")

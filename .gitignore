@@ -3,5 +3,3 @@ dist/
 data.json
 Journey.md
 *.db
-web-crawler-service
-search-engine-service
