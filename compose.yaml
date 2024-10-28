@@ -13,7 +13,7 @@ services:
     build:
       context: ./gateway
       dockerfile: Dockerfile
-    depends_on:
+    depends_on: &depends
       rabbitmq:
         condition: service_healthy
         restart: true
@@ -26,9 +26,7 @@ services:
       context: ./database-service/
       dockerfile: Dockerfile
     depends_on:
-      rabbitmq:
-        condition: service_healthy
-        restart: true
+      <<: *depends
     networks:
       - network
   searchengine:
@@ -36,12 +34,17 @@ services:
       context: ./search-engine-service/
       dockerfile: Dockerfile
     depends_on:
-      rabbitmq:
-        condition: service_healthy
-        restart: true
+      <<: *depends
     networks:
       - network
-
+  crawler:
+    build:
+      context: ./web-crawler-service/
+      dockerfile: Dockerfile
+    depends_on:
+      <<: *depends
+    networks:
+      - network
 # name resolves to `zensearch_network`
 networks:
   network:

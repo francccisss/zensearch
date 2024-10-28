@@ -28,19 +28,19 @@ type site struct {
 
 func main() {
 
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq:5672/")
 	if err != nil {
 		log.Panicf("Unable to establish a tcp connection with message broker.")
 	}
 	rabbitmqclient.SetNewConnection("receiverConn", conn)
 	if err != nil {
-		log.Panicf("Unable to establish a tcp connection with message broker.")
+		log.Printf("Unable to create a new connection.")
 	}
 	defer conn.Close()
 
 	crawlChannel, err := conn.Channel()
 	if err != nil {
-		log.Panicf("Unable to create a crawl channel.")
+		log.Printf("Unable to create a crawl channel.")
 	}
 
 	crawlChannel.QueueDeclare(crawlQueue, false, false, false, false, nil)
