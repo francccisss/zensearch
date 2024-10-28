@@ -31,7 +31,6 @@ function popUpOnRemoveEntry(entries) {
 function popUpOnAddEntry(entries) {
   popup.textContent = "You've reached the maximum limit.";
   if (entries.length == limit) {
-    console.log("lol");
     listContainer.appendChild(popup);
     newEntry.disabled = true;
   }
@@ -64,7 +63,6 @@ function sidebarActions(event) {
     crawlInput.revealEntry(target.dataset.contref);
   }
   if (target.id === "new-list-btn") {
-    console.log("Transition back to crawl list");
     transitionToCrawlList([]);
   }
 }
