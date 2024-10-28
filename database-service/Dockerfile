@@ -1,4 +1,4 @@
-FROM node:alpine
+FROM node:20.16.0
 
 WORKDIR /app
 
@@ -9,4 +9,5 @@ RUN npm run build
 
 EXPOSE 8080
 
-CMD ["node", "./dist/index.js"]
+# CMD ["node", "./dist/index.js"]
+CMD ["npm", "run", "dev"]

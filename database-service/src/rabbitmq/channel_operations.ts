@@ -10,7 +10,7 @@ import { data_t } from "../utils/types";
   messages coming from different context eg: database and search
 */
 
-async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
+async function channel_handler(db: Database, database_channel: amqp.Channel) {
   // CRAWLER ROUTING KEYS
   const db_indexing_crawler = "db_indexing_crawler";
 
@@ -25,8 +25,6 @@ async function channel_handler(db: Database, ...args: Array<amqp.Channel>) {
   const db_check_express = "db_check_express";
   const db_cbq_express = "db_cbq_express";
   const db_cbq_poll_express = "crawl_poll_queue";
-
-  const [database_channel] = args;
 
   /*
    TODO Document code please :)
