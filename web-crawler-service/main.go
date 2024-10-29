@@ -29,6 +29,7 @@ type site struct {
 func main() {
 
 	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq:5672/")
+	log.Println("Successfully connected to rabbitmq")
 	if err != nil {
 		log.Panicf("Unable to establish a tcp connection with message broker.")
 	}
@@ -50,6 +51,7 @@ func main() {
 	if err != nil {
 		log.Panicf("Unable to assert crawl message queue.")
 	}
+	log.Println("Crawl Channel Created")
 
 	service, err := webdriver.CreateWebDriverServer()
 	defer service.Stop()
