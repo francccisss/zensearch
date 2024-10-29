@@ -81,7 +81,8 @@ docker run -it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4.0-man
 If you want to run all of the services please refer to the `deployment` branch where docker compose is used since each services heavily relies on rabbitmq for inter-process communication, and the reason why this is a separate branch is because this branch hosts every service in the host machine through `amqp://<hostname>:/5672` to connect to the rabbitmq so the url would be `localhost` instead of the `rabbitmq`'s domain within the zensearch_network in docker compose .
 
 
-For the crawler dependency `chromewebdriver` in the `test-environment` branch, the driver is within the same directory as the crawler service, but in the `deployment` branch, the `chromedriver` dependency should be in your PATH `/usr/local/bin` or `/usr/bin/` variable the same way it is set set in the Dockerfile so please install the `chromewebdriver` dependency, and you might notice that the string `chromeDriverPath=` variable in the `pkg/webdriver.go` file `test-environment` is set to the relative path but for the `deployment`, branch since it the chrome web driver is within the `/bin/` `deployment` we can just call `chromewebdriver` , just keep that in mind.
+For the crawler dependency chromewebdriver in the test-environment branch, the driver is within the same directory as the crawler service, but in the deployment branch, the chromedriver dependency should be in your PATH /usr/local/bin or /usr/bin/ variable the same way it is set set in the Dockerfile so please install the chromewebdriver dependency, and you might notice that the string chromeDriverPath= variable in the pkg/webdriver.go file test-environment is set to the relative path but for the deployment branch since the chrome web driver is in your PATH in the deployment branch we can just call chromewebdriver , just keep that in mind.
+
 
 # Tools and Dependencies
 
