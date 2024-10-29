@@ -3,8 +3,6 @@ package webdriver
 import (
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
 
 	"github.com/tebeka/selenium"
 	"github.com/tebeka/selenium/chrome"
@@ -20,9 +18,8 @@ Starts up new Chrome Driver server to handle requests via http from a remote
 client (this program) to the Web browser's devtools using WebDriver protocol.
 */
 func CreateWebDriverServer() (*selenium.Service, error) {
-	path, _ := os.Getwd()
-	chromeDriverPath := filepath.Join(path, "pkg", "webdriver", "chromedriver")
-	fmt.Printf("Chrome Driver file path found: %s", chromeDriverPath)
+	chromeDriverPath := "chromedriver"
+	fmt.Printf("Path for chrome  driver: %s", chromeDriverPath)
 	opts := []selenium.ServiceOption{
 		selenium.StartFrameBuffer(),             // THIS USES THE DEPENDENCY X VIRTUAL FRAME BUFFER
 		selenium.ChromeDriver(chromeDriverPath), // THIS USES THE DEPENDENCY CHROME WEB DRIVER
