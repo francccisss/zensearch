@@ -69,13 +69,10 @@ func (pn *PageNavigator) requestDelay(multiplier int) {
 
 So be careful and read their `robots.txt` file from their website `https://<website-hostname>/robots.txt`.
 
-## Testing
-Run this command to create an instance of rabbitmq Message broker.
-```
-# latest RabbitMQ 4.0.x
-docker run -it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4.0-management
-```
-(Need to create a script to run each services for testing.)
+
+
+## Building
+If you want to build work with the source code and run each services instead of using docker compose then please refer to the `test-environment` branch to build the project yourselves and just change the rabbitmq tcp connection to `localhost` instead of `rabbitmq` domain since it is running in the host computer instead of within an isolated container.
 
 
 # Tools and Dependencies
