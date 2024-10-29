@@ -29,6 +29,7 @@ A distributed search engine where user's are able to control what they can searc
 - [ ] One click to clear database.
 - [ ] Let users delete a website from the sqlite database from the client-side.
 - [ ] Documentation.
+- [ ] Create a list of known websites (websites that have been indexed.) on the front-end
 
 ## IMPORTANT FOR USERS OF THIS PROJECT
 You will take full responsibility in the event that you will be blocked by a website author whose website you're crawling, so make sure you're crawling a website that would generally accept web crawlers and has a rate-limiting mechanism in their services, I have implemented a rudimentary rate-limiting mechanism in the crawler in `crawler/page_navigator.go` file called `requestDelay()`.
