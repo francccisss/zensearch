@@ -99,9 +99,7 @@ async function check_existing_tasks(
   if (query == null)
     throw new Error("ERROR: Unable to query indexed websites.");
   crawl_list.forEach((item) => {
-    console.log(item);
     if (!item.includes("http")) {
-      console.log(item);
       item = "https://" + item;
     }
     const url = new URL(item).hostname;

@@ -4,9 +4,6 @@ A small scale Distributed Search Engine using Golang for Crawling, indexing and 
 ## What does it do
 A distributed search engine where user's are able to control what they can search, they can manually crawl specific websites of their liking and based on what they want to work with everyday. User's can crawl the web with a click of a button, and while crawling they can continue using the search feature to query existing webpages in their database, crawling might take some time because of security reasons and network throttling mechanism used by different website authors.
 
-## Why did I build this
-I've been studying about operating systems through Modern Operating Systems 4th edition by Andrew S. Tanenbaum, where I learned about threads and processes and Tsoding daily's video about TF-IDF, so I was curious and had to think of a project where I could utilize both concepts.
-
 ## Concepts
 **TF-IDF**: "In information retrieval, tf–idf (also TF*IDF, TFIDF, TF–IDF, or Tf–idf), short for term frequency–inverse document frequency, is a measure of importance of a word to a document in a collection or corpus, adjusted for the fact that some words appear more frequently in general.Like the bag-of-words model, it models a document as a multiset of words, without word order. It is a refinement over the simple bag-of-words model, by allowing the weight of words to depend on the rest of the corpus." [source](https://en.wikipedia.org/wiki/Tf%E2%80%93idf).
 
@@ -29,6 +26,7 @@ I've been studying about operating systems through Modern Operating Systems 4th 
 - [ ] One click to clear database.
 - [ ] Let users delete a website from the sqlite database from the client-side.
 - [ ] Documentation.
+- [ ] Create a list of known websites (websites that have been indexed.) on the front-end
 
 ## IMPORTANT FOR USERS OF THIS PROJECT
 You will take full responsibility in the event that you will be blocked by a website author whose website you're crawling, so make sure you're crawling a website that would generally accept web crawlers and has a rate-limiting mechanism in their services, I have implemented a rudimentary rate-limiting mechanism in the crawler in `crawler/page_navigator.go` file called `requestDelay()`.
@@ -69,7 +67,7 @@ func (pn *PageNavigator) requestDelay(multiplier int) {
 
 So be careful and read their `robots.txt` file from their website `https://<website-hostname>/robots.txt`.
 
-## How to Building
+## How to Build
 
 - Run this command to create an instance of rabbitmq Message broker.
 ```
@@ -124,7 +122,7 @@ webpages (
 );
 ```
 
-## Modifying data within sqlite3 in Docker Compose
+### Modifying data within sqlite3 in Docker Compose
 I have not yet implemented a way for users to delete individual crawled websites, so in order for the users to remove users can navigate into the running container for `zensearch_db` or `zensearch_db-1`.
 
 Issues when deleting might be necessary is when:
@@ -133,11 +131,10 @@ Issues when deleting might be necessary is when:
  - users will have to manually remove the indexed website in the database
 
 
-
-### How to modify a running database container
+#### How to modify a running database container
 - run `docker exec -ti zensearch_db-1 sh` this command lets use create a terminal session within the running database container.
-- reproduce the steps above by `cd`ing into the `website_collection.db` and modify the indexed webpages.
-
+- `cd`into the `webiste_collection.db`
+- run the same command for sqlite3 to modify the database
 
 
 # Tools and Dependencies
