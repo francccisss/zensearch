@@ -1,8 +1,0 @@
-{
-  "devDependencies": {
-    "@types/handlebars": "^4.1.0"
-  },
-  "dependencies": {
-    "express-handlebars": "^8.0.1"
-  }
-}
