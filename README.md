@@ -69,14 +69,18 @@ func (pn *PageNavigator) requestDelay(multiplier int) {
 
 So be careful and read their `robots.txt` file from their website `https://<website-hostname>/robots.txt`.
 
-## Testing
-Run this command to create an instance of rabbitmq Message broker.
+## Building
+- Run this command to create an instance of rabbitmq Message broker.
 ```
-# latest RabbitMQ 4.0.x
 docker run -it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4.0-management
 ```
-(Need to create a script to run each services for testing.)
+- Run the `build-dependencies.sh` script to install dependencies and build the services.
+- Run each service separately
 
+If you want to run all of the services please refer to the `deployment` branch where docker compose is used since each services heavily relies on rabbitmq for inter-process communication, and the reason why this is a separate branch is because this branch hosts every service in the host machine through `amqp://<hostname>:/5672` to connect to the rabbitmq so the url would be `localhost` instead of the `rabbitmq`'s domain within the zensearch_network in docker compose .
+
+
+For the crawler dependency `chromewebdriver` in the `test-environment` branch, the driver is within the same directory as the crawler service, but in the `deployment` branch, the `chromedriver` dependency should be in your PATH `/usr/local/bin` or `/usr/bin/` variable the same way it is set set in the Dockerfile so please install the `chromewebdriver` dependency, and you might notice that the string `chromeDriverPath=` variable in the `pkg/webdriver.go` file `test-environment` is set to the relative path but for the `deployment`, branch since it the chrome web driver is within the `/bin/` `deployment` we can just call `chromewebdriver` , just keep that in mind.
 
 # Tools and Dependencies
 
