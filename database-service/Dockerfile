@@ -4,6 +4,10 @@ WORKDIR /app
 
 COPY . .
 
+# for editing file within the website collection database
+RUN apt update -y && apt upgrade -y
+RUN apt install -y sqlite3
+
 RUN npm install
 RUN npm run build
 
