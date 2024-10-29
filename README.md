@@ -1,5 +1,5 @@
 # zensearch
-A small scale Distributed Search Engine using Golang for Crawling, indexing and ranking each document based on their relevancy to the user's search query.
+A small scale Distributed Search Engine under your control.
 
 ## What does it do
 A distributed search engine where user's are able to control what they can search, they can manually crawl specific websites of their liking and based on what they want to work with everyday. User's can crawl the web with a click of a button, and while crawling they can continue using the search feature to query existing webpages in their database, crawling might take some time because of security reasons and network throttling mechanism used by different website authors.
@@ -29,7 +29,7 @@ A distributed search engine where user's are able to control what they can searc
 - [ ] Create a list of known websites (websites that have been indexed.) on the front-end
 
 ## IMPORTANT FOR USERS OF THIS PROJECT
-You will take full responsibility in the event that you will be blocked by a website author whose website you're crawling, so make sure you're crawling a website that would generally accept web crawlers and has a rate-limiting mechanism in their services, I have implemented a rudimentary rate-limiting mechanism in the crawler in `crawler/page_navigator.go` file called `requestDelay()`.
+You will take full responsibility in the event that you will be blocked by a website author, so make sure you're crawling a website that would generally accept web crawlers and has a rate-limiting mechanism in their services, I have implemented a rudimentary rate-limiter for the crawler in `web-crawler-service/page_navigator.go` file called `requestDelay()`.
 
 
 ```
@@ -69,39 +69,67 @@ So be careful and read their `robots.txt` file from their website `https://<webs
 
 ## How to Build
 
-- Run this command to create an instance of rabbitmq Message broker.
+### Note on Different branches
+- If you want to run all of the services through docker please refer to the `deployment` or `main` branch where docker compose is used, since each service heavily relies on rabbitmq for inter-process communication.
+
+- The reason why this is a separate branch is because `test-environment` branch hosts every service in the host machine through `amqp://<hostname>:/5672` to connect to the rabbitmq so the url would be `localhost` instead of the `rabbitmq`'s domain within the `zensearch_network` in docker compose.
+
+- Run this command to create an instance of rabbitmq Message broker if you're in `test-environment` and want to run each services manually on different terminals.
 ```
 docker run -it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4.0-management
 ```
 - Run the `build-dependencies.sh` script to install dependencies and build the services.
-- Run each services separately
+- Have not implemented a build script for web-crawler-service/ and search-engine-service/
+	- on each of those folders run `go mod tidy` and then `go build`. 	
 
-### Different branches
-- If you want to run all of the services through docker please refer to the `deployment` branch where docker compose is used since each services heavily relies on rabbitmq for inter-process communication.
+## Dpendency for the web crawler service
+### Chrome Web driver 
+- For the crawler dependency `chromewebdriver` in the `test-environment` branch, the driver is within the same directory as the crawler service, but in the `deployment` branch, the `chromedriver` dependency should be in the container's PATH `/usr/local/bin` or `/usr/bin/` variable the same way it is set in the `Dockerfile`, which means you dont need to install the chromewebdriver at all for both branches since it is included in `test-environment`, `main` and `deployment` branches.
 
-- The reason why this is a separate branch is because this branch hosts every service in the host machine through `amqp://<hostname>:/5672` to connect to the rabbitmq so the url would be `localhost` instead of the `rabbitmq`'s domain within the zensearch_network in docker compose.
+- You might notice that the string `chromeDriverPath=` variable in the `pkg/webdriver.go` file in the branch `test-environment` is set to the relative path because the `chromewebdriver` is included in the repository but for the `deployment` and `main` branchs it will only have to run `chromewebdriver` instead.
 
+### Crawler XVFB or Virtual frame buffer
+- if you're in the `test-environment` you may need to install this dependency for the client to interact with the browser in headless mode, install it with what package manager you have.
 
-### Chrome driver dependency
-- For the crawler dependency `chromewebdriver` in the `test-environment` branch, the driver is within the same directory as the crawler service, but in the `deployment` branch, the `chromedriver` dependency should be in your PATH `/usr/local/bin` or `/usr/bin/` variable the same way it is set in the `Dockerfile` so please install the `chromewebdriver` dependency.
-
-- You might notice that the string `chromeDriverPath=` variable in the `pkg/webdriver.go` file in the branch `test-environment` is set to the relative path but for the `deployment` branch since the `chromewebdriver` is in your PATH in we can just call `chromewebdriver`, so keep that in mind.
-
+### Chrome or Chromium Browser
+- Install either of them for the crawler to communicate with the browser's devtools using the webdriver protocol.
 
 ## How to Run
-As mentioned earlier regarding different branches, use the code snippet above to create an instance of rabbitmq if you're not in `deployment` branch.
+As mentioned earlier regarding the different branches, use the code snippet above to create an instance of rabbitmq if you're only in `test-deployment` branch.
+
+### Running zensearch using docker compose in `deployment` or `main` branch
+```
+# make sure you have docker and docker compose installed
+# run these commands
+cd path/to/zensearch/
+docker compose up
+```
+
+### Running zensearch in `test-environment` branch
+```
+# Install the chromium browser or chrome browser and XVFB
+# run these commands
+
+cd path/to/zensearch/
+chmod +x build-dependencies.sh
+./build-dependencies.sh
+
+```
+#### Regarding build script for `test-environment` branch
+
+This only builds services running on `nodejs` namely `database-service` and `gateway` to build the `web-crawler-service` and `search-engine-service` you're going to have to navigate into each these folders and run `go mod tidy` to install dependencies and `go mod build`, and after building everything just run each services separately on different terminals.
 
 ### Database
 The project uses Sqlite3 database which is stored within `database-service/dist/website_collection.db`, you can go into it if you have `sqlite3` installed in your system and if not go ahead and install then after that:
 - `cd` to the `database-service/dist/website_collection.db`
 - run `sqlite3 website_collection.db`
 
-There are three tables:
+**TABLES**:
 - `indexed_sites`
 - `known_sites` (i know both of these mean the same thing)
 - `webpages`
 
-These are their schemas:
+**SCHEMAS**:
 ```
 known_sites (
     id INTEGER PRIMARY KEY,
@@ -123,18 +151,17 @@ webpages (
 ```
 
 ### Modifying data within sqlite3 in Docker Compose
-I have not yet implemented a way for users to delete individual crawled websites, so in order for the users to remove users can navigate into the running container for `zensearch_db` or `zensearch_db-1`.
+I have not yet implemented a way for users to delete individual crawled websites, so in order for the users to remove their indexed websites, users will have to navigate into the running container `zensearch_db` or `zensearch_db-1`.
 
 Issues when deleting might be necessary is when:
-- crawler gets blocked so the crawler was not able to get all of the contents of that website.
- - recrawling would prompt the database service to return that the website has already been indexed because it saves the webpages up until the point where it was blocked which marks it as `known` or `indexed`
- - users will have to manually remove the indexed website in the database
-
+- crawler gets blocked so the crawler was not able to get all of the contents of that website but still marks it as `known` or `indexed`.
+- recrawling would prompt the database service to return that the website has already been indexed because it saves the webpages up until the point where it was blocked which marks it as `known` or `indexed` so users will have to manually remove the indexed website in the database to start over again.
 
 #### How to modify a running database container
 - run `docker exec -ti zensearch_db-1 sh` this command lets use create a terminal session within the running database container.
 - `cd`into the `webiste_collection.db`
 - run the same command for sqlite3 to modify the database
+- remove the indexed website's data
 
 
 # Tools and Dependencies
