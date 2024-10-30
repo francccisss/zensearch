@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"log"
 	"sync"
-	rabbitmqclient "web-crawler-service/pkg/rabbitmq_client"
-	webdriver "web-crawler-service/pkg/webdriver"
+	rabbitmqclient "web-crawler-service/internal/rabbitmq"
+	webdriver "web-crawler-service/internal/webdriver"
 	utilities "web-crawler-service/utilities"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -197,19 +197,20 @@ func (c Crawler) Crawl() (PageResult, error) {
 	maxRetries := 7
 	err = pageNavigator.navigatePageWithRetries(maxRetries, c.URL)
 	if err != nil {
+		fmt.Printf("ERROR: Unable to navigate to source url %s\n", c.URL)
 		fmt.Printf(err.Error())
-		errorMessage := ErrorMessage{
-			CrawlStatus: crawlFail,
-			Url:         hostname,
-			Message:     "Unable to start crawling please check your url and make sure it has a prefix of `http://` or `https://`",
-		}
-
+		// errorMessage := ErrorMessage{
+		// 	CrawlStatus: crawlFail,
+		// 	Url:         hostname,
+		// 	Message:     "Unable to start crawling please check your url and make sure it has a prefix of `http://` or `https://`",
+		// }
+		//
 		// Error for when the crawler was not able to start crawling from the source.
-		err = sendResult(errorMessage.sendErrorOnWebpageCrawl, "crawl_poll_queue", "", "")
-		if err != nil {
-			fmt.Printf(err.Error())
-		}
-		return PageResult{}, fmt.Errorf("ERROR: Unable to navigate to the website entry point.")
+		// err = sendResult(errorMessage.sendErrorOnWebpageCrawl, "crawl_poll_queue", "", "")
+		// if err != nil {
+		// 	fmt.Printf(err.Error())
+		// }
+		return PageResult{}, fmt.Errorf("ERROR: Unable to navigate to the website entry point.\n")
 	}
 	title, err := (*c.wd).Title()
 	if err == nil {
@@ -236,24 +237,29 @@ func (c Crawler) Crawl() (PageResult, error) {
 	var result PageResult
 	if err != nil {
 		// Error for when crawler is not able to crawl and index the remaining webpages.
-		err = sendResult(entry.saveIndexedWebpages, "db_indexing_crawler", "crawl_poll_queue", "Crawler was stopped but was able to index the website.")
-		fmt.Println("ERROR: Well something went wrong with the last stack.")
-		result = PageResult{
-			URL:         c.URL,
-			CrawlStatus: crawlSuccess,
-			Message:     "An Error has occured while crawling the current url.",
-			TotalPages:  len(entry.IndexedWebpages),
-		}
+		fmt.Printf("ERROR: Crawler returned with errors from navigating %s\n", c.URL)
+		fmt.Printf("ERROR MESSAGE: \n")
+		fmt.Println(err.Error())
+		// err = sendResult(entry.saveIndexedWebpages, "db_indexing_crawler", "crawl_poll_queue", "Crawler was stopped but was able to index the website.")
+		// fmt.Println("ERROR: Well something went wrong with the last stack.")
+		// result = PageResult{
+		// 	URL:         c.URL,
+		// 	CrawlStatus: crawlSuccess,
+		// 	Message:     "An Error has occured while crawling the current url.",
+		// 	TotalPages:  len(entry.IndexedWebpages),
+		// }
 		return result, nil
 	}
+
+	fmt.Printf("NOTIF: Crawler returned with no errors from navigating %s\n", c.URL)
 	result = PageResult{
 		URL:         c.URL,
 		CrawlStatus: crawlSuccess,
 		Message:     "Successfully Crawled & Indexed website",
 		TotalPages:  len(entry.IndexedWebpages),
 	}
-	err = sendResult(entry.saveIndexedWebpages, "db_indexing_crawler", "crawl_poll_queue", "Successfully Crawled and Indexed Website.")
-
+	// err = sendResult(entry.saveIndexedWebpages, "db_indexing_crawler", "crawl_poll_queue", "Successfully Crawled and Indexed Website.")
+	//
 	return result, nil
 }
 
