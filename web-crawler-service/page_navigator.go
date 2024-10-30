@@ -18,6 +18,7 @@ type PageNavigator struct {
 	pagesVisited    map[string]string
 	queue           Queue
 	disallowedPaths []string
+	retryCount      int
 	RequestTime
 }
 
@@ -26,6 +27,8 @@ type RequestTime struct {
 	mselapsed int
 }
 
+const maxRetries = 7
+
 func (pn *PageNavigator) navigatePageWithRetries(retries int, currentUrl string) error {
 	startTimer := time.Now()
 
@@ -33,7 +36,7 @@ func (pn *PageNavigator) navigatePageWithRetries(retries int, currentUrl string)
 		err := (*pn.wd).Get(currentUrl)
 		if err != nil {
 			pn.mselapsed = 0
-			fmt.Printf("Navigation Message: %s", err.Error())
+			fmt.Printf(err.Error())
 			return pn.navigatePageWithRetries(retries-1, currentUrl)
 		}
 		timeout := time.Now()
@@ -69,15 +72,11 @@ multiplier values:
 The first check for pn.interval < min is hack i dont know what else to do.
 */
 func (pn *PageNavigator) requestDelay(multiplier int) {
-	min := 600
 	max := 10000
 	base := int(math.Log10(float64(pn.mselapsed)))
 
 	fmt.Printf("CURRENT ELAPSED TIME: %d\n", pn.mselapsed)
-	if pn.interval < min {
-		pn.interval = (pn.interval + base) * multiplier * 2
-		fmt.Printf("INCREASE INTERVAL x2: %d\n", pn.interval)
-	} else if pn.interval < max {
+	if pn.interval < max {
 		pn.interval = (pn.interval + base) * multiplier
 		fmt.Printf("INCREASE INTERVAL: %d\n", pn.interval)
 	} else if pn.interval > max {
@@ -88,6 +87,10 @@ func (pn *PageNavigator) requestDelay(multiplier int) {
 }
 
 func (pn *PageNavigator) navigatePages(currentUrl string) error {
+
+	if pn.retryCount >= maxRetries {
+		return fmt.Errorf("Exceeded maximum retry count for this website, the crawler might be blocked while crawling Url: %s\nreturning...", pn.entry.hostname)
+	}
 
 	if len(pn.queue.array) == 0 {
 		fmt.Printf("NOTIF: Queue is empty.\n")
@@ -121,7 +124,8 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 	// no children/error
 	if err != nil {
 		log.Println("ERROR: Unable to find elements of type `a`.")
-		return fmt.Errorf("ERROR: Unable to find elements of type `a`.")
+		log.Println(err.Error())
+		return nil
 	}
 
 	/*
@@ -168,14 +172,15 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 	 then go to its next child in the children array.
 	*/
 
+	// to stop the crawler entirely after multiple retries from navigation
 	for _, next := range pn.queue.array {
 
 		err := pn.navigatePages(next)
 		// if error occured from traversing or any error has occured
 		// just move to the next child
 		if err != nil {
-			fmt.Printf("ERROR: Unable to navigate to `%s` just continue.\n", next)
-			// im saying continue when length of queue is 0
+			fmt.Println(err.Error())
+			pn.retryCount++
 			continue
 		}
 	}
