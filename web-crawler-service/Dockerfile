@@ -4,16 +4,9 @@ WORKDIR /app
 
 COPY . .
 
+RUN apk update
+
 RUN go mod tidy
-
-RUN apk update && \
-    apk add --no-cache \
-    xvfb \
-    chromium \
-    xauth \
-    chromium-chromedriver
-
-ENV PATH="/usr/bin:/usr/local/bin:${PATH}"
 
 RUN go build
 

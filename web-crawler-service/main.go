@@ -3,11 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
-	rabbitmqclient "web-crawler-service/pkg/rabbitmq_client"
-	webdriver "web-crawler-service/pkg/webdriver"
-
 	amqp "github.com/rabbitmq/amqp091-go"
+	"log"
+	rabbitmqclient "web-crawler-service/internal/rabbitmq"
 )
 
 const crawlQueue = "crawl_queue"
@@ -52,13 +50,6 @@ func main() {
 		log.Panicf("Unable to assert crawl message queue.")
 	}
 	log.Println("Crawl Channel Created")
-
-	service, err := webdriver.CreateWebDriverServer()
-	defer service.Stop()
-	if err != nil {
-		log.Print("INFO: Retry web driver server or the application.\n")
-		log.Print(err.Error())
-	}
 
 	/*
 	 rabbitmq library creates a new go routine for listening to new requests,

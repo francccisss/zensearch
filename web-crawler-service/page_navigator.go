@@ -36,14 +36,14 @@ func (pn *PageNavigator) navigatePageWithRetries(retries int, currentUrl string)
 		err := (*pn.wd).Get(currentUrl)
 		if err != nil {
 			pn.mselapsed = 0
-			fmt.Printf(err.Error())
+			fmt.Println(err.Error())
 			return pn.navigatePageWithRetries(retries-1, currentUrl)
 		}
 		timeout := time.Now()
 		pn.mselapsed = int(timeout.Sub(startTimer) / 1000000)
 		return nil
 	}
-	return fmt.Errorf("ERROR: Unable to retrieve webpage after several retries.")
+	return fmt.Errorf("ERROR: Unable to retrieve webpage after several retries\n")
 }
 
 func (pn *PageNavigator) isPathAllowed(path string) bool {
@@ -123,9 +123,8 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 
 	// no children/error
 	if err != nil {
-		log.Println("ERROR: Unable to find elements of type `a`.")
-		log.Println(err.Error())
-		return nil
+		log.Println("ERROR: Unable to find elements of type `a` something went wrong with the webdriver")
+		return err
 	}
 
 	/*
@@ -158,13 +157,15 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 			pn.queue.Enqueue(cleanedRef)
 		}
 	}
-
+	fmt.Printf("NOTIF: Link Count in current url: %d", len(pageLinks))
 	indexedWebpage, err := pn.Index()
 	if err != nil {
 		// then skip this page
 		fmt.Printf("ERROR: Something went wrong, unable to index current webpage.\n")
-		return nil
+		return err
 	}
+
+	fmt.Printf("NOTIF: Page %s Indexed\n", currentUrl)
 	pn.entry.IndexedWebpages = append(pn.entry.IndexedWebpages, indexedWebpage)
 
 	/*
@@ -175,9 +176,13 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 	// to stop the crawler entirely after multiple retries from navigation
 	for _, next := range pn.queue.array {
 
+		// the `next` is the one to be dequeued after calling navigatePages()
 		err := pn.navigatePages(next)
-		// if error occured from traversing or any error has occured
-		// just move to the next child
+		/*
+			if error occured from traversing or any error has occured
+			increment counter, the retryCount is the maximum tries for an error occur again,
+			if it is too mauch tnen might be better to just throw an error instead of continuing the crawl
+		*/
 		if err != nil {
 			fmt.Println(err.Error())
 			pn.retryCount++
@@ -213,6 +218,7 @@ func (pt PageNavigator) Index() (IndexedWebpage, error) {
 				textContents, err := extractTextContent(pt.wd, selector)
 				if err != nil {
 					htmlTextElementChan <- ""
+					log.Print("ERROR: unable to extract text contents")
 					return
 				}
 
@@ -245,7 +251,6 @@ func (pt PageNavigator) Index() (IndexedWebpage, error) {
 	if err != nil {
 		log.Printf("ERROR: No url for this page")
 	}
-	fmt.Printf("NOTIF: Page %s Indexed\n", url)
 
 	newIndexedPage := IndexedWebpage{
 		Contents: pageContents,
