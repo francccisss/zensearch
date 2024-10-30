@@ -11,7 +11,7 @@ type WebpageRanking struct {
 	Rating float64
 }
 
-func CalculateBMRatings(query string, webpages *[]utilities.WebpageTFIDF) *[]utilities.WebpageTFIDF {
+func CalculateBMRatings(query string, webpages *[]utilities.WebpageTFIDF, AvgDocLen float64) *[]utilities.WebpageTFIDF {
 	tokenizedQuery := utilities.Tokenizer(query)
 	fmt.Println(tokenizedQuery)
 
@@ -22,7 +22,7 @@ func CalculateBMRatings(query string, webpages *[]utilities.WebpageTFIDF) *[]uti
 
 		// First calculate term frequency of each webpage for each token
 		// TF(q1,webpages) -> TF(qT2,webpages)...
-		_ = TF(tokenizedQuery[i], webpages)
+		_ = TF(tokenizedQuery[i], webpages, AvgDocLen)
 
 		// for each token calculate BM25Rating for each webpages
 		// by summing the rating from the previous tokens
