@@ -45,6 +45,10 @@ var elementSelector = []string{
 	"h2",
 	"h3",
 	"h4",
+	"td",
+	"ul",
+	"code",
+	"div",
 }
 
 type Results struct {

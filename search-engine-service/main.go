@@ -7,6 +7,7 @@ import (
 	"search-engine-service/bm25"
 	"search-engine-service/rabbitmq"
 	"search-engine-service/utilities"
+	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -87,20 +88,21 @@ func main() {
 				}
 				fmt.Print("Data from Database service retrieved\n")
 				webpages := parseWebpageQuery(data.Body)
-				fmt.Println(len(*webpages))
+				timer := time.Now()
 				if len(*webpages) == 0 {
 					rabbitmq.PublishScoreRanking([]any{}, mainChannel)
 					dbQueryChannel.Ack(data.DeliveryTag, true)
 					continue
 				}
 
-				calculatedRatings := bm25.CalculateBMRatings(searchQuery, webpages)
+				calculatedRatings := bm25.CalculateBMRatings(searchQuery, webpages, bm25.AvgDocLen(webpages))
 				rankedWebpages := bm25.RankBM25Ratings(calculatedRatings)
 				for _, webpage := range *rankedWebpages {
 					fmt.Printf("URL: %s\n", webpage.Url)
-					fmt.Printf("TF Score: %f\n", webpage.TokenRating.TfRating)
 					fmt.Printf("BM25 Score: %f\n\n", webpage.TokenRating.Bm25rating)
 				}
+				end := float32(time.Now().Sub(timer) / 1000000)
+				fmt.Printf("Time it took to search %.2f ms\n", end)
 				fmt.Printf("Search Query for composite query: %s\n\n", searchQuery)
 				rabbitmq.PublishScoreRanking(rankedWebpages, mainChannel)
 				dbQueryChannel.Ack(data.DeliveryTag, true)

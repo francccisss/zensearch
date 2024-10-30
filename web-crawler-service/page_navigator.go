@@ -32,9 +32,10 @@ func (pn *PageNavigator) navigatePageWithRetries(retries int, currentUrl string)
 	if retries > 0 {
 		err := (*pn.wd).Get(currentUrl)
 		if err != nil {
+			pn.mselapsed = 0
+			fmt.Printf("Navigation Message: %s", err.Error())
 			return pn.navigatePageWithRetries(retries-1, currentUrl)
 		}
-
 		timeout := time.Now()
 		pn.mselapsed = int(timeout.Sub(startTimer) / 1000000)
 		return nil
@@ -43,9 +44,12 @@ func (pn *PageNavigator) navigatePageWithRetries(retries int, currentUrl string)
 }
 
 func (pn *PageNavigator) isPathAllowed(path string) bool {
+
+	// bro I only understand english :D just remove the ones that you want to be included
+	languagePaths := []string{"es", "ko", "tr", "th", "it", "uk", "sk", "fr", "de", "zh", "ja", "ru", "ar", "pt", "hi"}
+	pn.disallowedPaths = append(pn.disallowedPaths, languagePaths...)
 	for _, dapath := range pn.disallowedPaths {
 		if strings.Contains(path, dapath) {
-			fmt.Printf("Dapath: %s\n", dapath)
 			return false
 		}
 	}
@@ -67,7 +71,7 @@ The first check for pn.interval < min is hack i dont know what else to do.
 func (pn *PageNavigator) requestDelay(multiplier int) {
 	min := 600
 	max := 10000
-	base := int(math.Log(float64(pn.mselapsed)))
+	base := int(math.Log10(float64(pn.mselapsed)))
 
 	fmt.Printf("CURRENT ELAPSED TIME: %d\n", pn.mselapsed)
 	if pn.interval < min {
@@ -140,7 +144,6 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 
 		isAllowed := pn.isPathAllowed(path)
 		if !isAllowed {
-			fmt.Printf("Url path not allowed by robot txt: %s\n\n", path)
 			continue
 		}
 		// enqueue links that have not been visited yet and that are the same as the hostname
