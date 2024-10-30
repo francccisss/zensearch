@@ -62,7 +62,6 @@ type Results struct {
 var indexedList map[string]IndexedWebpage
 
 const (
-	maxRetries   = 7
 	threadPool   = 10
 	crawlFail    = 0
 	crawlSuccess = 1
@@ -173,7 +172,8 @@ func (c Crawler) Crawl() (PageResult, error) {
 	hostname, _, err := utilities.GetHostname(c.URL)
 	disallowedPaths, err := utilities.ExtractRobotsTxt(c.URL)
 	if err != nil {
-		disallowedPaths = []string{}
+		fmt.Println("ERROR: Unable to extract robots.txt")
+		fmt.Println(err.Error())
 	}
 	if err != nil {
 		fmt.Println(err.Error())
@@ -193,8 +193,11 @@ func (c Crawler) Crawl() (PageResult, error) {
 		},
 		disallowedPaths: disallowedPaths,
 	}
+
+	maxRetries := 7
 	err = pageNavigator.navigatePageWithRetries(maxRetries, c.URL)
 	if err != nil {
+		fmt.Printf(err.Error())
 		errorMessage := ErrorMessage{
 			CrawlStatus: crawlFail,
 			Url:         hostname,

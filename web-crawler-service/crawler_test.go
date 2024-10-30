@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"os"
 	"testing"
 	"web-crawler-service/pkg/webdriver"
 )
@@ -15,7 +17,8 @@ func TestTraversal(t *testing.T) {
 		log.Print(err.Error())
 	}
 
-	Docs := []string{"https://courses.lumenlearning.com/wm-prealgebra/chapter/using-the-distance-rate-and-time-formula/"}
+	Docs := os.Args[3:]
+	fmt.Printf("\nTest Argument : %+v\n", os.Args[3:][0])
 	spawner := NewSpawner(10, Docs)
 	spawner.SpawnCrawlers()
 
