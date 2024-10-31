@@ -53,8 +53,6 @@ func (pn *PageNavigator) navigatePageWithRetries(retries int, currentUrl string)
 func (pn *PageNavigator) isPathAllowed(path string) bool {
 
 	// bro I only understand english :D just remove the ones that you want to be included
-	languagePaths := []string{"es", "ko", "tr", "th", "it", "uk", "sk", "fr", "de", "zh", "ja", "ru", "ar", "pt", "hi"}
-	pn.disallowedPaths = append(pn.disallowedPaths, languagePaths...)
 	for _, dapath := range pn.disallowedPaths {
 		if strings.Contains(path, dapath) {
 			return false

@@ -1,7 +1,7 @@
 services:
   rabbitmq:
     image: rabbitmq
-    healthcheck: &healthcheck
+    healthcheck: &hck
       test: ["CMD","echo","Testing"]
       interval: 10s
       retries: 5
@@ -11,12 +11,12 @@ services:
       - zennet
   selenium:
     image: selenium/standalone-chrome
-    environment:
-      - SE_START_VNC=false
+    shm_size: 2g
     healthcheck:
-    <<: *healthcheck
+      <<: *hck
     networks:
       - zennet
+
 
 
 
@@ -60,7 +60,7 @@ services:
     depends_on:
       <<: *depends
       selenium:
-        conditioni: service_healthy
+        condition: service_healthy
         restart: true
     networks:
         - zennet
