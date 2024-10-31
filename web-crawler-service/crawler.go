@@ -173,6 +173,10 @@ func (c Crawler) Crawl() (PageResult, error) {
 		fmt.Println("ERROR: Unable to extract robots.txt")
 		fmt.Println(err.Error())
 	}
+
+	languagePaths := []string{"/es/", "/ko/", "/tr/", "/th/", "/it/", "/uk/", "/sk/", "/fr/", "/de/", "/zh/", "/ja/", "/ru/", "/ar/", "/pt/", "/hi/", "/zh/", "/zh-tw/", "/zh-c/"}
+	disallowedPaths = append(disallowedPaths, languagePaths...)
+	fmt.Printf("DISALLOWED PATHS: %+v\n", disallowedPaths)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
@@ -197,17 +201,17 @@ func (c Crawler) Crawl() (PageResult, error) {
 	if err != nil {
 		fmt.Printf("ERROR: Unable to navigate to source url %s\n", c.URL)
 		fmt.Printf(err.Error())
-		// errorMessage := ErrorMessage{
-		// 	CrawlStatus: crawlFail,
-		// 	Url:         hostname,
-		// 	Message:     "Unable to start crawling please check your url and make sure it has a prefix of `http://` or `https://`",
-		// }
-		//
+		errorMessage := ErrorMessage{
+			CrawlStatus: crawlFail,
+			Url:         hostname,
+			Message:     "Unable to start crawling please check your url and make sure it has a prefix of `http://` or `https://`",
+		}
+
 		// Error for when the crawler was not able to start crawling from the source.
-		// err = sendResult(errorMessage.sendErrorOnWebpageCrawl, "crawl_poll_queue", "", "")
-		// if err != nil {
-		// 	fmt.Printf(err.Error())
-		// }
+		err = sendResult(errorMessage.sendErrorOnWebpageCrawl, "crawl_poll_queue", "", "")
+		if err != nil {
+			fmt.Printf(err.Error())
+		}
 		return PageResult{}, fmt.Errorf("ERROR: Unable to navigate to the website entry point.\n")
 	}
 	title, err := (*c.wd).Title()
@@ -215,9 +219,12 @@ func (c Crawler) Crawl() (PageResult, error) {
 		entry.Title = title
 	}
 
-	// to prevent duplicates if user adds a url that does not have a suffix of `/`
-	// the hashmap will consider it as not the same, and we cant use strings.Contain().
-	// I know its ugly.
+	/*
+	 to prevent duplicates if user adds a url that does not have a suffix of `/`
+	 the hashmap will consider it as not the same, and we cant use strings.Contain().
+	 I know its ugly.
+	*/
+
 	if c.URL[len(c.URL)-1] != '/' {
 		c.URL += "/"
 	}
@@ -238,14 +245,14 @@ func (c Crawler) Crawl() (PageResult, error) {
 		fmt.Printf("ERROR: Crawler returned with errors from navigating %s\n", c.URL)
 		fmt.Printf("ERROR MESSAGE: \n")
 		fmt.Println(err.Error())
-		// err = sendResult(entry.saveIndexedWebpages, "db_indexing_crawler", "crawl_poll_queue", "Crawler was stopped but was able to index the website.")
-		// fmt.Println("ERROR: Well something went wrong with the last stack.")
-		// result = PageResult{
-		// 	URL:         c.URL,
-		// 	CrawlStatus: crawlSuccess,
-		// 	Message:     "An Error has occured while crawling the current url.",
-		// 	TotalPages:  len(entry.IndexedWebpages),
-		// }
+		err = sendResult(entry.saveIndexedWebpages, "db_indexing_crawler", "crawl_poll_queue", "Crawler was stopped but was able to index the website.")
+		fmt.Println("ERROR: Well something went wrong with the last stack.")
+		result = PageResult{
+			URL:         c.URL,
+			CrawlStatus: crawlSuccess,
+			Message:     "An Error has occured while crawling the current url.",
+			TotalPages:  len(entry.IndexedWebpages),
+		}
 		return result, nil
 	}
 
@@ -256,8 +263,8 @@ func (c Crawler) Crawl() (PageResult, error) {
 		Message:     "Successfully Crawled & Indexed website",
 		TotalPages:  len(entry.IndexedWebpages),
 	}
-	// err = sendResult(entry.saveIndexedWebpages, "db_indexing_crawler", "crawl_poll_queue", "Successfully Crawled and Indexed Website.")
-	//
+	err = sendResult(entry.saveIndexedWebpages, "db_indexing_crawler", "crawl_poll_queue", "Successfully Crawled and Indexed Website.")
+
 	return result, nil
 }
 

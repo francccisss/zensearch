@@ -70,6 +70,7 @@ So be careful and read their `robots.txt` file from their website `https://<webs
 ## How to Build
 
 ### Note on Different branches
+
 - If you want to run all of the services through docker please refer to the `deployment` or `main` branch where docker compose is used, since each service heavily relies on rabbitmq for inter-process communication.
 
 - The reason why this is a separate branch is because `test-environment` branch hosts every service in the host machine through `amqp://<hostname>:/5672` to connect to the rabbitmq so the url would be `localhost` instead of the `rabbitmq`'s domain within the `zensearch_network` in docker compose.
@@ -78,24 +79,23 @@ So be careful and read their `robots.txt` file from their website `https://<webs
 ```
 docker run -it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4.0-management
 ```
+
+- Run this command to run the `Selenium` container that will be used by the `crawler`
+```
+docker run -d -p 4444:4444 -p 7900:7900 --shm-size="2g" selenium/standalone-chrome:latest
+```
+
 - Run the `build-dependencies.sh` script to install dependencies and build the services.
 - Have not implemented a build script for web-crawler-service/ and search-engine-service/
-	- on each of those folders run `go mod tidy` and then `go build`. 	
+	- on each of those folders run `go mod tidy` and then `go build`.
 
-## Dpendency for the web crawler service
-### Chrome Web driver 
-- For the crawler dependency `chromewebdriver` in the `test-environment` branch, the driver is within the same directory as the crawler service, but in the `deployment` branch, the `chromedriver` dependency should be in the container's PATH `/usr/local/bin` or `/usr/bin/` variable the same way it is set in the `Dockerfile`, which means you dont need to install the chromewebdriver at all for both branches since it is included in `test-environment`, `main` and `deployment` branches.
+## Dependency for the web crawler service
+### Selenium
+- Just install selenium to connect the `crawler` as a client to the webdriver server hosted on the selenium container running at port `4444`
 
-- You might notice that the string `chromeDriverPath=` variable in the `pkg/webdriver.go` file in the branch `test-environment` is set to the relative path because the `chromewebdriver` is included in the repository but for the `deployment` and `main` branchs it will only have to run `chromewebdriver` instead.
-
-### Crawler XVFB or Virtual frame buffer
-- if you're in the `test-environment` you may need to install this dependency for the client to interact with the browser in headless mode, install it with what package manager you have.
-
-### Chrome or Chromium Browser
-- Install either of them for the crawler to communicate with the browser's devtools using the webdriver protocol.
 
 ## How to Run
-As mentioned earlier regarding the different branches, use the code snippet above to create an instance of rabbitmq if you're only in `test-deployment` branch.
+As mentioned earlier regarding the different branches, use the code snippet above to create an instance of rabbitmq and start the web driver server from the selenium docker container if you're only in `test-deployment` branch and build each services manually or from the basic `build-dependencies.sh` scrip before running.
 
 ### Running zensearch using docker compose in `deployment` or `main` branch
 ```
@@ -107,8 +107,10 @@ docker compose up
 
 ### Running zensearch in `test-environment` branch
 ```
-# Install the chromium browser or chrome browser and XVFB
-# run these commands
+# Make sure you have docker installed
+docker run -it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4.0-management
+
+docker run -d --name selenium -p 4444:4444 -p 7900:7900 --shm-size="2g" selenium/standalone-chrome:latest
 
 cd path/to/zensearch/
 chmod +x build-dependencies.sh
@@ -183,7 +185,7 @@ Issues when deleting might be necessary is when:
 
 #### Crawler Service
 [Go](https://go.dev/)
-[Selenium](https://pkg.go.dev/github.com/tebeka/selenium)
+[Selenium Container](https://hub.docker.com/r/selenium/standalone-chrome)
 
 #### Selenium Driver Dependencies (IMPORTANT)
 [Chrome Driver Docs](https://developer.chrome.com/docs/chromedriver)
