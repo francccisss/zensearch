@@ -1,14 +1,25 @@
 services:
   rabbitmq:
     image: rabbitmq
-    networks:
-      - network
-    healthcheck:
+    healthcheck: &healthcheck
       test: ["CMD","echo","Testing"]
       interval: 10s
       retries: 5
       start_period: 30s
       timeout: 10s
+    networks:
+      - zennet
+  selenium:
+    image: selenium/standalone-chrome
+    environment:
+      - SE_START_VNC=false
+    healthcheck:
+    <<: *healthcheck
+    networks:
+      - zennet
+
+
+
   web:
     build:
       context: ./gateway
@@ -20,7 +31,8 @@ services:
     ports:
       - "8080:8080"
     networks:
-      - network
+      - zennet
+
   db:
     build:
       context: ./database-service/
@@ -28,9 +40,10 @@ services:
     depends_on:
       <<: *depends
     networks:
-      - network
+      - zennet
     volumes:
       - db_volume:/zensearch_volume/data
+
   searchengine:
     build:
       context: ./search-engine-service/
@@ -38,18 +51,22 @@ services:
     depends_on:
       <<: *depends
     networks:
-      - network
+      - zennet
+
   crawler:
     build:
       context: ./web-crawler-service/
       dockerfile: Dockerfile
     depends_on:
       <<: *depends
+      selenium:
+        conditioni: service_healthy
+        restart: true
     networks:
-      - network
-# name resolves to `zensearch_network`
+        - zennet
+
 networks:
-  network:
+  zennet:
     driver: bridge
 volumes:
   db_volume:
