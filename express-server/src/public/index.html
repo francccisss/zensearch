@@ -1,0 +1,148 @@
+<!doctype html>
+<html>
+  <head>
+    <title>ZenSearch</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="stylesheets/index.css" />
+    <script type="module" src="scripts/index.js"></script>
+  </head>
+  <body>
+    <div id="sidebar-container" class="inactive-sb">
+      <div
+        class="sb-contents-container inactive-list-container"
+        id="waiting-list-sb"
+      >
+        <div class="sb-list-header" id="waiting-list-header">
+          <span>
+            <h2>Crawling</h2>
+            <p>
+              Please wait while we crawl your list of Urls, you can start search
+              once one of your entry has been crawled.
+            </p>
+          </span>
+          <button id="close-sb-btn" type="button">X</button>
+        </div>
+        <div class="sb-list-container">
+          <div id="wait-list-container" class="list-container"></div>
+          <div id="sb-btns">
+            <button class="capsule-btn" id="new-list-btn">
+              Create new list
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="sb-contents-container active-list-container"
+        id="crawl-list-sb"
+      >
+        <div class="sb-list-header" id="crawl-list-header">
+          <span>
+            <h2>Crawl list</h2>
+            <p>
+              If one of your entries already exists on the database, we will
+              report it back to you immediately :D
+            </p>
+          </span>
+          <button id="close-sb-btn" type="button">X</button>
+        </div>
+        <div class="sb-list-container">
+          <div id="crawl-list-container" class="list-container"></div>
+          <div id="sb-btns">
+            <span class="crawl-loader"></span>
+            <button class="capsule-btn crawl-btn">Start crawl</button>
+            <button class="capsule-btn new-entry-btn">New entry</button>
+          </div>
+          <span hidden id="list-error-popup-container">
+            <p></p>
+            <div></div>
+          </span>
+        </div>
+      </div>
+    </div>
+    <main id="home">
+      <section class="centered-contents-container">
+        <div class="contents">
+          <header class="title-container">
+            <div class="bold-title">
+              <h1 class="header-title">
+                <span class="highlight-text">ZenSearch</span>
+                Every query is yours
+              </h1>
+            </div>
+            <p class="sub-title">
+              A distributed search engine where you have more control over what
+              you want your searches to be.
+            </p>
+          </header>
+          <div class="search-outer-container">
+            <form method="get" action="/search" id="search-input">
+              <input
+                placeholder="Computer networking, how many avocados can i eat before i puke?, how to hack nasa..."
+                type="search"
+                name="q"
+              />
+              <button id="search-btn" type="submit">Search</button>
+            </form>
+            <div class="info-small github-link">
+              <span class="github-icon"></span>
+              <a href="https://github.com/sty6x/zensearch"
+                >Got a problem? create an issue on github.</a
+              >
+            </div>
+          </div>
+        </div>
+      </section>
+      <a href="#crawl-section" class="info-large" id="scroll-down-info">
+        Don't have any websites to search through? scroll down.
+        <span class="scroll-down-icon"></span>
+      </a>
+    </main>
+    <section id="crawl-section">
+      <div class="centered-contents-container">
+        <div class="contents">
+          <header class="title-container">
+            <div class="bold-title">
+              <h1 class="header-title">
+                <p class="highlight-text">Crawl</p>
+                the web by adding an entry
+              </h1>
+            </div>
+            <p class="sub-title">
+              Important: make sure you dont refresh the webpage while the
+              crawler is doing it's job :D, say "thank you crawler" afterwards!
+            </p>
+          </header>
+        </div>
+
+        <button type="button" id="add-entry-sb-btn" class="capsule-btn">
+          Add entries
+        </button>
+      </div>
+    </section>
+    <template id="crawl-input-template">
+      <input
+        data-hidden="false"
+        placeholder="Enter a url to crawl"
+        type="text"
+        class="crawl-input"
+        value=""
+      />
+      <button
+        type="button"
+        class="hide-reveal-entry-btn reveal-entry-btn"
+      ></button>
+      <button type="button" class="remove-entry-btn"></button>
+    </template>
+    <template id="waiting-item">
+      <p class="wait-item-url" data-waiting="true"></p>
+      <span class="wait-item-icon"></span>
+    </template>
+  </body>
+</html>

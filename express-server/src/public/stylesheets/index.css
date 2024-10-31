@@ -1,0 +1,91 @@
+@import url("./layouts.css");
+@import url("./loader.css");
+@import url("./sidebar.css");
+
+header.title-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  h1 {
+    max-width: 700px;
+    line-height: 3.8rem;
+    span {
+      display: block;
+    }
+    font-size: 4rem;
+  }
+  p.sub-title {
+    margin-top: 1.5em;
+    font-size: 1.1rem;
+    color: var(--low-light-text);
+    max-width: 570px;
+  }
+}
+
+.search-outer-container {
+  margin-top: 1.8em;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  .github-link {
+    margin-top: 1em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    a:hover {
+      text-decoration: underline;
+    }
+    span.github-icon {
+      background: url("../assets/icons/Github.png");
+
+      margin-right: 0.5rem;
+      --icon-size: 30px;
+      display: inline-block;
+      width: var(--icon-size);
+      height: var(--icon-size);
+      background-size: var(--icon-size);
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+  }
+}
+
+#search-input {
+  position: relative;
+  input,
+  button {
+    padding: var(--input-btn-padding);
+    border-radius: 9999px;
+  }
+
+  input[type="search"] {
+    background-color: var(--input-color);
+    width: 100%;
+  }
+
+  button[type="submit"] {
+    background-color: var(--black);
+    color: var(--light-text);
+    position: absolute;
+    right: 0%;
+  }
+  margin-bottom: 0.5em;
+}
+
+#scroll-down-info {
+  margin-top: auto;
+  margin-bottom: 1.2em;
+  text-align: center;
+  .scroll-down-icon {
+    --icon-size: 30px;
+    margin-inline: auto;
+    display: block;
+    width: var(--icon-size);
+    height: var(--icon-size);
+    background-size: var(--icon-size);
+    background: url("../assets/icons/arrow_drop_down.png");
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+}
