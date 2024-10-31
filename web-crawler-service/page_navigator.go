@@ -27,7 +27,11 @@ type RequestTime struct {
 	mselapsed int
 }
 
-const maxRetries = 7
+const (
+	maxRetries = 7
+	// removes links to web objects that does not return an html page.
+	linkFilter = `a:not([href$=".zip"]):not([href$=".svg"]):not([href$=".scss"]):not([href$=".css"]):not([href$=".pdf"]):not([href$=".exe"]):not([href$=".jpg"]):not([href$=".png"]):not([href$=".tar.gz"]):not([href$=".rar"]):not([href$=".7z"]):not([href$=".mp3"]):not([href$=".mp4"]):not([href$=".mkv"]):not([href$=".tar"]):not([href$=".xz"]):not([href$=".msi"])`
+)
 
 func (pn *PageNavigator) navigatePageWithRetries(retries int, currentUrl string) error {
 	startTimer := time.Now()
@@ -119,7 +123,12 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 
 	fmt.Println("NOTIF: Page set to visited.")
 
-	pageLinks, err := (*pn.wd).FindElements(selenium.ByCSSSelector, linkFilter)
+	args := []interface{}{linkFilter}
+	linksInterface, err := (*pn.wd).ExecuteScript(`return function (linkFilter){
+    console.log(linkFilter)
+    const links = document.querySelectorAll(linkFilter)
+    return Array.from(links).map(link=>link.href)
+    }(arguments[0])`, args)
 
 	// no children/error
 	if err != nil {
@@ -128,17 +137,34 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 	}
 
 	/*
-		Need to check such that we can ignore the already visited links
-		and use the ones that doesnt exist and consider it
-		as the child of the currently visited link
+	   Type assertions from the script that returns an interface{} which is an array
+	   of filtered achor elements
 	*/
+
+	links, ok := linksInterface.([]interface{})
+	if !ok {
+		log.Println("ERROR: Failed to convert linksInterface to []interface{}")
+		return fmt.Errorf("type assertion to []interface{} failed\n")
+	}
+	pageLinks := make([]string, len(links))
+	for i, link := range links {
+		if strLink, ok := link.(string); ok {
+			pageLinks[i] = strLink
+		} else {
+			log.Printf("ERROR: Link at index %d is not a string, skipping this index\n", i)
+		}
+	}
 
 	for _, link := range pageLinks {
 
 		// need to filter out links that is not the same as hostname
-		ref, _ := link.GetAttribute("href")
-		cleanedRef, _, _ := strings.Cut(ref, "#")
-		childHostname, path, err := utilities.GetHostname(cleanedRef)
+		before, _, _ := strings.Cut(link, "#")
+		childHostname, path, err := utilities.GetHostname(before)
+
+		// For some odd reason, when using a selenium image the url paths of links does not resolve
+		// as absolute path but instead returns relative path `/path/to/resource`
+
+		// keep in mind if childHostname is "" then it is for sure a relative path
 
 		if err != nil {
 			fmt.Println(err.Error())
@@ -150,14 +176,14 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 			continue
 		}
 		// enqueue links that have not been visited yet and that are the same as the hostname
-
-		_, visited := pn.pagesVisited[cleanedRef]
+		_, visited := pn.pagesVisited[link]
 		// I KEEP ADDING THE SAME ELEMENTS IN THE QUEUE I DONT UNDERSTAND!!!!
-		if !visited && pn.entry.hostname == childHostname {
-			pn.queue.Enqueue(cleanedRef)
+		if !visited && childHostname == pn.entry.hostname {
+			pn.queue.Enqueue(link)
 		}
 	}
-	fmt.Printf("NOTIF: Link Count in current url: %d", len(pageLinks))
+	fmt.Printf("NOTIF: Link Count in current url: %d\n", len(pageLinks))
+	fmt.Printf("NOTIF: Queue Length: %d\n", len(pn.queue.array))
 	indexedWebpage, err := pn.Index()
 	if err != nil {
 		// then skip this page

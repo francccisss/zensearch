@@ -2,6 +2,7 @@ package utilities
 
 import (
 	"bufio"
+	"fmt"
 	"net/http"
 	"strings"
 )
@@ -9,6 +10,7 @@ import (
 func ExtractRobotsTxt(url string) ([]string, error) {
 	hostname, _, err := GetHostname(url)
 	if err != nil {
+		fmt.Println("ERROR: Unable to get hostname")
 		return []string{}, err
 	}
 	resp, err := http.Get("https://" + hostname + "/robots.txt")

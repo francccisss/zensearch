@@ -65,8 +65,6 @@ const (
 	threadPool   = 10
 	crawlFail    = 0
 	crawlSuccess = 1
-	// removes links to web objects that does not return an html page.
-	linkFilter = `a:not([href$=".zip"]):not([href$=".svg"]):not([href$=".scss"]):not([href$=".css"]):not([href$=".pdf"]):not([href$=".exe"]):not([href$=".jpg"]):not([href$=".png"]):not([href$=".tar.gz"]):not([href$=".rar"]):not([href$=".7z"]):not([href$=".mp3"]):not([href$=".mp4"]):not([href$=".mkv"]):not([href$=".tar"]):not([href$=".xz"]):not([href$=".msi"])`
 )
 
 type PageResult struct {
