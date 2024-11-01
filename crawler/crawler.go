@@ -198,7 +198,7 @@ func (c Crawler) Crawl() (PageResult, error) {
 	errorMessage := &ErrorMessage{
 		CrawlStatus: crawlFail,
 		Url:         hostname,
-		Message:     "Unable to start crawling please check your url and make sure it has a prefix of `http://` or `https://`",
+		Message:     "Unable to crawl the source Url",
 	}
 	if err != nil {
 		fmt.Printf("ERROR: Unable to navigate to source url %s\n", c.URL)
@@ -238,11 +238,11 @@ func (c Crawler) Crawl() (PageResult, error) {
 	var result PageResult
 	if err != nil {
 		// Error for when crawler is not able to crawl and index the remaining webpages.
-		errorMessage.Message = "Something went wrong while crawling the webpage.\n returning the thread token..."
+		errorMessage.Message = "Something went wrong while crawling the webpage"
 		fmt.Printf("ERROR: Crawler returned with errors from navigating %s\n", c.URL)
 		fmt.Printf("ERROR MESSAGE: \n")
 		fmt.Println(err.Error())
-		err = sendResult(errorMessage.sendErrorOnWebpageCrawl, "crawl_poll_queue", "", "")
+		sendResult(errorMessage.sendErrorOnWebpageCrawl, "crawl_poll_queue", "", "")
 		// err = sendResult(entry.saveIndexedWebpages, "db_indexing_crawler", "crawl_poll_queue", "Crawler was stopped but was able to index the website.")
 		result = PageResult{
 			URL:         c.URL,
