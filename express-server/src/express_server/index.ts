@@ -35,16 +35,21 @@ app.engine(
           : text;
       },
       urlOrigin: (url: string): string => {
-        return new URL(url).hostname;
+        const u = new URL(url).hostname;
+        const l = u.split(".");
+        // example.com -> [example,com] length=2
+        // docs.example.com -> [docs,example,com] length=3
+        return l.length > 2 ? l[1] : l[0];
       },
-
       textInitial: (title: string): string => {
         return title[0];
       },
       crumbs: (url: string): string => {
         const u = new URL(url);
         const path = u.pathname;
-        return u.hostname + path.split("/").join(" > ");
+        return path !== "/"
+          ? u.hostname + path.split("/").join(" > ")
+          : u.hostname;
       },
 
       noResults: (results: []): boolean => {
