@@ -74,6 +74,10 @@ pubsub.subscribe("crawlNotify", (currentCrawledObj) => {
         console.log(currentCrawledObj.Message);
       } else {
         waitItem.dataset.state = "error";
+        const errorContainer = document.createElement("div");
+        errorContainer.textContent = currentCrawledObj.Message + ": ";
+        errorContainer.style.color = "#ed5e5e";
+        waitItem.parentElement.insertBefore(errorContainer, waitItem);
         console.log(currentCrawledObj.Message);
       }
 

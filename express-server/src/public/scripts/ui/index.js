@@ -123,12 +123,16 @@ function init() {
   const { message_type } = cookiesUtil.extractCookies();
   if (message_type == "crawling") {
     const list = JSON.parse(localStorage.getItem("list"));
-    if (!list.every((item) => item.state === "done")) {
-      transitionToWaitingList(JSON.parse(localStorage.getItem("list")));
+    if (
+      list.every((item) => item.state === "done") ||
+      list.every((item) => item.state === "error")
+    ) {
+      cookiesUtil.clearAllCookies();
+      localStorage.clear();
       return;
     }
-    cookiesUtil.clearAllCookies();
-    localStorage.clear();
+    transitionToWaitingList(JSON.parse(localStorage.getItem("list")));
+    return;
   }
 }
 
