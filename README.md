@@ -43,15 +43,11 @@ multiplier values:
 The first check for pn.interval < min is hack i dont know what else to do.
 */
 func (pn *PageNavigator) requestDelay(multiplier int) {
-	min := 600
 	max := 10000
-	base := int(math.Log(float64(pn.mselapsed)))
+	base := int(math.Log10(float64(pn.mselapsed)))
 
 	fmt.Printf("CURRENT ELAPSED TIME: %d\n", pn.mselapsed)
-	if pn.interval < min {
-		pn.interval = (pn.interval + base) * multiplier * 2
-		fmt.Printf("INCREASE INTERVAL x2: %d\n", pn.interval)
-	} else if pn.interval < max {
+	if pn.interval < max {
 		pn.interval = (pn.interval + base) * multiplier
 		fmt.Printf("INCREASE INTERVAL: %d\n", pn.interval)
 	} else if pn.interval > max {
@@ -112,19 +108,12 @@ webpages (
 ```
 
 #### Modifying data within sqlite3 in Docker Compose
-I have not yet implemented a way for users to delete individual crawled websites, so in order for the users to remove their indexed websites, users will have to navigate into the running container `zensearch_db` or `zensearch_db-1`.
-
-Issues when deleting might be necessary is when:
-- crawler gets blocked so the crawler was not able to get all of the contents of that website but still marks it as `known` or `indexed`.
-- recrawling would prompt the database service to return that the website has already been indexed because it saves the webpages up until the point where it was blocked which marks it as `known` or `indexed` so users will have to manually remove the indexed website in the database to start over again.
+I have not yet implemented a way for users to delete individual crawled websites, so in order for the users to remove their indexed websites, users will have to navigate into the running container.
 
 #### How to modify a running database container
-- run `docker exec -ti zensearch_db-1 sh` this command lets use create a terminal session within the running database container.
-- `cd`into the `webiste_collection.db`
-- run the same command for sqlite3 to modify the database
+- if you are in the zensearch directory do `docker exec -ti db sh` else find the docker running docker container prefixed with `zensearch-` using `docker ps` copy the container id of `zensearch-db` then do the same `docker exec -ti <id of container> sh` remove the brackets.
+- run `sqlite3 dist/webiste_collection.db`
 - remove the indexed website's data
-
-
 
 # Tools and Dependencies
 
