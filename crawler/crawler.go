@@ -177,9 +177,6 @@ func (c Crawler) Crawl() (PageResult, error) {
 	languagePaths := []string{"/es/", "/ko/", "/tr/", "/th/", "/it/", "/uk/", "/sk/", "/fr/", "/de/", "/zh/", "/ja/", "/ru/", "/ar/", "/pt/", "/hi/", "/zh/", "/zh-tw/", "/zh-c/"}
 	disallowedPaths = append(disallowedPaths, languagePaths...)
 	fmt.Printf("DISALLOWED PATHS: %+v\n", disallowedPaths)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
 	entry := WebpageEntry{
 		URL:             c.URL,
 		IndexedWebpages: make([]IndexedWebpage, 0, 10),
@@ -198,15 +195,14 @@ func (c Crawler) Crawl() (PageResult, error) {
 
 	maxRetries := 7
 	err = pageNavigator.navigatePageWithRetries(maxRetries, c.URL)
+	errorMessage := &ErrorMessage{
+		CrawlStatus: crawlFail,
+		Url:         hostname,
+		Message:     "Unable to start crawling please check your url and make sure it has a prefix of `http://` or `https://`",
+	}
 	if err != nil {
 		fmt.Printf("ERROR: Unable to navigate to source url %s\n", c.URL)
 		fmt.Printf(err.Error())
-		errorMessage := ErrorMessage{
-			CrawlStatus: crawlFail,
-			Url:         hostname,
-			Message:     "Unable to start crawling please check your url and make sure it has a prefix of `http://` or `https://`",
-		}
-
 		// Error for when the crawler was not able to start crawling from the source.
 		err = sendResult(errorMessage.sendErrorOnWebpageCrawl, "crawl_poll_queue", "", "")
 		if err != nil {
@@ -242,15 +238,16 @@ func (c Crawler) Crawl() (PageResult, error) {
 	var result PageResult
 	if err != nil {
 		// Error for when crawler is not able to crawl and index the remaining webpages.
+		errorMessage.Message = "Something went wrong while crawling the webpage.\n returning the thread token..."
 		fmt.Printf("ERROR: Crawler returned with errors from navigating %s\n", c.URL)
 		fmt.Printf("ERROR MESSAGE: \n")
 		fmt.Println(err.Error())
-		err = sendResult(entry.saveIndexedWebpages, "db_indexing_crawler", "crawl_poll_queue", "Crawler was stopped but was able to index the website.")
-		fmt.Println("ERROR: Well something went wrong with the last stack.")
+		err = sendResult(errorMessage.sendErrorOnWebpageCrawl, "crawl_poll_queue", "", "")
+		// err = sendResult(entry.saveIndexedWebpages, "db_indexing_crawler", "crawl_poll_queue", "Crawler was stopped but was able to index the website.")
 		result = PageResult{
 			URL:         c.URL,
-			CrawlStatus: crawlSuccess,
-			Message:     "An Error has occured while crawling the current url.",
+			CrawlStatus: crawlFail,
+			Message:     errorMessage.Message,
 			TotalPages:  len(entry.IndexedWebpages),
 		}
 		return result, nil

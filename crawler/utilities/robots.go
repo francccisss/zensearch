@@ -14,8 +14,8 @@ func ExtractRobotsTxt(url string) ([]string, error) {
 		return []string{}, err
 	}
 	resp, err := http.Get("https://" + hostname + "/robots.txt")
-	defer resp.Body.Close()
 	if err != nil {
+		fmt.Println(err.Error())
 		return []string{}, err
 	}
 
