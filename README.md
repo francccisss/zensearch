@@ -144,15 +144,5 @@ I have not yet implemented a way for users to delete individual crawled websites
 [Go](https://go.dev/)
 [Selenium Container](https://hub.docker.com/r/selenium/standalone-chrome)
 
-#### Selenium Driver Dependencies (IMPORTANT)
-[Chrome Driver Docs](https://developer.chrome.com/docs/chromedriver)
-- Chrome Web Driver is within the `web-crawler-service/pkg/chrome` folder.
-- This is needed for the client (crawler) to communicate with the web driver server via http and pass any api calls from the web driver server to the Web Devtools via web driver protocol. eg: `client (http)-> web driver (web driver protocol)-> devtools`
-
-
-[Chrome Browser](https://www.google.com/chrome/)
-[XFVB virtual frame buffer](https://www.x.org/releases/X11R7.6/doc/man/man1/Xvfb.1.xhtml)
-- This is a system level dependency use whatever you have to install it.
-
 #### Search Engine Service
 [Go](https://go.dev/)
