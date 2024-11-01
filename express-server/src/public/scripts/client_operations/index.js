@@ -51,18 +51,16 @@ async function sendCrawlList() {
     console.log(inputValues);
     if (inputValues.length === 0) {
       throw new Error(
-        "Your crawl list is empty, please enter the websites you want to crawl",
+        "Your crawl list is empty, please enter the websites you want to crawl: ",
       );
     }
     invalidList = checkURLList(inputValues);
     if (invalidList.length !== 0) {
-      throw new Error(
-        "Some of the items in this list is an invalid URL, please change them to a valid one.",
-      );
+      throw new Error("Some of the items in this list are invalid URLs.");
     }
     // checkListAndUpgrade returns the list else throws an error and returns null.
     const unindexed_list = await checkListAndUpgrade(inputValues);
-    // DONT HANDLE THE ERRORS OF CHECKLISTANDUPGRADE
+    // DONT HANDLE THE ERRORS OF CHECKLISTANDUPGRADE JUST
     if (unindexed_list === null) return;
     console.log("Transition to waiting area for crawled list.");
 
@@ -96,7 +94,7 @@ function checkURLList(list) {
   const invalidList = [];
   for (let i = 0; i < list.length; i++) {
     try {
-      const setURL = new URL(list[i]);
+      const setURL = new URL("https://" + list[i]);
     } catch (err) {
       console.error(err.message);
       invalidList.push(list[i]);
