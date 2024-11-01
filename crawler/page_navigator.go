@@ -156,13 +156,8 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 	for _, link := range pageLinks {
 
 		// need to filter out links that is not the same as hostname
-		before, _, _ := strings.Cut(link, "#")
-		childHostname, path, err := utilities.GetHostname(before)
-
-		// For some odd reason, when using a selenium image the url paths of links does not resolve
-		// as absolute path but instead returns relative path `/path/to/resource`
-
-		// keep in mind if childHostname is "" then it is for sure a relative path
+		href, _, _ := strings.Cut(link, "#")
+		childHostname, path, err := utilities.GetHostname(href)
 
 		if err != nil {
 			fmt.Println(err.Error())
@@ -174,10 +169,10 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 			continue
 		}
 		// enqueue links that have not been visited yet and that are the same as the hostname
-		_, visited := pn.pagesVisited[link]
+		_, visited := pn.pagesVisited[href]
 		// I KEEP ADDING THE SAME ELEMENTS IN THE QUEUE I DONT UNDERSTAND!!!!
 		if !visited && childHostname == pn.entry.hostname {
-			pn.queue.Enqueue(link)
+			pn.queue.Enqueue(href)
 		}
 	}
 	fmt.Printf("NOTIF: Link Count in current url: %d\n", len(pageLinks))
