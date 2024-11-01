@@ -16,7 +16,7 @@ function handleCrawlErrors(result) {
   p.textContent = result.message;
 
   // handle network errors
-  if (result.data == undefined) {
+  if (result.data === undefined) {
     console.log(result.message);
     p.textContent = "Something went wrong while sending your crawl list.";
 
@@ -24,8 +24,6 @@ function handleCrawlErrors(result) {
     return;
   }
 
-  // This is for handling urls that were already indexed and stored
-  // in the database.
   const sites = result.data.map((site) => {
     const span = document.createElement("span");
     span.textContent = site;

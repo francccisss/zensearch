@@ -52,6 +52,9 @@ a {
   font-family: inherit;
   cursor: pointer;
 }
+input {
+  outline: none;
+}
 input,
 button {
   font-family: inherit;
