@@ -31,24 +31,39 @@ async function checkListAndUpgrade(webUrls) {
     pubsub.publish("checkAndUpgradeDone", {});
     return responseObj.crawl_list;
   } catch (err) {
+    console.log(responseObj);
     pubsub.publish("checkAndUpgradeError", {
       status: "error",
       statusCode: responseObj.statusCode,
       message: err.message,
       data: responseObj.crawl_list,
     });
-    throw new Error(err.message);
     return null;
   }
 }
 async function sendCrawlList() {
-  const unhiddenInputs = document.querySelectorAll(
-    'input.crawl-input:not([data-hidden="true"])',
-  );
-  const inputValues = Array.from(unhiddenInputs).map((input) => input.value);
+  const unhiddenInputs = Array.from(
+    document.querySelectorAll('input.crawl-input:not([data-hidden="true"])'),
+  ).filter((input) => input.value !== "");
+  const inputValues = unhiddenInputs.map((input) => input.value);
+  let invalidList = [];
   try {
+    console.log(inputValues);
+    if (inputValues.length === 0) {
+      throw new Error(
+        "Your crawl list is empty, please enter the websites you want to crawl",
+      );
+    }
+    invalidList = checkURLList(inputValues);
+    if (invalidList.length !== 0) {
+      throw new Error(
+        "Some of the items in this list is an invalid URL, please change them to a valid one.",
+      );
+    }
     // checkListAndUpgrade returns the list else throws an error and returns null.
     const unindexed_list = await checkListAndUpgrade(inputValues);
+    // DONT HANDLE THE ERRORS OF CHECKLISTANDUPGRADE
+    if (unindexed_list === null) return;
     console.log("Transition to waiting area for crawled list.");
 
     const { message_type, job_id } = cookiesUtil.extractCookies();
@@ -67,8 +82,27 @@ async function sendCrawlList() {
     // will be used for persistent ui for crawling state
     localStorage.setItem("list", JSON.stringify(mappedList));
   } catch (err) {
-    console.error(err.message);
+    console.error(err);
+    pubsub.publish("checkAndUpgradeError", {
+      status: "error",
+      statusCode: 0,
+      message: err.message,
+      data: invalidList,
+    });
   }
+}
+
+function checkURLList(list) {
+  const invalidList = [];
+  for (let i = 0; i < list.length; i++) {
+    try {
+      const setURL = new URL(list[i]);
+    } catch (err) {
+      console.error(err.message);
+      invalidList.push(list[i]);
+    }
+  }
+  return invalidList;
 }
 
 export default { checkListAndUpgrade, sendCrawlList };
