@@ -1,7 +1,4 @@
 # zensearch
-A small scale Distributed Search Engine under your control.
-
-## What does it do
 A distributed search engine where user's are able to control what they can search, they can manually crawl specific websites of their liking and based on what they want to work with everyday. User's can crawl the web with a click of a button, and while crawling they can continue using the search feature to query existing webpages in their database, crawling might take some time because of security reasons and network throttling mechanism used by different website authors.
 
 ## Concepts
@@ -67,59 +64,21 @@ func (pn *PageNavigator) requestDelay(multiplier int) {
 
 So be careful and read their `robots.txt` file from their website `https://<website-hostname>/robots.txt`.
 
-## How to Build
-
-### Note on Different branches
-
-- If you want to run all of the services through docker please refer to the `deployment` or `main` branch where docker compose is used, since each service heavily relies on rabbitmq for inter-process communication.
-
-- The reason why this is a separate branch is because `test-environment` branch hosts every service in the host machine through `amqp://<hostname>:/5672` to connect to the rabbitmq so the url would be `localhost` instead of the `rabbitmq`'s domain within the `zensearch_network` in docker compose.
-
-- Run this command to create an instance of rabbitmq Message broker if you're in `test-environment` and want to run each services manually on different terminals.
-```
-docker run -it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4.0-management
-```
-
-- Run this command to run the `Selenium` container that will be used by the `crawler`
-```
-docker run -d -p 4444:4444 -p 7900:7900 --shm-size="2g" selenium/standalone-chrome:latest
-```
-
-- Run the `build-dependencies.sh` script to install dependencies and build the services.
-- Have not implemented a build script for web-crawler-service/ and search-engine-service/
-	- on each of those folders run `go mod tidy` and then `go build`.
-
-## Dependency for the web crawler service
-### Selenium
-- Just install selenium to connect the `crawler` as a client to the webdriver server hosted on the selenium container running at port `4444`
-
-
 ## How to Run
-As mentioned earlier regarding the different branches, use the code snippet above to create an instance of rabbitmq and start the web driver server from the selenium docker container if you're only in `test-deployment` branch and build each services manually or from the basic `build-dependencies.sh` scrip before running.
 
-### Running zensearch using docker compose in `deployment` or `main` branch
 ```
 # make sure you have docker and docker compose installed
 # run these commands
+
 cd path/to/zensearch/
+
+
 docker compose up
 ```
 
-### Running zensearch in `test-environment` branch
-```
-# Make sure you have docker installed
-docker run -it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4.0-management
+### Database file size for rabbitmq
+Rabbitmq has a limited message size it can transfer from one service to another, so if a user sends a query to the search engine, the search engine will then query the database to retrieve all of the indexed webpages, but if the database is > than what the rabbitmq can hold, then rabbitmq will throw an error due to the size of the message being sent. so for now please refrain from crawling too much, I'll try to build a sliding window algorithm such that it can scale despite how large the size of database.
 
-docker run -d --name selenium -p 4444:4444 -p 7900:7900 --shm-size="2g" selenium/standalone-chrome:latest
-
-cd path/to/zensearch/
-chmod +x build-dependencies.sh
-./build-dependencies.sh
-
-```
-#### Regarding build script for `test-environment` branch
-
-This only builds services running on `nodejs` namely `database-service` and `gateway` to build the `web-crawler-service` and `search-engine-service` you're going to have to navigate into each these folders and run `go mod tidy` to install dependencies and `go mod build`, and after building everything just run each services separately on different terminals.
 
 ### Database
 The project uses Sqlite3 database which is stored within `database-service/dist/website_collection.db`, you can go into it if you have `sqlite3` installed in your system and if not go ahead and install then after that:
@@ -152,7 +111,7 @@ webpages (
 );
 ```
 
-### Modifying data within sqlite3 in Docker Compose
+#### Modifying data within sqlite3 in Docker Compose
 I have not yet implemented a way for users to delete individual crawled websites, so in order for the users to remove their indexed websites, users will have to navigate into the running container `zensearch_db` or `zensearch_db-1`.
 
 Issues when deleting might be necessary is when:
@@ -164,6 +123,7 @@ Issues when deleting might be necessary is when:
 - `cd`into the `webiste_collection.db`
 - run the same command for sqlite3 to modify the database
 - remove the indexed website's data
+
 
 
 # Tools and Dependencies
