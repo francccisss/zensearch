@@ -1,7 +1,15 @@
 # zensearch
 A distributed search engine where user's are able to control what they can search, they can manually crawl specific websites of their liking and based on what they want to work with everyday. User's can crawl the web with a click of a button, and while crawling they can continue using the search feature to query existing webpages in their database, crawling might take some time because of security reasons and network throttling mechanism used by different website authors.
 
-## Concepts
+
+## Snapshots
+![home-zensearch](https://github.com/user-attachments/assets/2851b18b-ea47-4e81-9e3b-9f9daa912b4c)
+![crawl-section-zensearch](https://github.com/user-attachments/assets/8a968fa9-0326-4fc7-b6f2-3bff5236e909)
+![crawling-sample](https://github.com/user-attachments/assets/2e57125c-af47-41d4-8724-300edaba2892)
+![search-example](https://github.com/user-attachments/assets/a181e8e3-afbe-4b96-9570-185b9f14cf7f)
+
+
+## Concepts for ranking webpages
 **TF-IDF**: "In information retrieval, tf–idf (also TF*IDF, TFIDF, TF–IDF, or Tf–idf), short for term frequency–inverse document frequency, is a measure of importance of a word to a document in a collection or corpus, adjusted for the fact that some words appear more frequently in general.Like the bag-of-words model, it models a document as a multiset of words, without word order. It is a refinement over the simple bag-of-words model, by allowing the weight of words to depend on the rest of the corpus." [source](https://en.wikipedia.org/wiki/Tf%E2%80%93idf).
 
 - Despite it being fast to determine the ranking of each document relative to the user's search query, it disregards the context of the query as long as a document matches the terms in the search query eg: "dog bites man" or "man bites dog" does not matter in the context of this model.
@@ -135,16 +143,6 @@ I have not yet implemented a way for users to delete individual crawled websites
 #### Crawler Service
 [Go](https://go.dev/)
 [Selenium Container](https://hub.docker.com/r/selenium/standalone-chrome)
-
-#### Selenium Driver Dependencies (IMPORTANT)
-[Chrome Driver Docs](https://developer.chrome.com/docs/chromedriver)
-- Chrome Web Driver is within the `web-crawler-service/pkg/chrome` folder.
-- This is needed for the client (crawler) to communicate with the web driver server via http and pass any api calls from the web driver server to the Web Devtools via web driver protocol. eg: `client (http)-> web driver (web driver protocol)-> devtools`
-
-
-[Chrome Browser](https://www.google.com/chrome/)
-[XFVB virtual frame buffer](https://www.x.org/releases/X11R7.6/doc/man/man1/Xvfb.1.xhtml)
-- This is a system level dependency use whatever you have to install it.
 
 #### Search Engine Service
 [Go](https://go.dev/)
