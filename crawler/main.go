@@ -74,14 +74,7 @@ func main() {
 
 }
 
-/*
-  For every message in the queue that is received and handled,
-  create a new Webdriver Server, then process the users CrawlList,
-  after process is finished, close down Webdriver Server
 
-  This may add some overhead due to initializing and killing the server
-  but it is insignificant when users bulk their requests.
-*/
 
 func handleConnections(msg amqp.Delivery, chann *amqp.Channel) {
 	defer chann.Ack(msg.DeliveryTag, false)
