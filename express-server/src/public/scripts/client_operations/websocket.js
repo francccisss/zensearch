@@ -1,4 +1,4 @@
-const ws = new WebSocket("ws://192.168.1.20:8080");
+const ws = new WebSocket("ws://localhost:8080");
 import pubsub from "../utils/pubsub.js";
 
 ws.addEventListener("open", (msg) => {
