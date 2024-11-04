@@ -37,8 +37,8 @@ function popUpOnAddEntry(entries) {
 }
 function initCrawlInputs() {
   const listContainer = document.querySelector("#crawl-list-container");
-  listContainer.appendChild(crawlInput.createComponent());
-  listContainer.appendChild(crawlInput.createComponent());
+  listContainer.appendChild(crawlInput.createComponent(""));
+  listContainer.appendChild(crawlInput.createComponent(""));
 }
 
 function sidebarActions(event) {

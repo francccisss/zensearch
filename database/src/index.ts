@@ -24,7 +24,6 @@ exec_scripts(db, path.join(__dirname, "./db_utils/websites.init.sql"));
 
 function init_database(): sqlite3.Database {
   const db_file = "./website_collection.db";
-  console.log(db_file);
   const sqlite = sqlite3.verbose();
   const db = new sqlite.Database(
     path.join(__dirname, db_file),
