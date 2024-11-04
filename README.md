@@ -34,7 +34,7 @@ A distributed search engine where user's are able to control what they can searc
 - [ ] Create a list of known websites (websites that have been indexed.) on the front-end
 
 ## IMPORTANT FOR USERS OF THIS PROJECT
-You will take full responsibility in the event that you will be blocked by a website author, so make sure you're crawling a website that would generally accept web crawlers and has a rate-limiting mechanism in their services, I have implemented a rudimentary rate-limiter for the crawler in `web-crawler-service/page_navigator.go` file called `requestDelay()`.
+You will take full responsibility in the event that you will be blocked by a website author, so make sure you're crawling a website that would generally accept web crawlers and has a rate-limiting mechanism in their services, I have implemented a rudimentary rate-limiter for the crawler in `crawler/page_navigator.go` file called `requestDelay()`.
 
 
 ```
@@ -47,8 +47,6 @@ multiplier values:
   - 0 ignores all intervals
   - 1 increases slowly but is still fast and might be blocked
   - 2 sweet middleground
-
-The first check for pn.interval < min is hack i dont know what else to do.
 */
 func (pn *PageNavigator) requestDelay(multiplier int) {
 	max := 10000
@@ -85,8 +83,8 @@ Rabbitmq has a limited message size it can transfer from one service to another,
 
 
 ### Database
-The project uses Sqlite3 database which is stored within `database-service/dist/website_collection.db`, you can go into it if you have `sqlite3` installed in your system and if not go ahead and install then after that:
-- `cd` to the `database-service/dist/website_collection.db`
+The project uses Sqlite3 database which is stored within `database/dist/website_collection.db`, you can go into it if you have `sqlite3` installed in your system and if not go ahead and install then after that:
+- `cd` to the `database/dist/website_collection.db`
 - run `sqlite3 website_collection.db`
 
 **TABLES**:
@@ -138,7 +136,6 @@ I have not yet implemented a way for users to delete individual crawled websites
 #### Database Service
 [NodeJS](https://nodejs.org/en)
 [Sqlite3 for Nodejs](https://www.npmjs.com/package/sqlite3)
-[Sqlite](https://www.sqlite.org/index.html)
 
 #### Crawler Service
 [Go](https://go.dev/)
