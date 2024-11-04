@@ -51,17 +51,7 @@ func main() {
 	}
 	log.Println("Crawl Channel Created")
 
-	/*
-	 rabbitmq library creates a new go routine for listening to new requests,
-	 this function is for handling incoming messages from
-	 the rabbitmq listener
-	*/
-
-	// TODO create a push queue back to the client to notify
-	// that crawling is done, after indexing pages maybe within the saveIndexedWebpages()
-
 	go func() {
-		// body will be an array of webpages to crawl
 		for msg := range delivery {
 			go handleConnections(msg, crawlChannel)
 		}
@@ -73,8 +63,6 @@ func main() {
 	log.Println("NOTIF: Crawler Exit.")
 
 }
-
-
 
 func handleConnections(msg amqp.Delivery, chann *amqp.Channel) {
 	defer chann.Ack(msg.DeliveryTag, false)

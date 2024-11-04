@@ -103,7 +103,6 @@ class RabbitMQClient {
         if (this.crawl_channel == null) {
           throw new Error("ERROR: Crawl Channel is null.");
         }
-        //this.crawl_channel.ack(msg);
         await cb(this.crawl_channel, msg, "crawling");
         console.log(msg.content.toString());
       });
@@ -178,8 +177,10 @@ class RabbitMQClient {
     }
   }
 
-  // TODO handle errors in here please :D
-
+  /*
+      Sends a message to the database service to check and see if the DOCS
+      or list of websites the users want to crawl already exists in the database.
+    */
   async crawl_list_check(encoded_list: ArrayBuffer): Promise<null | {
     undindexed: Array<string>;
     data_buffer: Buffer;
@@ -187,11 +188,6 @@ class RabbitMQClient {
     if (this.connection === null)
       throw new Error("Unable to create a channel for crawl queue.");
     const channel = await this.connection.createChannel();
-
-    /*
-      Sends a message to the database service to check and see if the DOCS
-      or list of websites the users want to crawl already exists in the database.
-    */
 
     const db_check_queue = "db_check_express";
     const db_check_response_queue = "db_cbq_express";

@@ -101,7 +101,6 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
       throw new Error("Unable to check user's crawl list.");
     }
     if (results.undindexed.length === 0) {
-      console.log("This shits empty YEEET!");
       return res.status(200).json({
         is_crawling: false,
         message:
@@ -127,7 +126,6 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
         ),
       });
     }
-    console.log({ unindexed: results.undindexed });
 
     // proceed to Crawler Service
 
@@ -149,7 +147,7 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     });
   } catch (err) {
     const error = err as Error;
-    console.log("ERRO :Something went wrong with Crawl queue");
+    console.log("ERROR :Something went wrong with Crawl queue");
     console.error(error.message);
     next(err);
   }
@@ -171,7 +169,6 @@ app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
       throw new Error(msg.err.message);
     }
     const parse_ranked_pages = JSON.parse(msg.data.content.toString());
-    console.log(parse_ranked_pages);
     console.log("NOTIF: Search query sent to the client .");
 
     res.render("search", {

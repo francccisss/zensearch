@@ -52,7 +52,6 @@ pubsub.subscribe("crawlReceiver", (msg) => {
   const decodedBuffer = decoder.decode(uint8);
   const parseDecodedBuffer = JSON.parse(decodedBuffer);
 
-  console.log(parseDecodedBuffer);
   crawledData.set(parseDecodedBuffer.Url, parseDecodedBuffer);
   clientws.ackMessage();
   pubsub.publish("crawlNotify", parseDecodedBuffer);
@@ -96,10 +95,8 @@ pubsub.subscribe("crawlNotify", (currentCrawledObj) => {
 });
 
 pubsub.subscribe("crawlDone", (currentCrawledObj) => {
-  console.log(localStorage);
   const newListBtn = document.getElementById("new-list-btn");
   newListBtn.style.display = "block";
   cookiesUtil.clearAllCookies();
   localStorage.clear();
-  console.log("Transition to SEARCH");
 });

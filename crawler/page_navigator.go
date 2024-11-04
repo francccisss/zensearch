@@ -52,7 +52,6 @@ func (pn *PageNavigator) navigatePageWithRetries(retries int, currentUrl string)
 
 func (pn *PageNavigator) isPathAllowed(path string) bool {
 
-	// bro I only understand english :D just remove the ones that you want to be included
 	for _, dapath := range pn.disallowedPaths {
 		if strings.Contains(path, dapath) {
 			return false
@@ -70,8 +69,6 @@ multiplier values:
   - 0 ignores all intervals
   - 1 increases slowly but is still fast and might be blocked
   - 2 sweet middleground
-
-The first check for pn.interval < min is hack i dont know what else to do.
 */
 func (pn *PageNavigator) requestDelay(multiplier int) {
 	max := 10000

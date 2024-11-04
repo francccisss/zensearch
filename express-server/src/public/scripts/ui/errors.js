@@ -17,7 +17,6 @@ function handleCrawlErrors(result) {
 
   // handle network errors
   if (result.data === undefined) {
-    console.log(result.message);
     p.textContent = "Something went wrong while sending your crawl list.";
 
     indexedList.replaceChildren(["Please restart the application."]);

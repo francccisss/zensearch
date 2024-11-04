@@ -120,7 +120,6 @@ async function channel_handler(db: Database, database_channel: amqp.Channel) {
         crawl_list.Docs,
       );
 
-      console.log(unindexed_websites);
       const encoder = new TextEncoder();
       const encoded_docs = encoder.encode(
         JSON.stringify({ Docs: unindexed_websites }),

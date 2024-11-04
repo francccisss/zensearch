@@ -31,7 +31,6 @@ async function checkListAndUpgrade(webUrls) {
     pubsub.publish("checkAndUpgradeDone", {});
     return responseObj.crawl_list;
   } catch (err) {
-    console.log(responseObj);
     pubsub.publish("checkAndUpgradeError", {
       status: "error",
       statusCode: responseObj.statusCode,
@@ -48,7 +47,6 @@ async function sendCrawlList() {
   const inputValues = unhiddenInputs.map((input) => input.value);
   let invalidList = [];
   try {
-    console.log(inputValues);
     if (inputValues.length === 0) {
       throw new Error(
         "Your crawl list is empty, please enter the websites you want to crawl: ",
