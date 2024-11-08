@@ -1,7 +1,7 @@
 import { Database } from "sqlite3";
-import { data_t, webpage_t } from "./utils/types";
+import { Message, Webpage } from "./utils/types";
 
-async function index_webpages(db: Database, data: data_t) {
+async function index_webpages(db: Database, data: Message) {
   if (db == null) {
     throw new Error("ERROR: Database is not connected.");
   }
@@ -59,24 +59,24 @@ async function index_webpages(db: Database, data: data_t) {
   console.log("NOTIF: DONE INDEXING");
 }
 
-async function query_webpages(db: Database): Promise<Array<webpage_t>> {
+async function query_webpages(db: Database): Promise<Array<Webpage>> {
   // query function returns once the promise has either been resolved
   // or rejected by the sqlite query call.
 
   return await new Promise(function (resolved, reject) {
     const sql_query = "SELECT Url, Contents, Title FROM webpages";
-    db.all<webpage_t>(sql_query, (err, row) => {
+    db.all<Webpage>(sql_query, (err, rows) => {
       try {
         if (err) {
           throw new Error(
             "ERROR: Something went wrong while querying webpages for search query.",
           );
         }
-        if (row.length === 0) {
+        if (rows.length === 0) {
           console.log("There are 0 webpages.\n");
           console.log("Please Crawl the web. \n");
         }
-        resolved(row);
+        resolved(rows);
       } catch (err) {
         const error = err as Error;
         console.log(

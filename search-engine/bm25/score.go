@@ -27,7 +27,6 @@ func CalculateBMRatings(query string, webpages *[]utilities.WebpageTFIDF, AvgDoc
 		// for each token calculate BM25Rating for each webpages
 		// by summing the rating from the previous tokens
 		for j := range *webpages {
-			fmt.Println(j)
 			bm25rating := BM25(IDF, (*webpages)[j].TfRating)
 			(*webpages)[j].TokenRating.Bm25rating += bm25rating
 		}

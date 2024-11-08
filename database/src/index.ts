@@ -23,10 +23,10 @@ exec_scripts(db, path.join(__dirname, "./db_utils/websites.init.sql"));
 })();
 
 function init_database(): sqlite3.Database {
-  const db_file = "./website_collection.db";
+  const db_file = "/app/data/website_collection.db";
   const sqlite = sqlite3.verbose();
   const db = new sqlite.Database(
-    path.join(__dirname, db_file),
+    path.join(db_file),
     sqlite.OPEN_READWRITE,
     (err) => {
       if (err) {

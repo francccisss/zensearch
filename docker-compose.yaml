@@ -42,7 +42,7 @@ services:
     networks:
       - zennet
     volumes:
-      - db_volume:/zensearch_volume/data
+      - db_volume:/app/data/
 
   searchengine:
     build:
