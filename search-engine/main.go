@@ -37,13 +37,14 @@ func main() {
 	failOnError(err, "Failed to create search queue")
 	mainChannel.QueueDeclare(rabbitmq.PUBLISH_QUEUE, false, false, false, false, nil)
 	failOnError(err, "Failed to create publish queue")
+
 	dbQueryChannel.QueueDeclare(rabbitmq.DB_QUERY_QUEUE, false, false, false, false, nil)
 	failOnError(err, "Failed to create query queue")
 	dbQueryChannel.QueueDeclare(rabbitmq.DB_RESPONSE_QUEUE, false, false, false, false, nil)
 	failOnError(err, "Failed to create db response queue")
 	// DECLARING QUEUES
 
-	queriedData, err := dbQueryChannel.Consume(
+	dbMsg, err := dbQueryChannel.Consume(
 		rabbitmq.DB_RESPONSE_QUEUE,
 		"",
 		false,
@@ -52,8 +53,9 @@ func main() {
 		false,
 		nil,
 	)
+
 	if err != nil {
-		log.Panicf(err.Error())
+		fmt.Printf("Unable to listen to %s", rabbitmq.DB_RESPONSE_QUEUE)
 	}
 	msgs, err := mainChannel.Consume(
 		rabbitmq.SEARCH_QUEUE,
@@ -64,8 +66,16 @@ func main() {
 		false,
 		nil,
 	)
-	failOnError(err, "Failed to register a consumer")
+	if err != nil {
+		fmt.Printf("Unable to listen to %s", rabbitmq.SEARCH_QUEUE)
+	}
 
+	var (
+		segmentCounter      uint32 = 0
+		expectedSequenceNum uint32 = 0
+	)
+
+	webpageBytes := []byte{}
 	for {
 		select {
 		case userSearch := <-msgs:
@@ -79,29 +89,67 @@ func main() {
 				mainChannel.Ack(userSearch.DeliveryTag, true)
 				fmt.Print("Process Done.\n")
 			}
-		case data := <-queriedData:
+		case segment := <-dbMsg:
 			{
 				if searchQuery == "" {
 					fmt.Print("Search Query is empty\n")
 					continue
 				}
 				fmt.Print("Data from Database service retrieved\n")
-				webpages := parseWebpageQuery(data.Body)
-				if len(*webpages) == 0 {
-					rabbitmq.PublishScoreRanking([]any{}, mainChannel)
-					dbQueryChannel.Ack(data.DeliveryTag, true)
+
+				segmentHeader, err := GetSegmentHeader(segment.Body)
+				if err != nil {
+					fmt.Println("Unable to extract segment header")
+				}
+
+				segmentPayload, err := GetSegmentPayload(segment.Body)
+				if err != nil {
+					fmt.Println("Unable to extract segment payload")
 					continue
 				}
 
-				calculatedRatings := bm25.CalculateBMRatings(searchQuery, webpages, bm25.AvgDocLen(webpages))
-				rankedWebpages := bm25.RankBM25Ratings(calculatedRatings)
-				for _, webpage := range *rankedWebpages {
-					fmt.Printf("URL: %s\n", webpage.Url)
-					fmt.Printf("BM25 Score: %f\n\n", webpage.TokenRating.Bm25rating)
+				// for retransmission/requeuing
+				if segmentHeader.SequenceNum != expectedSequenceNum {
+					dbQueryChannel.Nack(segment.DeliveryTag, true, true)
+					fmt.Printf("Expected Sequence number %d, got %d\n",
+						expectedSequenceNum, segmentHeader.SequenceNum)
+					continue
 				}
-				fmt.Printf("Search Query for composite query: %s\n\n", searchQuery)
-				rabbitmq.PublishScoreRanking(rankedWebpages, mainChannel)
-				dbQueryChannel.Ack(data.DeliveryTag, true)
+
+				segmentCounter++
+				expectedSequenceNum++
+
+				dbQueryChannel.Ack(segment.DeliveryTag, false)
+				webpageBytes = append(webpageBytes, segmentPayload...)
+				fmt.Printf("Byte Length: %d\n", len(webpageBytes))
+
+				if segmentCounter == segmentHeader.TotalSegments {
+					log.Printf("Received all of the segments from Database %d", segmentCounter)
+					fmt.Printf("Total Byte Length: %d\n", len(webpageBytes))
+
+					webpages, err := ParseWebpages(webpageBytes)
+					if err != nil {
+						fmt.Printf(err.Error())
+						log.Panicf("Unable to parse webpages")
+						continue
+					}
+
+					calculatedRatings := bm25.CalculateBMRatings(searchQuery, webpages, bm25.AvgDocLen(webpages))
+					rankedWebpages := bm25.RankBM25Ratings(calculatedRatings)
+					for _, webpage := range *rankedWebpages {
+						fmt.Printf("URL: %s\n", webpage.Url)
+						fmt.Printf("BM25 Score: %f\n\n", webpage.TokenRating.Bm25rating)
+					}
+					fmt.Printf("Search Query for composite query: %s\n\n", searchQuery)
+					rabbitmq.PublishScoreRanking(rankedWebpages, mainChannel)
+
+					// reset everything
+					expectedSequenceNum = 0
+					segmentCounter = 0
+					webpageBytes = nil
+
+					break
+				}
 			}
 		}
 	}
@@ -109,15 +157,17 @@ func main() {
 
 // maybe use message for cache validation later on for optimization
 
-func parseWebpageQuery(data []byte) *[]utilities.WebpageTFIDF {
-	var webpages []utilities.WebpageTFIDF
-	err := json.Unmarshal(data, &webpages)
-	failOnError(err, "Unable to Decode json data from database.")
-	return &webpages
-}
-
 func failOnError(err error, msg string) {
 	if err != nil {
 		log.Panicf("%s: %s", msg, err.Error())
 	}
+}
+
+func ParseWebpages(data []byte) (*[]utilities.WebpageTFIDF, error) {
+	var webpages []utilities.WebpageTFIDF
+	err := json.Unmarshal(data, &webpages)
+	if err != nil {
+		return &[]utilities.WebpageTFIDF{}, err
+	}
+	return &webpages, nil
 }

@@ -1,8 +1,8 @@
 import amqp from "amqplib";
 import database_operations from "../database_operations";
 import { Database } from "sqlite3";
-import data_serializer from "../utils/32bit_serializer";
-import { data_t } from "../utils/types";
+import { Message, Webpage } from "../utils/types";
+import segment_serializer from "../utils/segment_serializer";
 
 /*
   channel handler can take in multiple channels from a single tcp conneciton
@@ -48,7 +48,7 @@ async function channel_handler(db: Database, database_channel: amqp.Channel) {
     if (data === null) throw new Error("No data was pushed.");
     const decoder = new TextDecoder();
     const decoded_data = decoder.decode(data.content as ArrayBuffer);
-    const deserialize_data: data_t = JSON.parse(decoded_data);
+    const deserialize_data: Message = JSON.parse(decoded_data);
     try {
       database_channel.ack(data);
       await database_operations.index_webpages(db, deserialize_data);
@@ -151,20 +151,25 @@ async function channel_handler(db: Database, database_channel: amqp.Channel) {
   database_channel.consume(db_query_sengine, async (data) => {
     if (data === null) throw new Error("No data was pushed.");
     try {
-      const data_query: {
-        Contents: string;
-        Title: string;
-        Url: string;
-      }[] = await database_operations.query_webpages(db);
-      console.log(data.content);
+      const data_query: Webpage[] =
+        await database_operations.query_webpages(db);
+      console.log({ searchEngineMessage: data.content.toString() });
+
+      const segments = segment_serializer.createSegments(data_query, 100000);
+      console.log(segments);
+
+      // Need to find a way to get an ack notification from the message queue of
+      // db_cbq_sengine so that we can send the next segment in the sequence
       database_channel.ack(data);
-      await database_channel.sendToQueue(
-        db_cbq_sengine, // respond back to this queue from search engine
-        Buffer.from(JSON.stringify(data_query)),
-        {
-          correlationId: data.properties.correlationId,
-        },
-      );
+      segments.forEach(async (segment) => {
+        await database_channel.sendToQueue(
+          db_cbq_sengine, // respond back to this queue from search engine
+          Buffer.from(segment),
+          {
+            correlationId: data.properties.correlationId,
+          },
+        );
+      });
     } catch (err) {
       const error = err as Error;
       console.error(error.message);
