@@ -14,7 +14,7 @@ function createSegments(
   let pointerPosition = MSS;
 
   for (let i = 0; i < segmentCount; i++) {
-    let currentDataLength = Math.abs(currentIndex - data_length);
+    let remainingDataLength = Math.abs(currentIndex - data_length);
 
     let slicedArray = encoded_text.slice(currentIndex, pointerPosition);
 
@@ -25,7 +25,7 @@ function createSegments(
     // Is current data length enough to fit MSS?
     // if so add from current position + MSS
     // else get remaining of the currentDataLength
-    pointerPosition += Math.min(MSS, currentDataLength);
+    pointerPosition += Math.min(MSS, remainingDataLength);
     const payload = new Uint8Array(slicedArray.length);
     payload.set(slicedArray);
     segments.push(newSegment(i, segmentCount, Buffer.from(payload)));
