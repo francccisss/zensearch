@@ -156,7 +156,7 @@ async function channel_handler(db: Database, database_channel: amqp.Channel) {
       console.log({ searchEngineMessage: data.content.toString() });
 
       const segments = segment_serializer.createSegments(data_query, 100000);
-      console.log(segments);
+      console.log({ totalSegments: segments.length });
 
       // Need to find a way to get an ack notification from the message queue of
       // db_cbq_sengine so that we can send the next segment in the sequence

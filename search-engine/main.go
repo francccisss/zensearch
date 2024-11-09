@@ -74,7 +74,7 @@ func main() {
 			// Should i use go routines? its still going to be an unbuffered channel anyways
 			// so might as well just make everything synchronous
 
-			fmt.Println("Search query retrieved: `%s`", searchQuery)
+			fmt.Printf("Search query retrieved: `%s`", searchQuery)
 
 			webpageBytes, err := ListenIncomingSegments(searchQuery)
 			fmt.Printf("Total Byte Length: %d\n", len(webpageBytes))

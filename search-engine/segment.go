@@ -3,7 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/json"
+	"encoding/gob"
 	"fmt"
 	"log"
 	"math"
@@ -50,10 +50,12 @@ func ListenIncomingSegments(searchQuery string) ([]byte, error) {
 	)
 
 	webpageBytes := []byte{}
+	defer func(webwebpageBytes *[]byte) {
+		*webwebpageBytes = nil
+	}(&webpageBytes)
 
 	for {
 		segment := <-dbMsg
-		fmt.Println("Data from Database service retrieved\n")
 
 		segmentHeader, err := GetSegmentHeader(segment.Body)
 		if err != nil {
@@ -80,16 +82,13 @@ func ListenIncomingSegments(searchQuery string) ([]byte, error) {
 
 		dbChannel.Ack(segment.DeliveryTag, false)
 		webpageBytes = append(webpageBytes, segmentPayload...)
-		fmt.Printf("Byte Length: %d\n", len(webpageBytes))
 
 		if segmentCounter == segmentHeader.TotalSegments {
 			log.Printf("Received all of the segments from Database %d", segmentCounter)
-			fmt.Printf("Total Byte Length: %d\n", len(webpageBytes))
 
 			// reset everything
 			expectedSequenceNum = 0
 			segmentCounter = 0
-			webpageBytes = nil
 
 			break
 		}
@@ -100,38 +99,59 @@ func ListenIncomingSegments(searchQuery string) ([]byte, error) {
 // MSS is the maximum segment size of the bytes to be transported to the express server
 func CreateSegments(webpages *[]utilities.WebpageTFIDF, MSS int) ([][]byte, error) {
 
-	serializeWebpages, err := json.Marshal(webpages)
+	var webpageBuff bytes.Buffer
+	enc := gob.NewEncoder(&webpageBuff)
+	err := enc.Encode(webpages)
+	if err != nil {
+		fmt.Println("Unable to encode webpages")
+		log.Panicf(err.Error())
+	}
+
+	serializeWebpages, err := readBufferToSlice(webpageBuff)
 	if err != nil {
 		fmt.Printf("Unable to serialize webpage arrays for segmentation\n")
 		return nil, err
 	}
-	segmentCount := int(float64(len(serializeWebpages)/MSS)) + 1 // for the remainder
+
+	serializedWebpagesLen := len(serializeWebpages)
+	segmentCount := int(serializedWebpagesLen/MSS) + 1 // for the remainder
+	fmt.Printf("\nSegment Count: %d\n", segmentCount)
+
 	segments := [][]byte{}
 
 	var (
 		currentIndex    = 0
-		pointerPosition = MSS
+		pointerPosition = float64(MSS)
 	)
 	for range segmentCount {
 
-		// why is math.Abs float only?
-		var remainingDataLength = int(math.Abs(float64(currentIndex) - float64(len(serializeWebpages))))
-
-		segmentSlice := serializeWebpages[currentIndex:pointerPosition]
+		segmentSlice := serializeWebpages[currentIndex:int(pointerPosition)]
 		segments = append(segments, NewSegment(segmentSlice))
 
-		// move the current index position to the next segment from where
-		// the pointer position begins
-		currentIndex = pointerPosition
-		pointerPosition += int(math.Min(float64(pointerPosition), float64(remainingDataLength)))
+		currentIndex = int(pointerPosition)
+
+		pointerPosition += math.Min(float64(MSS), float64(serializedWebpagesLen-currentIndex))
+
+		fmt.Printf("\nRemaining Data Length: %d\n", serializedWebpagesLen-currentIndex)
+		fmt.Printf("Slice from %d up to %d\n", currentIndex, serializedWebpagesLen-currentIndex)
 	}
 
+	fmt.Printf("Segments Length: %d\n", len(segments))
 	return segments, nil
+}
+
+func readBufferToSlice(buff bytes.Buffer) ([]byte, error) {
+	newSlice := make([]byte, buff.Len())
+	_, err := buff.Read(newSlice)
+	if err != nil {
+		fmt.Println("Unable to read buffer to slice")
+		return nil, err
+	}
+	return newSlice, nil
 }
 
 func NewSegment(payload []byte) []byte {
 	// add headers here
-	fmt.Printf("Payload Length assertion%d", len(payload))
 	return payload
 }
 
