@@ -94,11 +94,22 @@ func main() {
 			rankedWebpages := bm25.RankBM25Ratings(calculatedRatings)
 			fmt.Printf("Search Query for composite query: %s\n\n", searchQuery)
 
-			_, err = CreateSegments(rankedWebpages, MSS)
+			segments, err := CreateSegments(rankedWebpages, MSS)
 			if err != nil {
 				fmt.Println(err.Error())
 				log.Panicf("Unable to create segments")
 			}
+
+			b := []byte{}
+			for _, segment := range segments {
+				b = append(b, segment...)
+			}
+			we, err := ParseWebpages(b)
+			if err != nil {
+				fmt.Println("Unable to parse webpages")
+				log.Panicf(err.Error())
+			}
+			fmt.Println(we)
 			// rabbitmq.PublishScoreRanking(rankedWebpages)
 		}
 	}(searchQueryChan)

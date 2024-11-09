@@ -3,7 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -98,16 +98,14 @@ func ListenIncomingSegments(searchQuery string) ([]byte, error) {
 
 // MSS is the maximum segment size of the bytes to be transported to the express server
 func CreateSegments(webpages *[]utilities.WebpageTFIDF, MSS int) ([][]byte, error) {
+	// GOB APPENDS METADATA ABOUT THE TYPES THAT ARE ENCODED FOR
+	// THE DECODER TO INTERPRET
 
-	var webpageBuff bytes.Buffer
-	enc := gob.NewEncoder(&webpageBuff)
-	err := enc.Encode(webpages)
+	serializeWebpages, err := json.Marshal(webpages)
 	if err != nil {
-		fmt.Println("Unable to encode webpages")
+		fmt.Println("Unable to Marshal webpages")
 		log.Panicf(err.Error())
 	}
-
-	serializeWebpages, err := readBufferToSlice(webpageBuff)
 	if err != nil {
 		fmt.Printf("Unable to serialize webpage arrays for segmentation\n")
 		return nil, err
