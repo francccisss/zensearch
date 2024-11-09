@@ -50,7 +50,6 @@ function newSegment(
 function convertIntToBuffer(int: number): Buffer {
   const bytes = Buffer.alloc(4);
   bytes.writeIntLE(int, 0, 4);
-  console.log(bytes);
   return bytes;
 }
 
