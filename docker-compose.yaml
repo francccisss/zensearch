@@ -9,13 +9,13 @@ services:
       timeout: 10s
     networks:
       - zennet
-  selenium:
-    image: selenium/standalone-chrome
-    shm_size: 2g
-    healthcheck:
-      <<: *hck
-    networks:
-      - zennet
+  # selenium:
+  #   image: selenium/standalone-chrome
+  #   shm_size: 2g
+  #   healthcheck:
+  #     <<: *hck
+  #   networks:
+  #     - zennet
 
 
 
@@ -53,19 +53,19 @@ services:
     networks:
       - zennet
 
-  crawler:
-    build:
-      context: ./crawler/
-      dockerfile: Dockerfile
-    depends_on:
-      <<: *depends
-      selenium:
-        condition: service_healthy
-        restart: true
-    restart: always
-    networks:
-        - zennet
-
+  # crawler:
+  #   build:
+  #     context: ./crawler/
+  #     dockerfile: Dockerfile
+  #   depends_on:
+  #     <<: *depends
+  #     selenium:
+  #       condition: service_healthy
+  #       restart: true
+  #   restart: always
+  #   networks:
+  #       - zennet
+  #
 networks:
   zennet:
     driver: bridge

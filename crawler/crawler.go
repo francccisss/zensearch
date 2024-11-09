@@ -175,7 +175,7 @@ func (c Crawler) Crawl() (PageResult, error) {
 	}
 
 	// bro I only understand english :D just remove the ones that you want to be included
-	languagePaths := []string{"/es/", "/ko/", "/tr/", "/th/", "/it/", "/uk/", "/sk/", "/fr/", "/de/", "/zh/", "/ja/", "/ru/", "/ar/", "/pt/", "/hi/", "/zh/", "/zh-tw/", "/zh-c/"}
+	languagePaths := []string{"/es/", "/ko/", "/tr/", "/th/", "/it/", "/uk/", "/sk/", "/fr/", "/de/", "/zh/", "/ja/", "/ru/", "/ar/", "/pt/", "/hi/", "/zh/", "/zh-tw/", "/zh-c/", "/zh-cn/", "/pt-br/", "/uz/"}
 	disallowedPaths = append(disallowedPaths, languagePaths...)
 	fmt.Printf("DISALLOWED PATHS: %+v\n", disallowedPaths)
 	entry := WebpageEntry{

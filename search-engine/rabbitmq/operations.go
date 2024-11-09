@@ -7,8 +7,13 @@ import (
 	"log"
 )
 
-func QueryDatabase(message string, ch *amqp.Channel) {
-	err := ch.Publish(
+func QueryDatabase(message string) {
+
+	ch, err := GetChannel("dbChannel")
+	if err != nil {
+		log.Panicf("dbChannel does not exist\n")
+	}
+	err = ch.Publish(
 		"",
 		DB_QUERY_QUEUE,
 		false, false, amqp.Publishing{
@@ -23,7 +28,12 @@ func QueryDatabase(message string, ch *amqp.Channel) {
 	log.Printf("End of Query\n")
 }
 
-func PublishScoreRanking(rankedWebpages any, ch *amqp.Channel) {
+func PublishScoreRanking(rankedWebpages any) {
+
+	ch, err := GetChannel("mainChannel")
+	if err != nil {
+		log.Panicf("mainChannel does not exist\n")
+	}
 	ch.QueueDeclare(PUBLISH_QUEUE, false, false, false, false, nil)
 	encodedWebpages, err := json.Marshal(rankedWebpages)
 	if err != nil {

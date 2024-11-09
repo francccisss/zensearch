@@ -116,6 +116,11 @@ class RabbitMQClient {
 
   // Channel Listener used by express server for listening for the
   // search channel queue callback for webpages retrieval
+
+  /*
+   * TODO retrieve data segments from search engine using the same method
+   * used in the search engine by when retrieving from database.
+   */
   async search_channel_listener() {
     try {
       if (this.search_channel == null) {
