@@ -43,7 +43,6 @@ func ListenIncomingSegments(searchQuery string) ([]byte, error) {
 		false,
 		nil,
 	)
-
 	var (
 		segmentCounter      uint32 = 0
 		expectedSequenceNum uint32 = 0
@@ -146,14 +145,21 @@ func readBufferToSlice(buff bytes.Buffer) ([]byte, error) {
 }
 
 func NewSegment(sequenceNum uint32, segmentCount uint32, payload []byte) []byte {
-	// read bytes up to the capacity of the buffer into the buffer itself
-	seqNumBuff := make([]byte, binary.MaxVarintLen32)
-	binary.LittleEndian.PutUint32(seqNumBuff, uint32(sequenceNum))
 
-	header := binary.LittleEndian.AppendUint32(seqNumBuff, segmentCount)
-	segment := append(header, payload...)
+	// seqNumBuff := make([]byte, binary.MaxVarintLen32)
+	// binary.LittleEndian.PutUint32(seqNumBuff, uint32(sequenceNum))
 
-	fmt.Println(header)
+	// for some reason it appends another byte of 0 before the segmenCount
+	// eg: [231,0,0,0,0,233,0,0]
+	//                ^ What is that??!!?!
+	// header := binary.LittleEndian.AppendUint32(seqNumBuff, segmentCount)
+
+	// Im gonna do what's called a pro gamer move
+	segment := append([]byte{0, 0, 0, byte(sequenceNum), 0, 0, 0, byte(segmentCount)}, payload...)
+
+	fmt.Printf("Current segment length: %d\n", len(segment))
+	fmt.Printf("10 bytes from current segment: %+v\n", segment[:10])
+
 	return segment
 }
 
