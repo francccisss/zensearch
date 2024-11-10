@@ -74,7 +74,7 @@ func main() {
 			// Should i use go routines? its still going to be an unbuffered channel anyways
 			// so might as well just make everything synchronous
 
-			fmt.Printf("Search query retrieved: `%s`", searchQuery)
+			fmt.Printf("Search query retrieved: `%s`\n", searchQuery)
 
 			webpageBytes, err := ListenIncomingSegments(searchQuery)
 			fmt.Printf("Total Byte Length: %d\n", len(webpageBytes))
@@ -92,22 +92,22 @@ func main() {
 			// create segments in this section after ranking
 			calculatedRatings := bm25.CalculateBMRatings(searchQuery, webpages, bm25.AvgDocLen(webpages))
 			rankedWebpages := bm25.RankBM25Ratings(calculatedRatings)
-			fmt.Printf("Search Query for composite query: %s\n\n", searchQuery)
+			fmt.Printf("Search Query for composite query: %s\n", searchQuery)
 
 			segments, err := CreateSegments(rankedWebpages, MSS)
-			fmt.Printf("Segment Length in main: %+v", segments)
 			if err != nil {
 				fmt.Println(err.Error())
 				log.Panicf("Unable to create segments")
 			}
 
-			// l, err := GetSegmentHeader(segments[0])
-			// if err != nil {
-			// 	fmt.Println(err.Error())
-			// 	log.Panicf("Unable to extract segment header")
-			// }
+			l, err := GetSegmentHeader(segments[0])
+			if err != nil {
+				fmt.Println(err.Error())
+				log.Panicf("Unable to extract segment header")
+			}
+			fmt.Printf("Segment Header: %+v\n", l)
 
-			// rabbitmq.PublishScoreRanking(rankedWebpages)
+			rabbitmq.PublishScoreRanking(segments)
 		}
 	}(searchQueryChan)
 

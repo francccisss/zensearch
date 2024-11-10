@@ -28,26 +28,26 @@ func QueryDatabase(message string) {
 	log.Printf("End of Query\n")
 }
 
-func PublishScoreRanking(rankedWebpages any) {
+func PublishScoreRanking(segments [][]byte) {
 
 	ch, err := GetChannel("mainChannel")
 	if err != nil {
 		log.Panicf("mainChannel does not exist\n")
 	}
 	ch.QueueDeclare(PUBLISH_QUEUE, false, false, false, false, nil)
-	encodedWebpages, err := json.Marshal(rankedWebpages)
-	if err != nil {
-		log.Panicf(err.Error())
+
+	for i := 0; i < len(segments); i++ {
+		err = ch.Publish(
+			"",
+			PUBLISH_QUEUE,
+			false,
+			false,
+			amqp.Publishing{
+				ContentType: "text/plain",
+				Body:        segments[i],
+			})
 	}
-	err = ch.Publish(
-		"",
-		PUBLISH_QUEUE,
-		false,
-		false,
-		amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        encodedWebpages,
-		})
+
 	// TODO Dont panic its organic
 	if err != nil {
 		log.Panicf(err.Error())
