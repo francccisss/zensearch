@@ -10,7 +10,7 @@ const (
 	b  = .4 // controlling document normalization
 )
 
-func TF(searchQuery string, webpages *[]utilities.WebpageTFIDF, AvgDocLen float64) error {
+func TF(searchQuery string, webpages *[]WebpageTFIDF, AvgDocLen float64) error {
 
 	for i := range *webpages {
 
@@ -25,7 +25,7 @@ func TF(searchQuery string, webpages *[]utilities.WebpageTFIDF, AvgDocLen float6
 	return nil
 }
 
-func AvgDocLen(webpages *[]utilities.WebpageTFIDF) float64 {
+func AvgDocLen(webpages *[]WebpageTFIDF) float64 {
 	totalTermCount := 0
 	for i := range *webpages {
 		docLength := utilities.DocLength((*webpages)[i].Contents)

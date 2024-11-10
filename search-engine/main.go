@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"search-engine/bm25"
-	"search-engine/rabbitmq"
-	"search-engine/utilities"
+	"search-engine/internal/bm25"
+	"search-engine/internal/rabbitmq"
+	"search-engine/internal/segments"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -76,7 +76,7 @@ func main() {
 
 			fmt.Printf("Search query retrieved: `%s`\n", searchQuery)
 
-			webpageBytes, err := ListenIncomingSegments(searchQuery)
+			webpageBytes, err := Segments.ListenIncomingSegments(searchQuery)
 			fmt.Printf("Total Byte Length: %d\n", len(webpageBytes))
 
 			if err != nil {
@@ -94,13 +94,13 @@ func main() {
 			rankedWebpages := bm25.RankBM25Ratings(calculatedRatings)
 			fmt.Printf("Search Query for composite query: %s\n", searchQuery)
 
-			segments, err := CreateSegments(rankedWebpages, MSS)
+			segments, err := Segments.CreateSegments(rankedWebpages, MSS)
 			if err != nil {
 				fmt.Println(err.Error())
 				log.Panicf("Unable to create segments")
 			}
 
-			l, err := GetSegmentHeader(segments[0])
+			l, err := Segments.GetSegmentHeader(segments[0])
 			if err != nil {
 				fmt.Println(err.Error())
 				log.Panicf("Unable to extract segment header")
@@ -144,8 +144,8 @@ func failOnError(err error, msg string) {
 	}
 }
 
-func ParseWebpages(data []byte) (*[]utilities.WebpageTFIDF, error) {
-	var webpages []utilities.WebpageTFIDF
+func ParseWebpages(data []byte) (*[]bm25.WebpageTFIDF, error) {
+	var webpages []bm25.WebpageTFIDF
 	err := json.Unmarshal(data, &webpages)
 	if err != nil {
 		return nil, err
