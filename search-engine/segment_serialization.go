@@ -73,7 +73,9 @@ func ListenIncomingSegments(searchQuery string) ([]byte, error) {
 			dbChannel.Nack(segment.DeliveryTag, true, true)
 			fmt.Printf("Expected Sequence number %d, got %d\n",
 				expectedSequenceNum, segmentHeader.SequenceNum)
-			return nil, fmt.Errorf("Unexpected sequence number")
+
+			// TODO change this for retransmission dont crash
+			return nil, fmt.Errorf("Unexpected sequence number\n")
 			// continue
 		}
 
