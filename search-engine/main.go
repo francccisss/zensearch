@@ -81,7 +81,7 @@ func main() {
 
 			if err != nil {
 				fmt.Printf("Something went wrong while listening to incoming data segments from database\n")
-				log.Printf(err.Error())
+				log.Panicf(err.Error())
 			} // DONT TOUCH THIS
 			webpages, err := ParseWebpages(webpageBytes)
 
@@ -95,21 +95,18 @@ func main() {
 			fmt.Printf("Search Query for composite query: %s\n\n", searchQuery)
 
 			segments, err := CreateSegments(rankedWebpages, MSS)
+			fmt.Printf("Segment Length in main: %+v", segments)
 			if err != nil {
 				fmt.Println(err.Error())
 				log.Panicf("Unable to create segments")
 			}
 
-			b := []byte{}
-			for _, segment := range segments {
-				b = append(b, segment...)
-			}
-			we, err := ParseWebpages(b)
-			if err != nil {
-				fmt.Println("Unable to parse webpages")
-				log.Panicf(err.Error())
-			}
-			fmt.Println(we)
+			// l, err := GetSegmentHeader(segments[0])
+			// if err != nil {
+			// 	fmt.Println(err.Error())
+			// 	log.Panicf("Unable to extract segment header")
+			// }
+
 			// rabbitmq.PublishScoreRanking(rankedWebpages)
 		}
 	}(searchQueryChan)
@@ -134,9 +131,8 @@ func main() {
 	}(searchQueryChan)
 
 	// need to signal this loop to stop if error or graceful exits
-	for {
-
-	}
+	loop := make(chan bool)
+	<-loop
 
 }
 
