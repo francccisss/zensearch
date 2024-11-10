@@ -74,7 +74,8 @@ func ListenIncomingSegments(searchQuery string) ([]byte, error) {
 			dbChannel.Nack(segment.DeliveryTag, true, true)
 			fmt.Printf("Expected Sequence number %d, got %d\n",
 				expectedSequenceNum, segmentHeader.SequenceNum)
-			continue
+			return nil, fmt.Errorf("Unexpected sequence number")
+			// continue
 		}
 
 		segmentCounter++
@@ -104,10 +105,6 @@ func CreateSegments(webpages *[]utilities.WebpageTFIDF, MSS int) ([][]byte, erro
 	serializeWebpages, err := json.Marshal(webpages)
 	if err != nil {
 		fmt.Println("Unable to Marshal webpages")
-		log.Panicf(err.Error())
-	}
-	if err != nil {
-		fmt.Printf("Unable to serialize webpage arrays for segmentation\n")
 		return nil, err
 	}
 
@@ -121,10 +118,10 @@ func CreateSegments(webpages *[]utilities.WebpageTFIDF, MSS int) ([][]byte, erro
 		currentIndex    = 0
 		pointerPosition = float64(MSS)
 	)
-	for range segmentCount {
+	for i := range segmentCount {
 
 		segmentSlice := serializeWebpages[currentIndex:int(pointerPosition)]
-		segments = append(segments, NewSegment(segmentSlice))
+		segments = append(segments, NewSegment(uint32(i), uint32(segmentCount), segmentSlice))
 
 		currentIndex = int(pointerPosition)
 
@@ -134,7 +131,7 @@ func CreateSegments(webpages *[]utilities.WebpageTFIDF, MSS int) ([][]byte, erro
 		fmt.Printf("Slice from %d up to %d\n", currentIndex, serializedWebpagesLen-currentIndex)
 	}
 
-	fmt.Printf("Segments Length: %d\n", len(segments))
+	fmt.Printf("\nTotal segments created: %d\n", len(segments))
 	return segments, nil
 }
 
@@ -148,9 +145,16 @@ func readBufferToSlice(buff bytes.Buffer) ([]byte, error) {
 	return newSlice, nil
 }
 
-func NewSegment(payload []byte) []byte {
-	// add headers here
-	return payload
+func NewSegment(sequenceNum uint32, segmentCount uint32, payload []byte) []byte {
+	// read bytes up to the capacity of the buffer into the buffer itself
+	seqNumBuff := make([]byte, binary.MaxVarintLen32)
+	binary.LittleEndian.PutUint32(seqNumBuff, uint32(sequenceNum))
+
+	header := binary.LittleEndian.AppendUint32(seqNumBuff, segmentCount)
+	segment := append(header, payload...)
+
+	fmt.Println(header)
+	return segment
 }
 
 func SendSegments() {
@@ -160,7 +164,7 @@ func SendSegments() {
 func GetSegmentHeader(buf []byte) (*SegmentHeader, error) {
 	byteReader := bytes.NewBuffer(buf)
 	headerOffsets := []int{0, 4}
-	newSegmentHeader := SegmentHeader{}
+	var newSegmentHeader SegmentHeader
 
 	for i := range headerOffsets {
 		buffer := make([]byte, 4)
