@@ -84,7 +84,7 @@ func ListenIncomingSegments(searchQuery string) ([]byte, error) {
 		webpageBytes = append(webpageBytes, segmentPayload...)
 
 		if segmentCounter == segmentHeader.TotalSegments {
-			log.Printf("Received all of the segments from Database %d", segmentCounter)
+			fmt.Printf("Received all of the segments from Database %d\n", segmentCounter)
 
 			// reset everything
 			expectedSequenceNum = 0
@@ -107,31 +107,29 @@ func CreateSegments(webpages *[]utilities.WebpageTFIDF, MSS int) ([][]byte, erro
 		return nil, err
 	}
 
+	serializedSegments := [][]byte{}
 	serializedWebpagesLen := len(serializeWebpages)
 	segmentCount := int(serializedWebpagesLen/MSS) + 1 // for the remainder
-	fmt.Printf("\nSegment Count: %d\n", segmentCount)
-
-	segments := [][]byte{}
+	fmt.Printf("Segment Count: %d\n", segmentCount)
 
 	var (
 		currentIndex    = 0
 		pointerPosition = float64(MSS)
 	)
-	for i := range segmentCount {
+	for i := 0; i < segmentCount; i++ {
 
 		segmentSlice := serializeWebpages[currentIndex:int(pointerPosition)]
-		segments = append(segments, NewSegment(uint32(i), uint32(segmentCount), segmentSlice))
+		serializedSegments = append(serializedSegments, NewSegment(uint32(i), uint32(segmentCount), segmentSlice))
 
 		currentIndex = int(pointerPosition)
 
 		pointerPosition += math.Min(float64(MSS), float64(serializedWebpagesLen-currentIndex))
-
-		fmt.Printf("\nRemaining Data Length: %d\n", serializedWebpagesLen-currentIndex)
-		fmt.Printf("Slice from %d up to %d\n", currentIndex, serializedWebpagesLen-currentIndex)
 	}
 
-	fmt.Printf("\nTotal segments created: %d\n", len(segments))
-	return segments, nil
+	fmt.Printf("Total segments created: %d\n", len(serializedSegments))
+	defer fmt.Println("Successfully exited")
+
+	return serializedSegments, nil
 }
 
 func readBufferToSlice(buff bytes.Buffer) ([]byte, error) {
@@ -155,10 +153,9 @@ func NewSegment(sequenceNum uint32, segmentCount uint32, payload []byte) []byte 
 	// header := binary.LittleEndian.AppendUint32(seqNumBuff, segmentCount)
 
 	// Im gonna do what's called a pro gamer move
-	segment := append([]byte{0, 0, 0, byte(sequenceNum), 0, 0, 0, byte(segmentCount)}, payload...)
-
-	fmt.Printf("Current segment length: %d\n", len(segment))
-	fmt.Printf("10 bytes from current segment: %+v\n", segment[:10])
+	// DO THIS JUST FOR NOW
+	// TODO CHANGE THIS OR ELSE
+	segment := append([]byte{byte(sequenceNum), 0, 0, 0, byte(segmentCount), 0, 0, 0}, payload...)
 
 	return segment
 }
