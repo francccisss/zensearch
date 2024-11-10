@@ -1,7 +1,6 @@
 package rabbitmq
 
 import (
-	"encoding/json"
 	"fmt"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
@@ -46,10 +45,11 @@ func PublishScoreRanking(segments [][]byte) {
 				ContentType: "text/plain",
 				Body:        segments[i],
 			})
+
+		// TODO Dont panic its organic
+		if err != nil {
+			log.Panicf(err.Error())
+		}
 	}
 
-	// TODO Dont panic its organic
-	if err != nil {
-		log.Panicf(err.Error())
-	}
 }
