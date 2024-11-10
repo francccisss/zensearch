@@ -1,4 +1,4 @@
-package main
+package Segments
 
 import (
 	"bytes"
@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"search-engine/rabbitmq"
-	"search-engine/utilities"
+	"search-engine/internal/bm25"
+	"search-engine/internal/rabbitmq"
 )
 
 type Segment struct {
@@ -19,12 +19,6 @@ type Segment struct {
 type SegmentHeader struct {
 	SequenceNum   uint32
 	TotalSegments uint32
-}
-
-type TokenRating struct {
-	Bm25rating float64
-	TfRating   float64
-	IdfRating  float64
 }
 
 func ListenIncomingSegments(searchQuery string) ([]byte, error) {
@@ -99,7 +93,7 @@ func ListenIncomingSegments(searchQuery string) ([]byte, error) {
 }
 
 // MSS is the maximum segment size of the bytes to be transported to the express server
-func CreateSegments(webpages *[]utilities.WebpageTFIDF, MSS int) ([][]byte, error) {
+func CreateSegments(webpages *[]bm25.WebpageTFIDF, MSS int) ([][]byte, error) {
 	// GOB APPENDS METADATA ABOUT THE TYPES THAT ARE ENCODED FOR
 	// THE DECODER TO INTERPRET
 

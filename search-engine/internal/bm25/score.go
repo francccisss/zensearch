@@ -6,12 +6,24 @@ import (
 	"sort"
 )
 
+type WebpageTFIDF struct {
+	Contents string
+	Title    string
+	Url      string
+	TokenRating
+}
+type TokenRating struct {
+	Bm25rating float64
+	TfRating   float64
+	IdfRating  float64
+}
+
 type WebpageRanking struct {
 	Url    string
 	Rating float64
 }
 
-func CalculateBMRatings(query string, webpages *[]utilities.WebpageTFIDF, AvgDocLen float64) *[]utilities.WebpageTFIDF {
+func CalculateBMRatings(query string, webpages *[]WebpageTFIDF, AvgDocLen float64) *[]WebpageTFIDF {
 	tokenizedQuery := utilities.Tokenizer(query)
 	fmt.Println(tokenizedQuery)
 
@@ -34,7 +46,7 @@ func CalculateBMRatings(query string, webpages *[]utilities.WebpageTFIDF, AvgDoc
 	return webpages
 }
 
-func RankBM25Ratings(webpages *[]utilities.WebpageTFIDF) *[]utilities.WebpageTFIDF {
+func RankBM25Ratings(webpages *[]WebpageTFIDF) *[]WebpageTFIDF {
 	webpagesSlice := (*webpages)[:]
 
 	// TODO replace sort.Slice with slices.SortFunc
