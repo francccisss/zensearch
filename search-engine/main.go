@@ -105,7 +105,14 @@ func main() {
 				fmt.Println(err.Error())
 				log.Panicf("Unable to extract segment header")
 			}
-			fmt.Printf("Segment Header: %+v\n", l)
+
+			k, err := Segments.GetSegmentHeader(segments[1])
+			if err != nil {
+				fmt.Println(err.Error())
+				log.Panicf("Unable to extract segment header")
+			}
+			fmt.Printf("1st Segment Header: %+v\n", l)
+			fmt.Printf("2nd Segment Header: %+v\n", k)
 
 			rabbitmq.PublishScoreRanking(segments)
 		}

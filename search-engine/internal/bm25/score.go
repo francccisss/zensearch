@@ -2,8 +2,8 @@ package bm25
 
 import (
 	"fmt"
-	"search-engine/utilities"
 	"sort"
+	"strings"
 )
 
 type WebpageTFIDF struct {
@@ -24,7 +24,7 @@ type WebpageRanking struct {
 }
 
 func CalculateBMRatings(query string, webpages *[]WebpageTFIDF, AvgDocLen float64) *[]WebpageTFIDF {
-	tokenizedQuery := utilities.Tokenizer(query)
+	tokenizedQuery := Tokenizer(query)
 	fmt.Println(tokenizedQuery)
 
 	// get IDF and TF for each token
@@ -53,11 +53,40 @@ func RankBM25Ratings(webpages *[]WebpageTFIDF) *[]WebpageTFIDF {
 	sort.Slice(webpagesSlice, func(i, j int) bool {
 		return webpagesSlice[i].TokenRating.Bm25rating > webpagesSlice[j].TokenRating.Bm25rating
 	})
-	filteredWebpages := utilities.Filter(webpagesSlice)
+	filteredWebpages := filter(webpagesSlice)
 
 	// fmt.Printf("Filtered: %+v\n", filteredWebpages)
 
 	return &filteredWebpages
+}
+
+func Tokenizer(query string) []string {
+	tmpSlice := []string{}
+	var charHolder = ""
+	for i := 0; i < len(query); i++ {
+		char := string(query[i])
+		charHolder += char
+		if char == " " {
+			tmpSlice = append(tmpSlice, strings.Trim(charHolder, " "))
+			charHolder = ""
+		}
+	}
+
+	// add the remaining character after reaching null byte
+	tmpSlice = append(tmpSlice, strings.Trim(charHolder, " "))
+	fmt.Printf("Length of Token: %d\n", len(tmpSlice))
+	return tmpSlice
+}
+
+func filter(webpages []WebpageTFIDF) []WebpageTFIDF {
+	tmp := make([]WebpageTFIDF, 0)
+	for _, webpage := range webpages {
+		if webpage.TokenRating.Bm25rating == 0 {
+			break
+		}
+		tmp = append(tmp, webpage)
+	}
+	return tmp
 }
 
 func BM25(IDF, TF float64) float64 {
