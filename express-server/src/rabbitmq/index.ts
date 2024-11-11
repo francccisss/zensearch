@@ -138,19 +138,29 @@ class RabbitMQClient {
             throw new Error("Msg does not exist");
           }
           // bruh it should already exist if we're calling consume.. the frick!
-          this.search_channel!.ack(data);
-          this.eventEmitter.emit("searchResults", { data, err: null });
+          this.eventEmitter.emit("newSegment", { data, err: null });
         },
         { noAck: false },
       );
     } catch (err) {
-      this.eventEmitter.emit("searchResults", { data: null, err });
       console.error(err);
     }
   }
 
-  // Crawler Expects an Object to be unmarshalled where the
-  // Array of websites are inside a Docs property.
+  /*
+   everytime a new segment arrives from the search engine the promise is resolved
+   within the callback function of the event listener, this is synchronous
+   in terms of data being perserved within the segmentGenerator.
+  */
+  async *segmentGenerator() {
+    while (true) {
+      yield await new Promise((resolve) =>
+        this.eventEmitter.once("newSegment", resolve),
+      );
+    }
+  }
+
+  // Crawler Expects an Object to be unmarshalled where the array of websites are inside a Docs property.
   async crawl(
     websites: Buffer,
     job: { queue: string; id: string },

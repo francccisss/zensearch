@@ -2,11 +2,10 @@ package bm25
 
 import (
 	"math"
-	"search-engine/utilities"
 	"strings"
 )
 
-func CalculateIDF(term string, webpages *[]utilities.WebpageTFIDF) float64 {
+func CalculateIDF(term string, webpages *[]WebpageTFIDF) float64 {
 
 	numberOfDocumentsInCorpa := float64(len(*webpages))
 	documentCountWithTerm := float64(termCountInCorpa(term, webpages))
@@ -16,7 +15,7 @@ func CalculateIDF(term string, webpages *[]utilities.WebpageTFIDF) float64 {
 	return math.Log(numberOfDocumentsInCorpa / documentCountWithTerm)
 }
 
-func termCountInCorpa(term string, webpages *[]utilities.WebpageTFIDF) int {
+func termCountInCorpa(term string, webpages *[]WebpageTFIDF) int {
 	documentCount := 0
 
 	for i := range *webpages {

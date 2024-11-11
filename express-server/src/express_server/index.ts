@@ -10,6 +10,7 @@ import {
 import rabbitmq from "../rabbitmq";
 import { Data } from "ws";
 import { create } from "express-handlebars";
+import segment_serializer from "../utils/segment_serializer";
 
 const cors = require("cors");
 const body_parser = require("body-parser");
@@ -160,33 +161,37 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
   this might add some significant overhead that im not aware of but right now
   it works, i could change this by using an event emmiter and just call the listener
   on init.
+
+
+  Problem not receiving all of the segments from search engine.
 */
 
 app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
   const q = req.query.q;
-  function eventListener(msg: { data: ConsumeMessage; err: Error | null }) {
-    if (msg.err !== null) {
-      throw new Error(msg.err.message);
-    }
-    const parse_ranked_pages = JSON.parse(msg.data.content.toString());
-    console.log("NOTIF: Search query sent to the client .");
 
-    res.render("search", {
-      search_results: parse_ranked_pages.length === 0 ? [] : parse_ranked_pages,
-      query: q,
-    });
-    //res.json({ msg: parse_ranked_pages, success: true, query: q });
-    rabbitmq.client.eventEmitter.removeAllListeners("searchResults");
-  }
+  console.log("NOTIF: Search Query sent");
+  console.log("SEARCH QUERY: %s", q);
   try {
-    console.log("NOTIF: Search Query sent");
-    console.log("SEARCH QUERY: %s", q);
-    // Creates a search channel
     const is_sent = await rabbitmq.client.send_search_query(q as string);
     if (!is_sent) {
       throw new Error("ERROR: Unable to send search query.");
     }
-    rabbitmq.client.eventEmitter.on("searchResults", eventListener);
+
+    const webpageBuffer = await segment_serializer.listenIncomingSegments(
+      rabbitmq.client.search_channel!,
+      rabbitmq.client.segmentGenerator.bind(rabbitmq.client),
+    );
+    console.log(webpageBuffer.length);
+    const parseWebpages = segment_serializer
+      .parseWebpages(webpageBuffer)
+      .slice(0, 10);
+    console.log(parseWebpages[0]);
+    console.log(parseWebpages.length);
+
+    res.render("search", {
+      search_results: parseWebpages.length === 0 ? [] : parseWebpages,
+      query: q,
+    });
   } catch (err) {
     const error = err as Error;
     console.error(error.message);
