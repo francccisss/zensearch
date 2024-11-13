@@ -33,7 +33,6 @@ func PublishScoreRanking(segments [][]byte) {
 	if err != nil {
 		log.Panicf("mainChannel does not exist\n")
 	}
-	ch.QueueDeclare(PUBLISH_QUEUE, false, false, false, false, nil)
 
 	fmt.Printf("Sending %d ranked webpage segments\n", len(segments))
 	defer fmt.Printf("Successfully sent all %d segments\n", len(segments))
