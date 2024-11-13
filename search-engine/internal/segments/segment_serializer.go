@@ -5,15 +5,14 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"log"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"math"
 	"search-engine/internal/bm25"
-	"search-engine/internal/rabbitmq"
 )
 
 type Segment struct {
-	Header SegmentHeader
-	Data   []byte
+	Header  SegmentHeader
+	Payload []byte
 }
 
 type SegmentHeader struct {
@@ -21,82 +20,25 @@ type SegmentHeader struct {
 	TotalSegments uint32
 }
 
-func ListenIncomingSegments(searchQuery string) ([]byte, error) {
+func DecodeSegments(newSegment amqp.Delivery) (Segment, error) {
 
-	dbChannel, err := rabbitmq.GetChannel("dbChannel")
+	segmentHeader, err := GetSegmentHeader(newSegment.Body)
 	if err != nil {
-		log.Panicf("dbChannel does not exist please restart the application\n")
+		fmt.Println("Unable to extract segment header")
+		return Segment{}, err
 	}
 
-	dbMsg, err := dbChannel.Consume(
-		rabbitmq.DB_RESPONSE_QUEUE,
-		"",
-		false,
-		false,
-		false,
-		false,
-		nil,
-	)
-	var (
-		segmentCounter      uint32 = 0
-		expectedSequenceNum uint32 = 0
-	)
-
-	webpageBytes := []byte{}
-	defer func(webwebpageBytes *[]byte) {
-		*webwebpageBytes = nil
-	}(&webpageBytes)
-
-	for {
-		segment := <-dbMsg
-
-		segmentHeader, err := GetSegmentHeader(segment.Body)
-		if err != nil {
-			fmt.Println("Unable to extract segment header")
-			return nil, err
-		}
-
-		segmentPayload, err := GetSegmentPayload(segment.Body)
-		if err != nil {
-			fmt.Println("Unable to extract segment payload")
-			return nil, err
-		}
-
-		// for retransmission/requeuing
-		if segmentHeader.SequenceNum != expectedSequenceNum {
-			dbChannel.Nack(segment.DeliveryTag, true, true)
-			fmt.Printf("Expected Sequence number %d, got %d\n",
-				expectedSequenceNum, segmentHeader.SequenceNum)
-
-			// TODO change this for retransmission dont crash
-			return nil, fmt.Errorf("Unexpected sequence number\n")
-			// continue
-		}
-
-		segmentCounter++
-		expectedSequenceNum++
-
-		dbChannel.Ack(segment.DeliveryTag, false)
-		webpageBytes = append(webpageBytes, segmentPayload...)
-
-		if segmentCounter == segmentHeader.TotalSegments {
-			fmt.Printf("Received all of the segments from Database %d\n", segmentCounter)
-
-			// reset everything
-			expectedSequenceNum = 0
-			segmentCounter = 0
-
-			break
-		}
+	segmentPayload, err := GetSegmentPayload(newSegment.Body)
+	if err != nil {
+		fmt.Println("Unable to extract segment payload")
+		return Segment{}, err
 	}
-	return webpageBytes, nil
+
+	return Segment{Header: *segmentHeader, Payload: segmentPayload}, nil
 }
 
 // MSS is the maximum segment size of the bytes to be transported to the express server
 func CreateSegments(webpages *[]bm25.WebpageTFIDF, MSS int) ([][]byte, error) {
-	// GOB APPENDS METADATA ABOUT THE TYPES THAT ARE ENCODED FOR
-	// THE DECODER TO INTERPRET
-
 	serializeWebpages, err := json.Marshal(webpages)
 	if err != nil {
 		fmt.Println("Unable to Marshal webpages")
