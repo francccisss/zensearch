@@ -106,11 +106,14 @@ func CreateSegments(webpages *[]bm25.WebpageTFIDF, MSS int) ([][]byte, error) {
 	serializedSegments := [][]byte{}
 	serializedWebpagesLen := len(serializeWebpages)
 	segmentCount := int(serializedWebpagesLen/MSS) + 1 // for the remainder
-	fmt.Printf("Segment Count: %d\n", segmentCount)
+	fmt.Printf("Total segment to be created: %d\n", segmentCount)
 
 	var (
-		currentIndex    = 0
-		pointerPosition = float64(MSS)
+		currentIndex = 0
+
+		// set the position before starting the loop to determine so that if ever the bytes
+		// are less than the MSS then we can adjust it before hand
+		pointerPosition = math.Min(float64(MSS), float64(serializedWebpagesLen-currentIndex))
 	)
 	for i := 0; i < segmentCount; i++ {
 

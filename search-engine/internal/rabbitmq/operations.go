@@ -35,6 +35,8 @@ func PublishScoreRanking(segments [][]byte) {
 	}
 	ch.QueueDeclare(PUBLISH_QUEUE, false, false, false, false, nil)
 
+	fmt.Printf("Sending %d ranked webpage segments\n", len(segments))
+	defer fmt.Printf("Successfully sent all %d segments\n", len(segments))
 	for i := 0; i < len(segments); i++ {
 		err = ch.Publish(
 			"",
