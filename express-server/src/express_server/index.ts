@@ -185,7 +185,6 @@ app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
     const parseWebpages = segment_serializer
       .parseWebpages(webpageBuffer)
       .slice(0, 10);
-    console.log(parseWebpages[0]);
     console.log(parseWebpages.length);
 
     res.render("search", {
