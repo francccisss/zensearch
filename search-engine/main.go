@@ -74,47 +74,34 @@ func main() {
 			// Should i use go routines? its still going to be an unbuffered channel anyways
 			// so might as well just make everything synchronous
 
+			// Segments retrieval
 			fmt.Printf("Search query retrieved: `%s`\n", searchQuery)
-
 			webpageBytes, err := Segments.ListenIncomingSegments(searchQuery)
-			fmt.Printf("Total Byte Length: %d\n", len(webpageBytes))
+			fmt.Printf("Total Bytes received: %d\n", len(webpageBytes))
 
 			if err != nil {
 				fmt.Printf("Something went wrong while listening to incoming data segments from database\n")
 				log.Panicf(err.Error())
-			} // DONT TOUCH THIS
-			webpages, err := ParseWebpages(webpageBytes)
+			}
 
+			// For ranking webpages
+			webpages, err := ParseWebpages(webpageBytes)
 			if err != nil {
 				fmt.Printf(err.Error())
 				log.Panicf("Unable to parse webpages")
 			}
-			// create segments in this section after ranking
 			calculatedRatings := bm25.CalculateBMRatings(searchQuery, webpages, bm25.AvgDocLen(webpages))
 			rankedWebpages := bm25.RankBM25Ratings(calculatedRatings)
-			fmt.Printf("Search Query for composite query: %s\n", searchQuery)
 
+			fmt.Printf("Total ranked webpages: %d\n", len(*rankedWebpages))
+
+			// create segments in this section after ranking
 			segments, err := Segments.CreateSegments(rankedWebpages, MSS)
 			if err != nil {
 				fmt.Println(err.Error())
 				log.Panicf("Unable to create segments")
 			}
-
-			l, err := Segments.GetSegmentHeader(segments[0])
-			if err != nil {
-				fmt.Println(err.Error())
-				log.Panicf("Unable to extract segment header")
-			}
-
-			k, err := Segments.GetSegmentHeader(segments[1])
-			if err != nil {
-				fmt.Println(err.Error())
-				log.Panicf("Unable to extract segment header")
-			}
-			fmt.Printf("1st Segment Header: %+v\n", l)
-			fmt.Printf("2nd Segment Header: %+v\n", k)
-
-			rabbitmq.PublishScoreRanking(segments)
+			go rabbitmq.PublishScoreRanking(segments)
 		}
 	}(searchQueryChan)
 
@@ -133,7 +120,7 @@ func main() {
 			// searchQueryChan is not working for some reason
 			searchQueryChan <- searchQuery
 			fmt.Print("Process Done.\n")
-			rabbitmq.QueryDatabase(searchQuery)
+			go rabbitmq.QueryDatabase(searchQuery)
 		}
 	}(searchQueryChan)
 
