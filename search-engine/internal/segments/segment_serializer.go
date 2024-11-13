@@ -5,9 +5,11 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	amqp "github.com/rabbitmq/amqp091-go"
+	"log"
 	"math"
 	"search-engine/internal/bm25"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type Segment struct {
@@ -18,6 +20,52 @@ type Segment struct {
 type SegmentHeader struct {
 	SequenceNum   uint32
 	TotalSegments uint32
+}
+
+func ListenIncomingSegments(dbChannel *amqp.Channel, incomingSegmentsChan <-chan amqp.Delivery, webpageBytesChan chan []byte) {
+
+	var (
+		segmentCounter      uint32 = 0
+		expectedSequenceNum uint32 = 0
+	)
+
+	webpageBytes := []byte{}
+	defer func(webwebpageBytes *[]byte) {
+		*webwebpageBytes = nil
+	}(&webpageBytes)
+	for newSegment := range incomingSegmentsChan {
+
+		segment, err := DecodeSegments(newSegment)
+		if err != nil {
+			log.Panicf("Unable to decode segments")
+		}
+
+		if segment.Header.SequenceNum != expectedSequenceNum {
+			dbChannel.Nack(newSegment.DeliveryTag, true, true)
+			fmt.Printf("Expected Sequence number %d, got %d\n",
+				expectedSequenceNum, segment.Header.SequenceNum)
+
+			// TODO change this for retransmission dont crash
+			log.Panicf("Unexpected sequence number\n")
+			// continue
+		}
+
+		segmentCounter++
+		expectedSequenceNum++
+
+		dbChannel.Ack(newSegment.DeliveryTag, false)
+		webpageBytes = append(webpageBytes, segment.Payload...)
+
+		if segmentCounter == segment.Header.TotalSegments {
+			fmt.Printf("Received all of the segments from Database %d\n", segmentCounter)
+			// reset everything
+			expectedSequenceNum = 0
+			segmentCounter = 0
+			break
+		}
+	}
+	webpageBytesChan <- webpageBytes
+
 }
 
 func DecodeSegments(newSegment amqp.Delivery) (Segment, error) {

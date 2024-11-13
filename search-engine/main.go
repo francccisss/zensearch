@@ -66,6 +66,7 @@ func main() {
 
 	searchQueryChan := make(chan string)
 	incomingSegmentsChan := make(chan amqp.Delivery)
+	webpageBytesChan := make(chan []byte)
 	var currentSearchQuery string
 
 	go func(chann *amqp.Channel) {
@@ -83,115 +84,64 @@ func main() {
 		if err != nil {
 			log.Panicf("Unable to listen to %s", rabbitmq.SEARCH_QUEUE)
 		}
-		incomingSegment := <-dbMsg
-		incomingSegmentsChan <- incomingSegment
+
+		// Consume and send segment to segment channel
+		for incomingSegment := range dbMsg {
+			incomingSegmentsChan <- incomingSegment
+		}
 
 	}(dbQueryChannel)
 
-	// Concurrency Pipline
-
 	// Receiving User's Query
 	go func(searchQueryChan chan string) {
-		for {
-			userSearch := <-msgs
+		for userSearch := range msgs {
 			searchQuery := string(userSearch.Body)
-			if searchQuery == "" {
-				log.Panicf("Search Query is empty\n")
-			}
+
+			searchQueryChan <- searchQuery
+			mainChannel.Ack(userSearch.DeliveryTag, true)
 
 			fmt.Printf("User's Query: %s\n", searchQuery)
-			mainChannel.Ack(userSearch.DeliveryTag, true)
-			// block until we received a search query
-			// if Process Done log is not called means
-			// searchQueryChan is not working for some reason
-			searchQueryChan <- searchQuery
 			currentSearchQuery = searchQuery
 		}
 	}(searchQueryChan)
 
-	// Sending to query database
-	go func(searchQueryChan <-chan string) {
-		for {
-			searchQuery := <-searchQueryChan
+	// Sending to query database and creating a segment listener
+	go func() {
+		for searchQuery := range searchQueryChan {
 
 			fmt.Print("Query database\n")
+			// Queries database to send segments to search engine
 			go rabbitmq.QueryDatabase(searchQuery)
 
+			fmt.Print("Spawn segment listener\n")
+			go Segments.ListenIncomingSegments(dbQueryChannel, incomingSegmentsChan, webpageBytesChan)
 		}
-	}(searchQueryChan)
+	}()
 
 	// Listens for incoming segments from the database Query channel consumer
-	go func(dbChannel *amqp.Channel, currentSearchQuery string, incomingSegmentsChan <-chan amqp.Delivery) {
-
-		// Segments retrieval
-
-		var (
-			segmentCounter      uint32 = 0
-			expectedSequenceNum uint32 = 0
-		)
-
-		webpageBytes := []byte{}
-		defer func(webwebpageBytes *[]byte) {
-			*webwebpageBytes = nil
-		}(&webpageBytes)
-		for newSegment := range incomingSegmentsChan {
-
-			fmt.Printf("Search query retrieved: `%s`\n", currentSearchQuery)
-			segment, err := Segments.DecodeSegments(newSegment)
+	go func() {
+		for webpageBuffer := range webpageBytesChan {
+			// For ranking webpages
+			webpages, err := ParseWebpages(webpageBuffer)
 			if err != nil {
-				log.Panicf("Unable to decode segments")
+				fmt.Printf(err.Error())
+				log.Panicf("Unable to parse webpages")
 			}
+			calculatedRatings := bm25.CalculateBMRatings(currentSearchQuery, webpages, bm25.AvgDocLen(webpages))
+			rankedWebpages := bm25.RankBM25Ratings(calculatedRatings)
 
-			fmt.Printf("Total Bytes received: %d\n", len(webpageBytes))
-			if segment.Header.SequenceNum != expectedSequenceNum {
-				dbChannel.Nack(newSegment.DeliveryTag, true, true)
-				fmt.Printf("Expected Sequence number %d, got %d\n",
-					expectedSequenceNum, segment.Header.SequenceNum)
+			fmt.Printf("Total ranked webpages: %d\n", len(*rankedWebpages))
 
-				// TODO change this for retransmission dont crash
-				log.Panicf("Unexpected sequence number\n")
-				// continue
+			// create segments in this section after ranking
+			segments, err := Segments.CreateSegments(rankedWebpages, MSS)
+			if err != nil {
+				fmt.Println(err.Error())
+				log.Panicf("Unable to create segments")
 			}
+			go rabbitmq.PublishScoreRanking(segments)
 
-			segmentCounter++
-			expectedSequenceNum++
-
-			dbChannel.Ack(newSegment.DeliveryTag, false)
-			webpageBytes = append(webpageBytes, segment.Payload...)
-
-			if segmentCounter == segment.Header.TotalSegments {
-				fmt.Printf("Received all of the segments from Database %d\n", segmentCounter)
-				// reset everything
-				expectedSequenceNum = 0
-				segmentCounter = 0
-				break
-			}
 		}
-
-		if err != nil {
-			fmt.Printf("Something went wrong while listening to incoming data segments from database\n")
-			log.Panicf(err.Error())
-		}
-
-		// For ranking webpages
-		webpages, err := ParseWebpages(webpageBytes)
-		if err != nil {
-			fmt.Printf(err.Error())
-			log.Panicf("Unable to parse webpages")
-		}
-		calculatedRatings := bm25.CalculateBMRatings(currentSearchQuery, webpages, bm25.AvgDocLen(webpages))
-		rankedWebpages := bm25.RankBM25Ratings(calculatedRatings)
-
-		fmt.Printf("Total ranked webpages: %d\n", len(*rankedWebpages))
-
-		// create segments in this section after ranking
-		segments, err := Segments.CreateSegments(rankedWebpages, MSS)
-		if err != nil {
-			fmt.Println(err.Error())
-			log.Panicf("Unable to create segments")
-		}
-		go rabbitmq.PublishScoreRanking(segments)
-	}(dbQueryChannel, currentSearchQuery, incomingSegmentsChan)
+	}()
 
 	// need to signal this loop to stop if error or graceful exits
 	loop := make(chan bool)
