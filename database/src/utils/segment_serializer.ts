@@ -4,13 +4,13 @@ import { Webpage, Segment } from "./types";
 function createSegments(
   webpages: Array<Webpage>, // webpages queried from database
   MSS: number,
-): Array<ArrayBufferLike> {
+): Array<Buffer> {
   const text_encoder = new TextEncoder();
   const encoded_text = text_encoder.encode(JSON.stringify(webpages));
   const data_length = encoded_text.byteLength;
   let currentIndex = 0;
   let segmentCount = Math.trunc(data_length / MSS) + 1; // + 1 to store the remainder
-  let segments: Array<ArrayBufferLike> = [];
+  let segments: Array<Buffer> = [];
   let pointerPosition = MSS;
 
   for (let i = 0; i < segmentCount; i++) {
@@ -24,7 +24,7 @@ function createSegments(
     // if so add from current position + MSS
     // else get remaining of the currentDataLength
     pointerPosition += Math.min(MSS, Math.abs(currentIndex - data_length));
-    const payload = new Uint8Array(slicedArray.length);
+    const payload = Buffer.alloc(slicedArray.length);
     payload.set(slicedArray);
     segments.push(newSegment(i, segmentCount, Buffer.from(payload)));
   }
@@ -35,14 +35,13 @@ function newSegment(
   sequenceNum: number,
   segmentCount: number,
   payload: Buffer,
-): ArrayBufferLike {
+): Buffer {
   // 4 bytes for sequenceNum 4 bytes for totalSegmentsCount
+  const headerBuffer = Buffer.alloc(8);
   const sequenceNumBuffer = convertIntToBuffer(sequenceNum);
   const segmentCountBuffer = convertIntToBuffer(segmentCount);
-  const headerBuffer = new ArrayBuffer(8);
-  const header = new Uint8Array(headerBuffer);
-  header.set(Buffer.concat([sequenceNumBuffer, segmentCountBuffer]));
-  return Buffer.concat([header, payload]);
+  headerBuffer.set(Buffer.concat([sequenceNumBuffer, segmentCountBuffer]));
+  return Buffer.concat([headerBuffer, payload]);
 }
 
 function convertIntToBuffer(int: number): Buffer {

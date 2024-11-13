@@ -130,14 +130,19 @@ class RabbitMQClient {
         exclusive: false,
         durable: false,
       });
-      await this.search_channel.consume(
+      this.search_channel.consume(
         SEARCH_QUEUE_CB,
         (data: ConsumeMessage | null) => {
           if (data === null) {
             this.search_channel!.close();
-            throw new Error("Msg does not exist");
+            console.error("Msg does not exist");
+            this.eventEmitter.emit("segmentError", {
+              data: null,
+              err: new Error(
+                "Something went wrong while listening to segments",
+              ),
+            });
           }
-          // bruh it should already exist if we're calling consume.. the frick!
           this.eventEmitter.emit("newSegment", { data, err: null });
         },
         { noAck: false },
