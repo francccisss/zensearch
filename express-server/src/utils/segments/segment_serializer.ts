@@ -42,6 +42,8 @@ async function listenIncomingSegments(
 
     if (segmentCount == segment.header.TotalSegments) {
       console.log("Receieved all segments from search engine");
+      expectedSequenceNum = 0;
+      segmentCount = 0;
       break;
     }
   }

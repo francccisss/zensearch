@@ -6,16 +6,15 @@ import {
   SEARCH_QUEUE_CB,
 } from "./routing_keys";
 import { EventEmitter } from "stream";
+import CircularBuffer from "../utils/segments/circular_buffer";
 
 class RabbitMQClient {
   connection: null | Connection = null;
   client: this = this;
   search_channel: Channel | null = null;
   crawl_channel: Channel | null = null;
-  crawledSites: Array<string> = []; // string as an utf-8 buffer
   eventEmitter: EventEmitter = new EventEmitter();
-
-  constructor() {}
+  circleBuffer: CircularBuffer = new CircularBuffer(100);
 
   async connectClient() {
     /*
@@ -85,7 +84,7 @@ class RabbitMQClient {
    Takes in a callback function argument to process the data received from
    the search engine service.
   */
-  async websocket_channel_listener(
+  async crawl_channel_listener(
     cb: (chan: Channel, data: ConsumeMessage, message_type: string) => void,
   ) {
     if (this.crawl_channel == null)
@@ -120,6 +119,9 @@ class RabbitMQClient {
   /*
    * TODO retrieve data segments from search engine using the same method
    * used in the search engine by when retrieving from database.
+   *
+   *
+   * ABLE TO RECEIVE ALL OF THE SEGMENTS
    */
   async search_channel_listener() {
     try {
@@ -142,6 +144,7 @@ class RabbitMQClient {
                 "Something went wrong while listening to segments",
               ),
             });
+            return;
           }
           this.eventEmitter.emit("newSegment", { data, err: null });
         },
@@ -152,16 +155,25 @@ class RabbitMQClient {
     }
   }
 
+  async addSegmentsToQueue() {
+    this.eventEmitter.on("newSegment", (segment) =>
+      this.circleBuffer.write(segment),
+    );
+  }
+
   /*
-   everytime a new segment arrives from the search engine the promise is resolved
+   Everytime a new segment arrives from the search engine the promise is resolved
    within the callback function of the event listener, this is synchronous
    in terms of data being perserved within the segmentGenerator.
   */
+
   async *segmentGenerator() {
     while (true) {
-      yield await new Promise((resolve) =>
-        this.eventEmitter.once("newSegment", resolve),
-      );
+      if (this.circleBuffer.inUseSize() > 0) {
+        yield this.circleBuffer.read();
+      } else {
+        await new Promise((resolve) => setImmediate(resolve));
+      }
     }
   }
 

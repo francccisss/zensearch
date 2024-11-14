@@ -19,12 +19,14 @@ const PORT = 8080;
   const ws_service = new WebsocketService(wss);
   ws_service.handler();
 
-  rbq_client.segmentGenerator();
+  //rbq_client.segmentGenerator();
   await rbq_client.init_channel_queues();
 
-  rbq_client.websocket_channel_listener(
+  rbq_client.crawl_channel_listener(
     ws_service.send_crawl_results_to_client.bind(ws_service),
   );
+
+  rbq_client.addSegmentsToQueue();
   rbq_client.search_channel_listener();
 
   // Start HTTP server
