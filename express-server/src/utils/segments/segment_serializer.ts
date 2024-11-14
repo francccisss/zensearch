@@ -1,7 +1,4 @@
 import { Channel, ConsumeMessage } from "amqplib";
-import { SEARCH_QUEUE_CB } from "../rabbitmq/routing_keys";
-import { rejects } from "assert";
-import { resolve } from "path";
 
 type SegmentHeader = {
   TotalSegments: number;
@@ -19,6 +16,9 @@ async function listenIncomingSegments(
   let webpageBuffer: Uint8Array[] = [];
 
   // Retrieves new incoming segments
+  // TODO FIX THIS BAD BOY IT DOES NOT RETRIEVE ALL OF THE SEGMENTS
+  // This function is not able to keep up with the incoming segments
+  // store everything in a buffer and then only process the segments
   for await (const msg of generator()) {
     const m = msg as unknown as {
       data: ConsumeMessage;
@@ -31,12 +31,12 @@ async function listenIncomingSegments(
     const segment = decodeSegments(m.data.content);
 
     if (segment.header.SequenceNumber !== expectedSequenceNum) {
-      channel!.nackAll(false);
+      channel!.nackAll(true);
       throw new Error("Unexpected sequence number");
     }
 
     webpageBuffer.push(segment.payload);
-    channel!.ack(m.data, false);
+    channel!.ack(m.data);
     expectedSequenceNum++;
     segmentCount++;
 
