@@ -10,7 +10,8 @@ import {
 import rabbitmq from "../rabbitmq";
 import { Data } from "ws";
 import { create } from "express-handlebars";
-import segment_serializer from "../utils/segment_serializer";
+import segment_serializer from "../utils/segments/segment_serializer";
+import CircBuffer from "../utils/segments/circular_buffer";
 
 const cors = require("cors");
 const body_parser = require("body-parser");
@@ -181,11 +182,9 @@ app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
       rabbitmq.client.search_channel!,
       rabbitmq.client.segmentGenerator.bind(rabbitmq.client),
     );
-    console.log(webpageBuffer.length);
     const parseWebpages = segment_serializer
       .parseWebpages(webpageBuffer)
       .slice(0, 10);
-    console.log(parseWebpages.length);
 
     res.render("search", {
       search_results: parseWebpages.length === 0 ? [] : parseWebpages,

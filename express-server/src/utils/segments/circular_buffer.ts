@@ -16,7 +16,7 @@ class CircularBuffer {
   private readIndex: number = 0;
   constructor(size: number) {
     this.N = size;
-    this.queue = new Array(SIZE).fill(null);
+    this.queue = new Array(size).fill(null);
     this.readIndex = 0;
     this.writeIndex = 0;
   }
@@ -41,9 +41,15 @@ class CircularBuffer {
     this.queue[this.writeIndex] = data;
     this.writeIndex = (this.writeIndex + 1) % this.N;
   }
-  inUseSize() {}
+  inUseSize(): number {
+    let nonNullCounter = 0;
+    for (let i = 0; i < this.queue.length; i++) {
+      if (this.queue[i] !== null) nonNullCounter++;
+    }
+    return nonNullCounter;
+  }
 }
 
-const CircBuffer = new CircularBuffer(SIZE);
+//const CircBuffer = new CircularBuffer(SIZE);
 
-export default CircBuffer;
+export default CircularBuffer;
