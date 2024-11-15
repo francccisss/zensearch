@@ -182,6 +182,7 @@ app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
       rabbitmq.client.search_channel!,
       rabbitmq.client.segmentGenerator.bind(rabbitmq.client),
     );
+    rabbitmq.client.eventEmitter.emit("done", {});
     const parseWebpages = segment_serializer
       .parseWebpages(webpageBuffer)
       .slice(0, 10);
