@@ -8,6 +8,7 @@ import {
 import { EventEmitter } from "stream";
 import CircularBuffer from "../utils/segments/circular_buffer";
 
+// TODO ADD LOGS TO RECEIVED AND PROCESSED SEGMENTS
 class RabbitMQClient {
   connection: null | Connection = null;
   client: this = this;
@@ -156,9 +157,9 @@ class RabbitMQClient {
   }
 
   async addSegmentsToQueue() {
-    this.eventEmitter.on("newSegment", (segment) =>
-      this.circleBuffer.write(segment),
-    );
+    this.eventEmitter.on("newSegment", (segment) => {
+      this.circleBuffer.write(segment);
+    });
   }
 
   /*

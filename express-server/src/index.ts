@@ -25,6 +25,17 @@ const PORT = 8080;
   rbq_client.crawl_channel_listener(
     ws_service.send_crawl_results_to_client.bind(ws_service),
   );
+  (async () => {
+    let segmentsReceived = 0;
+    rbq_client.eventEmitter.on("newSegment", () => {
+      segmentsReceived++;
+    });
+
+    rbq_client.eventEmitter.on("done", () => {
+      console.log("Segments Received: %d", segmentsReceived);
+      segmentsReceived = 0;
+    });
+  })();
 
   rbq_client.addSegmentsToQueue();
   rbq_client.search_channel_listener();

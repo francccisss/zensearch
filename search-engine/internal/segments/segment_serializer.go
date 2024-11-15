@@ -116,7 +116,6 @@ func CreateSegments(webpages *[]bm25.WebpageTFIDF, MSS int) ([][]byte, error) {
 		serializedSegments = append(serializedSegments, NewSegment(uint32(i), uint32(segmentCount), segmentSlice))
 	}
 	fmt.Printf("Total segments created: %d\n", len(serializedSegments))
-	defer fmt.Println("Successfully exited")
 
 	return serializedSegments, nil
 }

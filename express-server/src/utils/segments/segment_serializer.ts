@@ -42,13 +42,12 @@ async function listenIncomingSegments(
 
     if (segmentCount == segment.header.TotalSegments) {
       console.log("Receieved all segments from search engine");
+      console.log("Total Segments Decoded: %d", segmentCount);
       expectedSequenceNum = 0;
       segmentCount = 0;
       break;
     }
   }
-
-  console.log("Done");
 
   return Buffer.concat(webpageBuffer);
 }

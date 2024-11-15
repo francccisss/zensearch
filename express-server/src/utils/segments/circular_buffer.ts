@@ -12,8 +12,8 @@ const SIZE = 400;
 class CircularBuffer {
   private N: number = 0;
   queue: Array<ConsumeMessage | null>;
-  private writeIndex: number = 0;
-  private readIndex: number = 0;
+  writeIndex: number = 0;
+  readIndex: number = 0;
   constructor(size: number) {
     this.N = size;
     this.queue = new Array(size).fill(null);
@@ -33,10 +33,10 @@ class CircularBuffer {
 
   write(data: ConsumeMessage) {
     if (this.writeIndex === this.queue.length - 1) {
-      console.log("Write index reached the end, do something");
+      console.log("Write index reached the end: WRAP");
     }
     if (this.queue[this.writeIndex] !== null) {
-      console.log("Overwrite");
+      console.log("Buffer Overflow: Either overwrite or pause consumer");
     }
     this.queue[this.writeIndex] = data;
     this.writeIndex = (this.writeIndex + 1) % this.N;
