@@ -115,16 +115,6 @@ func CreateSegments(webpages *[]bm25.WebpageTFIDF, MSS int) ([][]byte, error) {
 		pointerPosition += math.Min(float64(MSS), float64(serializedWebpagesLen-currentIndex))
 		serializedSegments = append(serializedSegments, NewSegment(uint32(i), uint32(segmentCount), segmentSlice))
 	}
-	// for i := 0; i < segmentCount; i++ {
-	//
-	// 	segmentSlice := serializeWebpages[currentIndex:int(pointerPosition)]
-	// 	serializedSegments = append(serializedSegments, NewSegment(uint32(i), uint32(segmentCount), segmentSlice))
-	//
-	// 	currentIndex = int(pointerPosition)
-	//
-	// 	pointerPosition += math.Min(float64(MSS), float64(serializedWebpagesLen-currentIndex))
-	// }
-	//
 	fmt.Printf("Total segments created: %d\n", len(serializedSegments))
 	defer fmt.Println("Successfully exited")
 
