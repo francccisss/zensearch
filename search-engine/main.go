@@ -7,6 +7,7 @@ import (
 	"search-engine/internal/bm25"
 	"search-engine/internal/rabbitmq"
 	"search-engine/internal/segments"
+	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -122,22 +123,26 @@ func main() {
 	go func() {
 		for webpageBuffer := range webpageBytesChan {
 			// For ranking webpages
+			timeStart := time.Now()
 			webpages, err := ParseWebpages(webpageBuffer)
 			if err != nil {
 				fmt.Printf(err.Error())
 				log.Panicf("Unable to parse webpages")
 			}
+			fmt.Printf("\nTime elapsed parsing: %dms\n", time.Until(timeStart).Abs().Milliseconds())
+
 			calculatedRatings := bm25.CalculateBMRatings(currentSearchQuery, webpages, bm25.AvgDocLen(webpages))
 			rankedWebpages := bm25.RankBM25Ratings(calculatedRatings)
 
 			fmt.Printf("Total ranked webpages: %d\n", len(*rankedWebpages))
-
+			fmt.Printf("Time elapsed ranking: %dms\n", time.Until(timeStart).Abs().Milliseconds())
 			// create segments in this section after ranking
 			segments, err := Segments.CreateSegments(rankedWebpages, MSS)
 			if err != nil {
 				fmt.Println(err.Error())
 				log.Panicf("Unable to create segments")
 			}
+			fmt.Printf("Time elapsed data segmentation: %dms\n", time.Until(timeStart).Abs().Milliseconds())
 			go rabbitmq.PublishScoreRanking(segments)
 
 		}
