@@ -8,6 +8,7 @@ import (
 	"log"
 	"math"
 	"search-engine/internal/bm25"
+	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -29,6 +30,7 @@ func ListenIncomingSegments(dbChannel *amqp.Channel, incomingSegmentsChan <-chan
 		expectedSequenceNum uint32 = 0
 	)
 
+	timeStart := time.Now()
 	var webpageBytes bytes.Buffer
 	for newSegment := range incomingSegmentsChan {
 
@@ -62,7 +64,7 @@ func ListenIncomingSegments(dbChannel *amqp.Channel, incomingSegmentsChan <-chan
 		}
 	}
 	webpageBytesChan <- webpageBytes
-
+	fmt.Printf("Time elapsed Listening to segments: %dms", time.Until(timeStart).Abs().Milliseconds())
 }
 
 func DecodeSegments(newSegment amqp.Delivery) (Segment, error) {
