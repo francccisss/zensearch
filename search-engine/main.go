@@ -116,17 +116,18 @@ func main() {
 			go rabbitmq.QueryDatabase(searchQuery)
 
 			fmt.Print("Spawn segment listener\n")
+
+			// Listens for incoming segments from the database Query channel consumer
 			go segments.ListenIncomingSegments(dbQueryChannel, incomingSegmentsChan, webpageBytesChan)
 		}
 	}()
 
-	// Listens for incoming segments from the database Query channel consumer
+	// Handling search engine logic for parsing webpage to json, ranking and data segmentation for transpotation
 	go func() {
 
 		for webpageBuffer := range webpageBytesChan {
 			// Parsing webpages
 
-			TotalProcessTimeStart := time.Now()
 			timeStart := time.Now()
 			webpages, err := ParseWebpages(webpageBuffer)
 			if err != nil {
@@ -154,7 +155,6 @@ func main() {
 			fmt.Printf("Time elapsed data segmentation: %dms\n", time.Until(timeStart).Abs().Milliseconds())
 			go rabbitmq.PublishScoreRanking(segments)
 
-			fmt.Printf("Total Process Time: %dms\n", time.Until(TotalProcessTimeStart).Abs().Milliseconds())
 		}
 
 	}()
