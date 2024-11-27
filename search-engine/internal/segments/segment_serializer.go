@@ -1,4 +1,4 @@
-package Segments
+package segments
 
 import (
 	"bytes"
@@ -22,17 +22,14 @@ type SegmentHeader struct {
 	TotalSegments uint32
 }
 
-func ListenIncomingSegments(dbChannel *amqp.Channel, incomingSegmentsChan <-chan amqp.Delivery, webpageBytesChan chan []byte) {
+func ListenIncomingSegments(dbChannel *amqp.Channel, incomingSegmentsChan <-chan amqp.Delivery, webpageBytesChan chan bytes.Buffer) {
 
 	var (
 		segmentCounter      uint32 = 0
 		expectedSequenceNum uint32 = 0
 	)
 
-	webpageBytes := []byte{}
-	defer func(webwebpageBytes *[]byte) {
-		*webwebpageBytes = nil
-	}(&webpageBytes)
+	var webpageBytes bytes.Buffer
 	for newSegment := range incomingSegmentsChan {
 
 		segment, err := DecodeSegments(newSegment)
@@ -54,7 +51,7 @@ func ListenIncomingSegments(dbChannel *amqp.Channel, incomingSegmentsChan <-chan
 		expectedSequenceNum++
 
 		dbChannel.Ack(newSegment.DeliveryTag, false)
-		webpageBytes = append(webpageBytes, segment.Payload...)
+		webpageBytes.Write(segment.Payload)
 
 		if segmentCounter == segment.Header.TotalSegments {
 			fmt.Printf("Received all of the segments from Database %d\n", segmentCounter)
