@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -67,7 +68,7 @@ func main() {
 
 	searchQueryChan := make(chan string)
 	incomingSegmentsChan := make(chan amqp.Delivery)
-	webpageBytesChan := make(chan []byte)
+	webpageBytesChan := make(chan bytes.Buffer)
 	var currentSearchQuery string
 
 	go func(chann *amqp.Channel) {
@@ -115,14 +116,17 @@ func main() {
 			go rabbitmq.QueryDatabase(searchQuery)
 
 			fmt.Print("Spawn segment listener\n")
-			go Segments.ListenIncomingSegments(dbQueryChannel, incomingSegmentsChan, webpageBytesChan)
+			go segments.ListenIncomingSegments(dbQueryChannel, incomingSegmentsChan, webpageBytesChan)
 		}
 	}()
 
 	// Listens for incoming segments from the database Query channel consumer
 	go func() {
+
 		for webpageBuffer := range webpageBytesChan {
-			// For ranking webpages
+			// Parsing webpages
+
+			TotalProcessTimeStart := time.Now()
 			timeStart := time.Now()
 			webpages, err := ParseWebpages(webpageBuffer)
 			if err != nil {
@@ -131,21 +135,28 @@ func main() {
 			}
 			fmt.Printf("\nTime elapsed parsing: %dms\n", time.Until(timeStart).Abs().Milliseconds())
 
+			// Ranking webpages
+			timeStart = time.Now()
 			calculatedRatings := bm25.CalculateBMRatings(currentSearchQuery, webpages, bm25.AvgDocLen(webpages))
 			rankedWebpages := bm25.RankBM25Ratings(calculatedRatings)
 
 			fmt.Printf("Total ranked webpages: %d\n", len(*rankedWebpages))
 			fmt.Printf("Time elapsed ranking: %dms\n", time.Until(timeStart).Abs().Milliseconds())
+
 			// create segments in this section after ranking
-			segments, err := Segments.CreateSegments(rankedWebpages, MSS)
+			timeStart = time.Now()
+			segments, err := segments.CreateSegments(rankedWebpages, MSS)
 			if err != nil {
 				fmt.Println(err.Error())
 				log.Panicf("Unable to create segments")
 			}
+
 			fmt.Printf("Time elapsed data segmentation: %dms\n", time.Until(timeStart).Abs().Milliseconds())
 			go rabbitmq.PublishScoreRanking(segments)
 
+			fmt.Printf("Total Process Time: %dms\n", time.Until(TotalProcessTimeStart).Abs().Milliseconds())
 		}
+
 	}()
 
 	// need to signal this loop to stop if error or graceful exits
@@ -162,9 +173,10 @@ func failOnError(err error, msg string) {
 	}
 }
 
-func ParseWebpages(data []byte) (*[]bm25.WebpageTFIDF, error) {
+func ParseWebpages(data bytes.Buffer) (*[]bm25.WebpageTFIDF, error) {
+
 	var webpages []bm25.WebpageTFIDF
-	err := json.Unmarshal(data, &webpages)
+	err := json.Unmarshal(data.Bytes(), &webpages)
 	if err != nil {
 		return nil, err
 	}
