@@ -71,12 +71,6 @@ func handleConnections(msg amqp.Delivery, chann *amqp.Channel) {
 	spawner := NewSpawner(10, webpageIndex.Docs)
 	go spawner.SpawnCrawlers()
 }
-func NewSpawner(threadpool int, URLs []string) *Spawner {
-	return &Spawner{
-		threadPool: threadpool,
-		URLs:       URLs,
-	}
-}
 
 func parseIncomingData(data []byte) CrawlList {
 	var webpages CrawlList
