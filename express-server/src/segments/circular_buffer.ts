@@ -1,6 +1,6 @@
 import { ConsumeMessage } from "amqplib";
 
-const SIZE = 400;
+const SIZE = 450;
 
 // end is write
 // start is read
