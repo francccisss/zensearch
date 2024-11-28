@@ -1,20 +1,20 @@
-import { Webpage, Segment } from "./types";
+import { Webpage, Segment } from "../utils/types";
 
 // MSS is number in bytes
 function createSegments(
   webpages: Array<Webpage>, // webpages queried from database
   MSS: number,
 ): Array<Buffer> {
-  const text_encoder = new TextEncoder();
-  const encoded_text = text_encoder.encode(JSON.stringify(webpages));
-  const data_length = encoded_text.byteLength;
+  const textEncoder = new TextEncoder();
+  const encodedText = textEncoder.encode(JSON.stringify(webpages));
+  const dataLength = encodedText.byteLength;
   let currentIndex = 0;
-  let segmentCount = Math.trunc(data_length / MSS) + 1; // + 1 to store the remainder
+  let segmentCount = Math.trunc(dataLength / MSS) + 1; // + 1 to store the remainder
   let segments: Array<Buffer> = [];
   let pointerPosition = MSS;
 
   for (let i = 0; i < segmentCount; i++) {
-    let slicedArray = encoded_text.slice(currentIndex, pointerPosition);
+    let slicedArray = encodedText.slice(currentIndex, pointerPosition);
 
     currentIndex += slicedArray.byteLength;
     // Add to offset MSS to point to the next segment in the array
@@ -23,7 +23,7 @@ function createSegments(
     // Is current data length enough to fit MSS?
     // if so add from current position + MSS
     // else get remaining of the currentDataLength
-    pointerPosition += Math.min(MSS, Math.abs(currentIndex - data_length));
+    pointerPosition += Math.min(MSS, Math.abs(currentIndex - dataLength));
     const payload = Buffer.alloc(slicedArray.length);
     payload.set(slicedArray);
     segments.push(newSegment(i, segmentCount, Buffer.from(payload)));

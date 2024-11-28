@@ -10,8 +10,8 @@ import {
 import rabbitmq from "../rabbitmq";
 import { Data } from "ws";
 import { create } from "express-handlebars";
-import segment_serializer from "../utils/segments/segment_serializer";
-import CircBuffer from "../utils/segments/circular_buffer";
+import segmentSerializer from "../segments/segment_serializer";
+import CircBuffer from "../segments/circular_buffer";
 
 const cors = require("cors");
 const body_parser = require("body-parser");
@@ -75,7 +75,6 @@ app.get("/", (req: Request, res: Response) => {
   res.sendFile(path.join(...public_route, "index.html"));
 });
 
-// TODO use Websockets for crawling instead of polling like a biiiitchh
 app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
   const Docs: Array<string> = [...req.body];
   const encoder = new TextEncoder();
@@ -98,7 +97,7 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     */
 
     // TODO need to return some error after some amount of time if there is not ack received
-    const results = await rabbitmq.client.crawl_list_check(encoded_docs);
+    const results = await rabbitmq.client.crawlListCheck(encoded_docs);
     if (results === null) {
       throw new Error("Unable to check user's crawl list.");
     }
@@ -173,17 +172,17 @@ app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
   console.log("NOTIF: Search Query sent");
   console.log("SEARCH QUERY: %s", q);
   try {
-    const is_sent = await rabbitmq.client.send_search_query(q as string);
-    if (!is_sent) {
+    const isSent = await rabbitmq.client.sendSearchQuery(q as string);
+    if (!isSent) {
       throw new Error("ERROR: Unable to send search query.");
     }
 
-    const webpageBuffer = await segment_serializer.listenIncomingSegments(
-      rabbitmq.client.search_channel!,
+    const webpageBuffer = await segmentSerializer.listenIncomingSegments(
+      rabbitmq.client.searchChannel!,
       rabbitmq.client.segmentGenerator.bind(rabbitmq.client),
     );
     rabbitmq.client.eventEmitter.emit("done", {});
-    const parseWebpages = segment_serializer
+    const parseWebpages = segmentSerializer
       .parseWebpages(webpageBuffer)
       .slice(0, 10);
 
