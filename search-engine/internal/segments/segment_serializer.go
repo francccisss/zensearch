@@ -69,7 +69,7 @@ func ListenIncomingSegments(dbChannel *amqp.Channel, incomingSegmentsChan <-chan
 
 func DecodeSegments(newSegment amqp.Delivery) (Segment, error) {
 
-	segmentHeader, err := GetSegmentHeader(newSegment.Body)
+	segmentHeader, err := GetSegmentHeader(newSegment.Body[:8])
 	if err != nil {
 		fmt.Println("Unable to extract segment header")
 		return Segment{}, err
@@ -82,6 +82,19 @@ func DecodeSegments(newSegment amqp.Delivery) (Segment, error) {
 	}
 
 	return Segment{Header: *segmentHeader, Payload: segmentPayload}, nil
+}
+
+func GetSegmentHeader(buf []byte) (*SegmentHeader, error) {
+	var newSegmentHeader SegmentHeader
+	newSegmentHeader.SequenceNum = binary.LittleEndian.Uint32(buf[:4])
+	newSegmentHeader.TotalSegments = binary.LittleEndian.Uint32(buf[4:])
+	return &newSegmentHeader, nil
+}
+
+func GetSegmentPayload(buf []byte) ([]byte, error) {
+	headerOffset := 8
+	byteReader := bytes.NewBuffer(buf[headerOffset:])
+	return byteReader.Bytes(), nil
 }
 
 // MSS is the maximum segment size of the bytes to be transported to the express server
@@ -135,37 +148,4 @@ func NewSegment(sequenceNum uint32, segmentCount uint32, payload []byte) []byte 
 	segmentBuff.Write(payload)
 
 	return segmentBuff.Bytes()
-}
-
-func SendSegments() {
-
-}
-
-func GetSegmentHeader(buf []byte) (*SegmentHeader, error) {
-	byteReader := bytes.NewBuffer(buf)
-	headerOffsets := []int{0, 4}
-	var newSegmentHeader SegmentHeader
-
-	for i := range headerOffsets {
-		buffer := make([]byte, 4)
-		_, err := byteReader.Read(buffer)
-		if err != nil {
-			return &SegmentHeader{}, err
-		}
-		value := binary.LittleEndian.Uint32(buffer)
-
-		// this feels disgusting but i dont feel like bothering with this
-		if i == 0 {
-			newSegmentHeader.SequenceNum = value
-			continue
-		}
-		newSegmentHeader.TotalSegments = value
-	}
-	return &newSegmentHeader, nil
-}
-
-func GetSegmentPayload(buf []byte) ([]byte, error) {
-	headerOffset := 8
-	byteReader := bytes.NewBuffer(buf[headerOffset:])
-	return byteReader.Bytes(), nil
 }
