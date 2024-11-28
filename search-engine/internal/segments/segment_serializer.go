@@ -131,20 +131,20 @@ func readBufferToSlice(buff bytes.Buffer) ([]byte, error) {
 
 func NewSegment(sequenceNum uint32, segmentCount uint32, payload []byte) []byte {
 
-	// seqNumBuff := make([]byte, binary.MaxVarintLen32)
-	// binary.LittleEndian.PutUint32(seqNumBuff, uint32(sequenceNum))
+	headerBuf := make([]byte, 4)
 
-	// for some reason it appends another byte of 0 before the segmenCount
-	// eg: [231,0,0,0,0,233,0,0]
-	//                ^ What is that??!!?!
-	// header := binary.LittleEndian.AppendUint32(seqNumBuff, segmentCount)
+	binary.LittleEndian.PutUint32(headerBuf, sequenceNum)
+
+	header := binary.LittleEndian.AppendUint32(headerBuf, segmentCount)
 
 	// Im gonna do what's called a pro gamer move
 	// DO THIS JUST FOR NOW
 	// TODO CHANGE THIS OR ELSE
-	segment := append([]byte{byte(sequenceNum), 0, 0, 0, byte(segmentCount), 0, 0, 0}, payload...)
+	var segmentBuff bytes.Buffer
+	segmentBuff.Write(header)
+	segmentBuff.Write(payload)
 
-	return segment
+	return segmentBuff.Bytes()
 }
 
 func SendSegments() {
