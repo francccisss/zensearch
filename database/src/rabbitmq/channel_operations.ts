@@ -31,7 +31,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
    TODO Change names to make it more comprehensible please :D
 
     Consumer waits for the crawler service to push new webpages into the `db_indexing_crawler`
-    message queue, the `index_webpages` handler saves these crawled webpages into
+    message queue, the `indexWebpages` handler saves these crawled webpages into
     the database.
   */
   await databaseChannel.assertQueue(DB_INDEXING_CRAWLER, {
@@ -47,19 +47,19 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
   databaseChannel.consume(DB_INDEXING_CRAWLER, async (data) => {
     if (data === null) throw new Error("No data was pushed.");
     const decoder = new TextDecoder();
-    const decoded_data = decoder.decode(data.content as ArrayBuffer);
-    const deserialize_data: Message = JSON.parse(decoded_data);
+    const decodedData = decoder.decode(data.content as ArrayBuffer);
+    const deserializeData: Message = JSON.parse(decodedData);
     try {
       databaseChannel.ack(data);
-      await databaseOperations.index_webpages(db, deserialize_data);
+      await databaseOperations.indexWebpages(db, deserializeData);
       databaseChannel.sendToQueue(
         data.properties.replyTo,
         Buffer.from(
           JSON.stringify({
-            isSuccess: deserialize_data.CrawlStatus,
-            Message: deserialize_data.Message,
-            Url: deserialize_data.Url,
-            WebpageCount: deserialize_data.Webpages.length,
+            isSuccess: deserializeData.CrawlStatus,
+            Message: deserializeData.Message,
+            Url: deserializeData.Url,
+            WebpageCount: deserializeData.Webpages.length,
           }),
         ),
       );
@@ -75,7 +75,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
             isSuccess: false,
             Message:
               "Something went wrong with the database service, please retry the application.",
-            Url: deserialize_data.Url,
+            Url: deserializeData.Url,
             WebpageCount: 0,
           }),
         ),
@@ -111,23 +111,23 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
       console.log(
         "NOTIF: DB service received crawl list to check existing indexed websites.",
       );
-      const crawl_list: { Docs: Array<string> } = JSON.parse(
+      const crawlList: { Docs: Array<string> } = JSON.parse(
         data.content.toString(),
       );
-      const unindexed_websites = await databaseOperations.check_existing_tasks(
+      const unindexedWebsites = await databaseOperations.checkExistingTasks(
         db,
-        crawl_list.Docs,
+        crawlList.Docs,
       );
 
       const encoder = new TextEncoder();
-      const encoded_docs = encoder.encode(
-        JSON.stringify({ Docs: unindexed_websites }),
+      const encodedDocs = encoder.encode(
+        JSON.stringify({ Docs: unindexedWebsites }),
       );
 
       databaseChannel.ack(data);
       const is_sent = databaseChannel.sendToQueue(
         DB_CBQ_EXPRESS,
-        Buffer.from(encoded_docs),
+        Buffer.from(encodedDocs),
       );
       if (!is_sent) {
         throw new Error("ERROR: Unable to send back message.");
@@ -150,7 +150,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
   databaseChannel.consume(DB_QUERY_SENGINE, async (data) => {
     if (data === null) throw new Error("No data was pushed.");
     try {
-      const data_query: Webpage[] = await databaseOperations.query_webpages(db);
+      const data_query: Webpage[] = await databaseOperations.queryWebpages(db);
       console.log({ searchEngineMessage: data.content.toString() });
       const MSS = 100000;
       let segments = segmentSerializer.createSegments(data_query, MSS);
