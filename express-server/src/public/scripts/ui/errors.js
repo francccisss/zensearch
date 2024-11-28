@@ -2,10 +2,7 @@ const listErrors = document.querySelector("#list-error-popup-container");
 const crawlLoader = document.querySelector(".crawl-loader");
 const crawlBtn = document.querySelector(".crawl-btn");
 
-function handleCrawlErrors(result) {
-  // This is a standard error for server response
-  // - Wrong values
-  // - Server error
+function displayErrors(result) {
   listErrors.hidden = false;
   crawlLoader.style.display = "none";
   crawlBtn.style.display = "unset";
@@ -31,4 +28,4 @@ function handleCrawlErrors(result) {
   indexedList.replaceChildren(...sites);
 }
 
-export default { handleCrawlErrors };
+export default { displayErrors };

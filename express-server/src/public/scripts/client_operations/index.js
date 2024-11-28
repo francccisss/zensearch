@@ -54,8 +54,12 @@ async function sendCrawlList() {
     }
     invalidList = checkURLList(inputValues);
     if (invalidList.length !== 0) {
-      throw new Error("Some of the items in this list are invalid URLs.");
+      throw new Error(
+        `Some of the items in this list are invalid URLs make sure to include a valid/supported protocol schema eg: "http","https" and TLD eg: ".com", ".dev"
+        ".lol" etc.`,
+      );
     }
+    console.log("valid");
     // checkListAndUpgrade returns the list else throws an error and returns null.
     const unindexed_list = await checkListAndUpgrade(inputValues);
     // DONT HANDLE THE ERRORS OF CHECKLISTANDUPGRADE JUST
@@ -69,14 +73,13 @@ async function sendCrawlList() {
     clientws.ws.send(JSON.stringify(message));
     // might return an error so we need to handle it before we transition
     // to waiting area.
-
-    const mappedList = unindexed_list.map((item) => ({
+    const waitingList = unindexed_list.map((item) => ({
       url: item,
       state: "loading",
     }));
-    pubsub.publish("crawlStart", mappedList);
+    pubsub.publish("crawlStart", waitingList);
     // will be used for persistent ui for crawling state
-    localStorage.setItem("list", JSON.stringify(mappedList));
+    localStorage.setItem("list", JSON.stringify(waitingList));
   } catch (err) {
     console.error(err);
     pubsub.publish("checkAndUpgradeError", {
@@ -90,9 +93,19 @@ async function sendCrawlList() {
 
 function checkURLList(list) {
   const invalidList = [];
+  let message = "";
   for (let i = 0; i < list.length; i++) {
     try {
-      const setURL = new URL("https://" + list[i]);
+      if (!URL.canParse(list[i])) {
+        throw new Error("Unable to parse url");
+      }
+      const setURL = new URL(list[i]);
+      const validProtocol = ["http", "https"].includes(
+        setURL.protocol.replace(":", ""),
+      );
+      if (!validProtocol) {
+        throw new Error("Invalid/Unsupported protocol schema");
+      }
     } catch (err) {
       console.error(err.message);
       invalidList.push(list[i]);

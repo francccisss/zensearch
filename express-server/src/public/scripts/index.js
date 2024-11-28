@@ -43,7 +43,7 @@ pubsub.subscribe("removeEntry", crawlInput.updateEntries);
 
 pubsub.subscribe("checkAndUpgradeStart", ui.crawlui.onCrawlUrls);
 pubsub.subscribe("checkAndUpgradeDone", ui.crawlui.onCrawlDone);
-pubsub.subscribe("checkAndUpgradeError", ui.errorsui.handleCrawlErrors);
+pubsub.subscribe("checkAndUpgradeError", ui.errorsui.displayErrors);
 
 pubsub.subscribe("crawlReceiver", (msg) => {
   const { job_count } = cookiesUtil.extractCookies();
