@@ -30,12 +30,6 @@ type IndexedWebpage struct {
 	Contents string
 }
 
-type Crawler struct {
-	URL string
-	ctx context.Context
-	wd  *selenium.WebDriver
-}
-
 var elementSelector = []string{
 	"a",
 	"p",
@@ -91,40 +85,39 @@ type Spawner struct {
 	threadPool int
 	URLs       []string
 }
-type Spawn struct {
-	threadSlot           chan struct{}
-	wg                   *sync.WaitGroup
-	ctx                  context.Context
-	aggregateResultsChan chan PageResult
+
+type Crawler struct {
+	URL string
+	ctx context.Context
+	wd  *selenium.WebDriver
 }
 
 type ThreadToken struct{}
 
-func (sp *Spawn) SpawnCrawler(doc string) {
-	defer func() {
-		<-sp.threadSlot
-		log.Printf("NOTIF: Thread Token release\n")
-	}()
-	defer sp.wg.Done()
+func NewCrawler(entryPoint string, ctx context.Context) (*Crawler, error) {
+	c := &Crawler{
+		URL: entryPoint,
+		ctx: ctx,
+	}
 	wd, err := webdriver.CreateClient()
 	if err != nil {
 		log.Print(err.Error())
 		log.Printf("ERROR: Unable to create a new connection with Chrome Web Driver.\n")
-		return
+		return nil, err
 	}
-	defer (*wd).Quit()
-	crawler := Crawler{ctx: sp.ctx, URL: doc, wd: wd}
-	result, err := crawler.Crawl()
-	if err != nil {
-		log.Print(err.Error())
-		log.Printf("NOTIF: Thread token release due to error.\n")
-		return
+	c.wd = wd
+	return c, nil
+}
+
+func NewSpawner(threadpool int, URLs []string) *Spawner {
+	return &Spawner{
+		threadPool: threadpool,
+		URLs:       URLs,
 	}
-	sp.aggregateResultsChan <- result
 }
 
 func (s *Spawner) SpawnCrawlers() Results {
-	aggregateResultsChan := make(chan PageResult, len(s.URLs))
+	resultsChan := make(chan PageResult, len(s.URLs))
 	threadSlot := make(chan struct{}, s.threadPool)
 
 	var (
@@ -135,19 +128,39 @@ func (s *Spawner) SpawnCrawlers() Results {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for _, doc := range s.URLs {
+		for _, entryPoint := range s.URLs {
 			wg.Add(1)
 			threadSlot <- ThreadToken{}
 			log.Printf("NOTIF: Thread token insert\n")
-			spawn := Spawn{aggregateResultsChan: aggregateResultsChan, threadSlot: threadSlot, wg: &wg, ctx: ctx}
-			go spawn.SpawnCrawler(doc)
+			go func() {
+				crawler, err := NewCrawler(entryPoint, ctx)
+				if err != nil {
+					log.Print(err.Error())
+					log.Printf("NOTIF: Thread token release due to error.\n")
+					<-threadSlot
+					return
+				}
+				defer func() {
+					<-threadSlot
+					log.Printf("NOTIF: Thread Token release\n")
+				}()
+				defer wg.Done()
+				result, err := crawler.Crawl()
+				if err != nil {
+					log.Print(err.Error())
+					log.Printf("NOTIF: Thread token release due to error.\n")
+					return
+				}
+				defer (*crawler.wd).Quit()
+				resultsChan <- result
+			}()
 		}
 	}()
 
 	log.Printf("NOTIF: Wait for crawlers\n")
 	wg.Wait()
-	close(aggregateResultsChan)
-	for crawler := range aggregateResultsChan {
+	close(resultsChan)
+	for crawler := range resultsChan {
 		log.Printf("Crawled URL: %s\n", crawler.URL)
 		log.Printf("Crawl Message: %s\n", crawler.Message)
 	}
@@ -158,7 +171,7 @@ func (s *Spawner) SpawnCrawlers() Results {
 		Message:     "Crawled and indexed webpages",
 		ThreadsUsed: threadPool,
 		URLCount:    len(s.URLs),
-		PageResult:  aggregateResultsChan,
+		PageResult:  resultsChan,
 	}
 }
 
