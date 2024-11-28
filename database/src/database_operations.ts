@@ -1,7 +1,7 @@
 import { Database } from "sqlite3";
 import { Message, Webpage } from "./utils/types";
 
-async function index_webpages(db: Database, data: Message) {
+async function indexWebpages(db: Database, data: Message) {
   if (db == null) {
     throw new Error("ERROR: Database is not connected.");
   }
@@ -13,13 +13,13 @@ async function index_webpages(db: Database, data: Message) {
         $last_added: Date.now(),
       },
     );
-    const insert_indexed_sites_stmt = db.prepare(
+    const insertIndexedSitesStmt = db.prepare(
       "INSERT OR IGNORE INTO indexed_sites (primary_url, last_indexed) VALUES ($primary_url, $last_indexed);",
     );
-    const insert_webpages_stmt = db.prepare(
+    const insertWebpagesStmt = db.prepare(
       "INSERT INTO webpages (url, title, contents, parent) VALUES ($webpage_url, $title, $contents, $parent);",
     );
-    insert_indexed_sites_stmt.run(
+    insertIndexedSitesStmt.run(
       {
         $primary_url: data.Url,
         $last_indexed: Date.now(),
@@ -37,7 +37,7 @@ async function index_webpages(db: Database, data: Message) {
             Contents,
           } = el;
 
-          insert_webpages_stmt.run(
+          insertWebpagesStmt.run(
             {
               $webpage_url: Url,
               $title: Title,
@@ -51,15 +51,15 @@ async function index_webpages(db: Database, data: Message) {
             },
           );
         });
-        insert_webpages_stmt.finalize();
+        insertWebpagesStmt.finalize();
       },
     );
-    insert_indexed_sites_stmt.finalize();
+    insertIndexedSitesStmt.finalize();
   });
   console.log("NOTIF: DONE INDEXING");
 }
 
-async function query_webpages(db: Database): Promise<Array<Webpage>> {
+async function queryWebpages(db: Database): Promise<Array<Webpage>> {
   // query function returns once the promise has either been resolved
   // or rejected by the sqlite query call.
 
@@ -90,18 +90,15 @@ async function query_webpages(db: Database): Promise<Array<Webpage>> {
 }
 
 // TODO clean this wrapper thingy majig next time. :D
-async function check_existing_tasks(
+async function checkExistingTasks(
   db: Database,
-  crawl_list: Array<string>,
+  crawlList: Array<string>,
 ): Promise<Array<string>> {
   let tmp: Array<string> = [];
-  const query = await query_promise_wrapper(db);
+  const query = await queryPromiseWrapper(db);
   if (query == null)
     throw new Error("ERROR: Unable to query indexed websites.");
-  crawl_list.forEach((item) => {
-    if (!item.includes("http")) {
-      item = "https://" + item;
-    }
+  crawlList.forEach((item) => {
     const url = new URL(item).hostname;
     if (!query.has(url)) {
       tmp.push(item);
@@ -110,7 +107,7 @@ async function check_existing_tasks(
   return tmp;
 }
 
-async function query_promise_wrapper(
+async function queryPromiseWrapper(
   db: Database,
 ): Promise<Map<string, string> | null> {
   const stmt = `SELECT primary_url FROM indexed_sites`;
@@ -142,4 +139,4 @@ async function query_promise_wrapper(
   });
 }
 
-export default { index_webpages, check_existing_tasks, query_webpages };
+export default { indexWebpages, checkExistingTasks, queryWebpages };
