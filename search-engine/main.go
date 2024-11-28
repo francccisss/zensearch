@@ -165,8 +165,7 @@ func main() {
 
 }
 
-// maybe use message for cache validation later on for optimization
-
+// TODO Instead of panicking, create a recursive retry and then close application
 func failOnError(err error, msg string) {
 	if err != nil {
 		log.Panicf("%s: %s", msg, err.Error())
