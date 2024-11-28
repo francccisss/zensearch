@@ -51,10 +51,10 @@ class WebsocketService {
         } = JSON.parse(data.toString());
 
         if (decodeBuffer.message_type === "crawling") {
-          const serialize_list = Buffer.from(
+          const serializeList = Buffer.from(
             JSON.stringify({ Docs: decodeBuffer.unindexed_list! }),
           );
-          const success = await rabbitmq.client.crawl(serialize_list, {
+          const success = await rabbitmq.client.crawl(serializeList, {
             queue: CRAWL_QUEUE,
             id: decodeBuffer.meta.job_id,
           });

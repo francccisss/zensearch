@@ -130,11 +130,6 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
 
     // proceed to Crawler Service
 
-    /*
-      Creates a session cookie for job polling using the poll route handler `/job`
-      the CRAWL_QUEUE_CB is used to poll the crawler service to check and see if
-      crawling is done or not you can read the code with the route `/job`
-    */
     res.cookie("job_id", job_id);
     res.cookie("job_count", results.undindexed.length);
     res.cookie("job_queue", CRAWL_QUEUE_CB);

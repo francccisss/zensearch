@@ -119,16 +119,6 @@ func CreateSegments(webpages *[]bm25.WebpageTFIDF, MSS int) ([][]byte, error) {
 	return serializedSegments, nil
 }
 
-func readBufferToSlice(buff bytes.Buffer) ([]byte, error) {
-	newSlice := make([]byte, buff.Len())
-	_, err := buff.Read(newSlice)
-	if err != nil {
-		fmt.Println("Unable to read buffer to slice")
-		return nil, err
-	}
-	return newSlice, nil
-}
-
 func NewSegment(sequenceNum uint32, segmentCount uint32, payload []byte) []byte {
 
 	headerBuf := make([]byte, 4)

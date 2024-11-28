@@ -98,7 +98,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
     The `db_check_express`consumes the messages from the express server
     for new crawl tasks, its responsibility is to check send
     the array of crawl tasks from the client to the database service
-    and query the database to see if the list of crawl tasks, exists
+    and query the database to see if the list of crawl tasks exists
     on the database already by checking the indexed_sites TABLE,
     if it does it returns back the array filtering out the ones that
     have already been crawled and indexed into the database, returning
