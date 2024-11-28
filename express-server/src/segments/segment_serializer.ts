@@ -15,10 +15,6 @@ async function listenIncomingSegments(
   let segmentCount = 0;
   let webpageBuffer: Uint8Array[] = [];
 
-  // Retrieves new incoming segments
-  // TODO FIX THIS BAD BOY IT DOES NOT RETRIEVE ALL OF THE SEGMENTS
-  // This function is not able to keep up with the incoming segments
-  // store everything in a buffer and then only process the segments
   for await (const msg of generator()) {
     const m = msg as unknown as {
       data: ConsumeMessage;

@@ -43,20 +43,20 @@ class WebsocketService {
           return;
         }
         console.log("Message received");
-        const decode_buffer: {
+        const decodeBuffer: {
           message_type: "crawling" | "searching";
           meta: { job_id: string };
           unindexed_list?: Array<string>;
           [key: string]: any;
         } = JSON.parse(data.toString());
 
-        if (decode_buffer.message_type === "crawling") {
+        if (decodeBuffer.message_type === "crawling") {
           const serialize_list = Buffer.from(
-            JSON.stringify({ Docs: decode_buffer.unindexed_list! }),
+            JSON.stringify({ Docs: decodeBuffer.unindexed_list! }),
           );
           const success = await rabbitmq.client.crawl(serialize_list, {
             queue: CRAWL_QUEUE,
-            id: decode_buffer.meta.job_id,
+            id: decodeBuffer.meta.job_id,
           });
           if (!success) {
             throw new Error(
@@ -94,7 +94,7 @@ class WebsocketService {
     Implement a websocket user authentication for client reconnection?
   */
 
-  async send_crawl_results_to_client(
+  async sendCrawlResultsToClient(
     chan: Channel,
     msg: ConsumeMessage,
     message_type: string,
@@ -144,7 +144,7 @@ class WebsocketService {
          the previous listener still exists, ALWAYS REMOVE AN EVENT LISTENER AFTER USING IT,
          TO PREVENT DUPLICATE CALLS.
         */
-      const message_handler = function (message: RawData) {
+      const messageHandler = function (message: RawData) {
         const ack: "ACK" | "NACK" = message.toString() as "ACK" | "NACK";
         if (ack === "ACK") {
           console.log("Server received ACK");
@@ -162,11 +162,11 @@ class WebsocketService {
             console.error(error.name);
             console.error(error.message);
           } finally {
-            ws.off("message", message_handler);
+            ws.off("message", messageHandler);
           }
         }
       };
-      ws.on("message", message_handler);
+      ws.on("message", messageHandler);
 
       const responseData = JSON.stringify({
         data_buffer: msg.content,
@@ -201,7 +201,7 @@ class WebsocketService {
           }
           console.log("LOG: Timeout, retransmit message.");
           chan.nack(msg, false, true);
-          ws.off("message", message_handler);
+          ws.off("message", messageHandler);
         }
       }, 3 * 1000);
     });

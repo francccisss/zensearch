@@ -1,8 +1,8 @@
 import sqlite3 from "sqlite3";
 import path from "path";
 import amqp from "amqplib";
-import database_operations from "./database_operations";
-import channel_operations from "./rabbitmq/channel_operations";
+import databaseOperations from "./database_operations";
+import channelOperations from "./rabbitmq/channel_operations";
 import { readFile } from "fs";
 
 const db = init_database();
@@ -12,9 +12,9 @@ exec_scripts(db, path.join(__dirname, "./db_utils/websites.init.sql"));
   const connection = await amqp.connect("amqp://rabbitmq");
   console.log("Connected to rabbitmq");
   try {
-    const database_channel = await connection.createChannel();
+    const databaseChannel = await connection.createChannel();
     console.log("Channel Created");
-    await channel_operations.channel_handler(db, database_channel);
+    await channelOperations.channelHandler(db, databaseChannel);
   } catch (err) {
     const error = err as Error;
     console.error(error.message);
@@ -23,10 +23,10 @@ exec_scripts(db, path.join(__dirname, "./db_utils/websites.init.sql"));
 })();
 
 function init_database(): sqlite3.Database {
-  const db_file = "/app/data/website_collection.db";
+  const dbFile = "/app/data/website_collection.db";
   const sqlite = sqlite3.verbose();
   const db = new sqlite.Database(
-    path.join(db_file),
+    path.join(dbFile),
     sqlite.OPEN_READWRITE,
     (err) => {
       if (err) {

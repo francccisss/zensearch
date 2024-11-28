@@ -6,14 +6,14 @@ import {
   SEARCH_QUEUE_CB,
 } from "./routing_keys";
 import { EventEmitter } from "stream";
-import CircularBuffer from "../utils/segments/circular_buffer";
+import CircularBuffer from "../segments/circular_buffer";
 
 // TODO ADD LOGS TO RECEIVED AND PROCESSED SEGMENTS
 class RabbitMQClient {
   connection: null | Connection = null;
   client: this = this;
-  search_channel: Channel | null = null;
-  crawl_channel: Channel | null = null;
+  searchChannel: Channel | null = null;
+  crawlChannel: Channel | null = null;
   eventEmitter: EventEmitter = new EventEmitter();
   circleBuffer: CircularBuffer = new CircularBuffer(100);
 
@@ -38,20 +38,20 @@ class RabbitMQClient {
     return this;
   }
 
-  async init_channel_queues() {
+  async initChannelQueues() {
     try {
       if (this.connection == null) {
         throw new Error("ERROR: Connection interface is null.");
       }
-      this.search_channel = await this.connection.createChannel();
-      this.crawl_channel = await this.connection.createChannel();
+      this.searchChannel = await this.connection.createChannel();
+      this.crawlChannel = await this.connection.createChannel();
 
-      this.search_channel.assertQueue(SEARCH_QUEUE, {
+      this.searchChannel.assertQueue(SEARCH_QUEUE, {
         exclusive: false,
         durable: false,
       });
 
-      this.crawl_channel.assertQueue(CRAWL_QUEUE_CB, {
+      this.crawlChannel.assertQueue(CRAWL_QUEUE_CB, {
         exclusive: false,
         durable: false,
       });
@@ -69,11 +69,11 @@ class RabbitMQClient {
    This Function sends a new search query to the SEARCH ENGINE SERVICE.
    returns a bool to check if it has been sent
   */
-  async send_search_query(q: string): Promise<boolean> {
-    if (this.search_channel == null) {
+  async sendSearchQuery(q: string): Promise<boolean> {
+    if (this.searchChannel == null) {
       throw new Error("ERROR: Search Channel is null");
     }
-    return await this.search_channel.sendToQueue(SEARCH_QUEUE, Buffer.from(q), {
+    return await this.searchChannel.sendToQueue(SEARCH_QUEUE, Buffer.from(q), {
       replyTo: SEARCH_QUEUE_CB,
     });
   }
@@ -85,10 +85,10 @@ class RabbitMQClient {
    Takes in a callback function argument to process the data received from
    the search engine service.
   */
-  async crawl_channel_listener(
+  async crawlChannelListener(
     cb: (chan: Channel, data: ConsumeMessage, message_type: string) => void,
   ) {
-    if (this.crawl_channel == null)
+    if (this.crawlChannel == null)
       throw new Error("ERROR: Crawl Channel is null.");
 
     try {
@@ -97,13 +97,13 @@ class RabbitMQClient {
       // -> [db_indexing_crawler]Database[CRAWL_QUEUE_CB] -> [CRAWL_QUEUE_CB]ws this listener -> client.
       // Crawler service directs database service to send a message to the message queue with CRAWL_QUEUE_CB
       // routing key after it finishes storing the indexed websites
-      this.crawl_channel.consume(CRAWL_QUEUE_CB, async (msg) => {
+      this.crawlChannel.consume(CRAWL_QUEUE_CB, async (msg) => {
         if (msg === null) throw new Error("No Response");
         console.log("LOG: Message received from crawling");
-        if (this.crawl_channel == null) {
+        if (this.crawlChannel == null) {
           throw new Error("ERROR: Crawl Channel is null.");
         }
-        await cb(this.crawl_channel, msg, "crawling");
+        await cb(this.crawlChannel, msg, "crawling");
         console.log(msg.content.toString());
       });
     } catch (err) {
@@ -117,27 +117,20 @@ class RabbitMQClient {
   // Channel Listener used by express server for listening for the
   // search channel queue callback for webpages retrieval
 
-  /*
-   * TODO retrieve data segments from search engine using the same method
-   * used in the search engine by when retrieving from database.
-   *
-   *
-   * ABLE TO RECEIVE ALL OF THE SEGMENTS
-   */
-  async search_channel_listener() {
+  async searchChannelListener() {
     try {
-      if (this.search_channel == null) {
+      if (this.searchChannel == null) {
         throw new Error("ERROR: Search channel does not exist.");
       }
-      this.search_channel.assertQueue(SEARCH_QUEUE_CB, {
+      this.searchChannel.assertQueue(SEARCH_QUEUE_CB, {
         exclusive: false,
         durable: false,
       });
-      this.search_channel.consume(
+      this.searchChannel.consume(
         SEARCH_QUEUE_CB,
         (data: ConsumeMessage | null) => {
           if (data === null) {
-            this.search_channel!.close();
+            this.searchChannel!.close();
             console.error("Msg does not exist");
             this.eventEmitter.emit("segmentError", {
               data: null,
@@ -214,48 +207,46 @@ class RabbitMQClient {
       Sends a message to the database service to check and see if the DOCS
       or list of websites the users want to crawl already exists in the database.
     */
-  async crawl_list_check(encoded_list: ArrayBuffer): Promise<null | {
+  async crawlListCheck(encoded_list: ArrayBuffer): Promise<null | {
     undindexed: Array<string>;
-    data_buffer: Buffer;
   }> {
     if (this.connection === null)
       throw new Error("Unable to create a channel for crawl queue.");
     const channel = await this.connection.createChannel();
 
-    const db_check_queue = "db_check_express";
-    const db_check_response_queue = "db_cbq_express";
-    await channel.assertQueue(db_check_queue, {
+    const dbCheckQueue = "db_check_express";
+    const dbCheckResponseQueue = "db_cbq_express";
+    await channel.assertQueue(dbCheckQueue, {
       durable: false,
       exclusive: false,
     });
-    await channel.assertQueue(db_check_response_queue, {
+    await channel.assertQueue(dbCheckResponseQueue, {
       durable: false,
       exclusive: false,
     });
 
-    await channel.sendToQueue(db_check_queue, Buffer.from(encoded_list));
+    await channel.sendToQueue(dbCheckQueue, Buffer.from(encoded_list));
     let undindexed: Array<string> = [];
-    let data_buffer: Buffer = Buffer.from("");
-    let is_error = false;
-    await channel.consume(db_check_response_queue, async (data) => {
+    let dataBuffer: Buffer = Buffer.from("");
+    let isError = false;
+    await channel.consume(dbCheckResponseQueue, async (data) => {
       if (data === null) {
         throw new Error("ERROR: Data received is null.");
       }
       try {
-        const parse_list: { Docs: Array<string> } = JSON.parse(
+        const parseList: { Docs: Array<string> } = JSON.parse(
           data.content.toString(),
         );
-        undindexed = parse_list.Docs;
-        data_buffer = data.content;
+        undindexed = parseList.Docs;
         channel.ack(data);
       } catch (err) {
-        is_error = true;
+        isError = true;
         channel.nack(data, false, false);
       }
     });
 
     channel.close();
-    return is_error ? null : { undindexed, data_buffer };
+    return isError ? null : { undindexed };
   }
 }
 

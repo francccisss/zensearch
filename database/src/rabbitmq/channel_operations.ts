@@ -1,8 +1,8 @@
 import amqp from "amqplib";
-import database_operations from "../database_operations";
+import databaseOperations from "../database_operations";
 import { Database } from "sqlite3";
 import { Message, Webpage } from "../utils/types";
-import segment_serializer from "../utils/segment_serializer";
+import segmentSerializer from "../serializer/segment_serializer";
 
 /*
   channel handler can take in multiple channels from a single tcp conneciton
@@ -10,21 +10,21 @@ import segment_serializer from "../utils/segment_serializer";
   messages coming from different context eg: database and search
 */
 
-async function channel_handler(db: Database, database_channel: amqp.Channel) {
+async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
   // CRAWLER ROUTING KEYS
-  const db_indexing_crawler = "db_indexing_crawler";
+  const DB_INDEXING_CRAWLER = "db_indexing_crawler";
 
   // SEARCH ENGINE ROUTING KEYS
   // routing key used by search engine service to query database for webpages.
-  const db_query_sengine = "db_query_sengine";
+  const DB_QUERY_SENGINE = "db_query_sengine";
   // routing key to reply back to the search engine service's callback queue.
-  const db_cbq_sengine = "db_cbq_sengine";
+  const DB_CBQ_SENGINE = "db_cbq_sengine";
 
   // EXPRESS SERVER ROUTING KEYS
   // routing key used by express server to check existing webpages.
-  const db_check_express = "db_check_express";
-  const db_cbq_express = "db_cbq_express";
-  const db_cbq_poll_express = "crawl_poll_queue";
+  const DB_CHECK_EXPRESS = "db_check_express";
+  const DB_CBQ_EXPRESS = "db_cbq_express";
+  const DB_CBQ_POLL_EXPRESS = "crawl_poll_queue";
 
   /*
    TODO Document code please :)
@@ -34,7 +34,7 @@ async function channel_handler(db: Database, database_channel: amqp.Channel) {
     message queue, the `index_webpages` handler saves these crawled webpages into
     the database.
   */
-  await database_channel.assertQueue(db_indexing_crawler, {
+  await databaseChannel.assertQueue(DB_INDEXING_CRAWLER, {
     exclusive: false,
     durable: false,
   });
@@ -44,16 +44,15 @@ async function channel_handler(db: Database, database_channel: amqp.Channel) {
   // to the express server to notify that the crawl for the current url
   // threw an error.
 
-  database_channel.consume(db_indexing_crawler, async (data) => {
+  databaseChannel.consume(DB_INDEXING_CRAWLER, async (data) => {
     if (data === null) throw new Error("No data was pushed.");
     const decoder = new TextDecoder();
     const decoded_data = decoder.decode(data.content as ArrayBuffer);
     const deserialize_data: Message = JSON.parse(decoded_data);
     try {
-      database_channel.ack(data);
-      await database_operations.index_webpages(db, deserialize_data);
-
-      database_channel.sendToQueue(
+      databaseChannel.ack(data);
+      await databaseOperations.index_webpages(db, deserialize_data);
+      databaseChannel.sendToQueue(
         data.properties.replyTo,
         Buffer.from(
           JSON.stringify({
@@ -68,8 +67,8 @@ async function channel_handler(db: Database, database_channel: amqp.Channel) {
       const error = err as Error;
       console.error("ERROR: Decoder was unable to deserialized indexed data.");
       console.error(error.message);
-      database_channel.nack(data, false, false);
-      database_channel.sendToQueue(
+      databaseChannel.nack(data, false, false);
+      databaseChannel.sendToQueue(
         data.properties.replyTo,
         Buffer.from(
           JSON.stringify({
@@ -85,12 +84,12 @@ async function channel_handler(db: Database, database_channel: amqp.Channel) {
   });
 
   // SEARCH ENGINE AND EXPRESS JS CONSUMERS
-  await database_channel.assertQueue(db_query_sengine, {
+  await databaseChannel.assertQueue(DB_QUERY_SENGINE, {
     exclusive: false,
     durable: false,
   });
 
-  await database_channel.assertQueue(db_check_express, {
+  await databaseChannel.assertQueue(DB_CHECK_EXPRESS, {
     exclusive: false,
     durable: false,
   });
@@ -106,7 +105,7 @@ async function channel_handler(db: Database, database_channel: amqp.Channel) {
     the remaining items as uncrawled to be processed by the crawler service.
    */
 
-  database_channel.consume(db_check_express, async (data) => {
+  databaseChannel.consume(DB_CHECK_EXPRESS, async (data) => {
     if (data == null) throw new Error("No data was pushed.");
     try {
       console.log(
@@ -115,7 +114,7 @@ async function channel_handler(db: Database, database_channel: amqp.Channel) {
       const crawl_list: { Docs: Array<string> } = JSON.parse(
         data.content.toString(),
       );
-      const unindexed_websites = await database_operations.check_existing_tasks(
+      const unindexed_websites = await databaseOperations.check_existing_tasks(
         db,
         crawl_list.Docs,
       );
@@ -125,9 +124,9 @@ async function channel_handler(db: Database, database_channel: amqp.Channel) {
         JSON.stringify({ Docs: unindexed_websites }),
       );
 
-      database_channel.ack(data);
-      const is_sent = database_channel.sendToQueue(
-        db_cbq_express,
+      databaseChannel.ack(data);
+      const is_sent = databaseChannel.sendToQueue(
+        DB_CBQ_EXPRESS,
         Buffer.from(encoded_docs),
       );
       if (!is_sent) {
@@ -135,7 +134,7 @@ async function channel_handler(db: Database, database_channel: amqp.Channel) {
       }
     } catch (err) {
       const error = err as Error;
-      database_channel.nack(data, false, false);
+      databaseChannel.nack(data, false, false);
       console.error(error.message);
       console.error(err);
     }
@@ -148,23 +147,21 @@ async function channel_handler(db: Database, database_channel: amqp.Channel) {
     a callback queue is implemented once we consume and query webpages so that we can send
     it back right after all those process are done.
   */
-  database_channel.consume(db_query_sengine, async (data) => {
+  databaseChannel.consume(DB_QUERY_SENGINE, async (data) => {
     if (data === null) throw new Error("No data was pushed.");
     try {
-      const data_query: Webpage[] =
-        await database_operations.query_webpages(db);
+      const data_query: Webpage[] = await databaseOperations.query_webpages(db);
       console.log({ searchEngineMessage: data.content.toString() });
-
       const MSS = 100000;
-      let segments = segment_serializer.createSegments(data_query, MSS);
+      let segments = segmentSerializer.createSegments(data_query, MSS);
       console.log("Total segments created: %d", segments.length);
 
       // Need to find a way to get an ack notification from the message queue of
       // db_cbq_sengine so that we can send the next segment in the sequence
-      database_channel.ack(data);
+      databaseChannel.ack(data);
       segments.forEach(async (segment) => {
-        await database_channel.sendToQueue(
-          db_cbq_sengine, // respond back to this queue from search engine
+        await databaseChannel.sendToQueue(
+          DB_CBQ_SENGINE, // respond back to this queue from search engine
           Buffer.from(segment),
           {
             correlationId: data.properties.correlationId,
@@ -175,9 +172,9 @@ async function channel_handler(db: Database, database_channel: amqp.Channel) {
       const error = err as Error;
       console.error(error.message);
       console.error(error.stack);
-      database_channel.nack(data, false, false);
+      databaseChannel.nack(data, false, false);
     }
   });
 }
 
-export default { channel_handler };
+export default { channelHandler };
