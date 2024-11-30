@@ -1,20 +1,16 @@
-import { Webpage, Segment } from "../utils/types";
-
 // MSS is number in bytes
 function createSegments(
-  webpages: Array<Webpage>, // webpages queried from database
+  webpages: Buffer, // webpages queried from database
   MSS: number,
 ): Array<Buffer> {
-  const textEncoder = new TextEncoder();
-  const encodedText = textEncoder.encode(JSON.stringify(webpages));
-  const dataLength = encodedText.byteLength;
+  const dataLength = webpages.byteLength;
   let currentIndex = 0;
   let segmentCount = Math.trunc(dataLength / MSS) + 1; // + 1 to store the remainder
   let segments: Array<Buffer> = [];
   let pointerPosition = MSS;
 
   for (let i = 0; i < segmentCount; i++) {
-    let slicedArray = encodedText.slice(currentIndex, pointerPosition);
+    let slicedArray = webpages.slice(currentIndex, pointerPosition);
 
     currentIndex += slicedArray.byteLength;
     // Add to offset MSS to point to the next segment in the array
