@@ -3,6 +3,8 @@ import databaseOperations from "../database_operations";
 import { Database } from "sqlite3";
 import { Message, Webpage } from "../utils/types";
 import segmentSerializer from "../serializer/segment_serializer";
+import { CompressData, DecompressData } from "../compression";
+import zlib from "zlib";
 
 /*
   channel handler can take in multiple channels from a single tcp conneciton
@@ -29,6 +31,9 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
   /*
    TODO Document code please :)
    TODO Change names to make it more comprehensible please :D
+   TODO Use PRE-Compression eg:
+    saving new indexed webpage should be compressed and decompressed on
+    request
 
     Consumer waits for the crawler service to push new webpages into the `db_indexing_crawler`
     message queue, the `indexWebpages` handler saves these crawled webpages into
@@ -150,24 +155,25 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
   databaseChannel.consume(DB_QUERY_SENGINE, async (data) => {
     if (data === null) throw new Error("No data was pushed.");
     try {
-      const data_query: Webpage[] = await databaseOperations.queryWebpages(db);
+      const dataQuery: Webpage[] = await databaseOperations.queryWebpages(db);
       console.log({ searchEngineMessage: data.content.toString() });
-      const MSS = 100000;
-      let segments = segmentSerializer.createSegments(data_query, MSS);
-      console.log("Total segments created: %d", segments.length);
 
-      // Need to find a way to get an ack notification from the message queue of
-      // db_cbq_sengine so that we can send the next segment in the sequence
       databaseChannel.ack(data);
-      segments.forEach(async (segment) => {
-        await databaseChannel.sendToQueue(
-          DB_CBQ_SENGINE, // respond back to this queue from search engine
-          Buffer.from(segment),
-          {
-            correlationId: data.properties.correlationId,
-          },
-        );
-      });
+      const MSS = 100000;
+      let segments = segmentSerializer.createSegments(
+        Buffer.from(JSON.stringify(dataQuery)),
+        MSS,
+        async (newSegment: Buffer) => {
+          databaseChannel.sendToQueue(
+            DB_CBQ_SENGINE, // respond back to this queue from search engine
+            newSegment,
+            {
+              correlationId: data.properties.correlationId,
+            },
+          );
+        },
+      );
+      console.log("Total segments created: %d", segments.length);
     } catch (err) {
       const error = err as Error;
       console.error(error.message);

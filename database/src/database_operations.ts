@@ -65,7 +65,7 @@ async function queryWebpages(db: Database): Promise<Array<Webpage>> {
 
   return await new Promise(function (resolved, reject) {
     const sql_query = "SELECT Url, Contents, Title FROM webpages";
-    db.all<Webpage>(sql_query, (err, rows) => {
+    db.all(sql_query, (err: Error, rows: Array<Webpage>) => {
       try {
         if (err) {
           throw new Error(
@@ -115,7 +115,7 @@ async function queryPromiseWrapper(
   return new Promise((resolve, reject) => {
     db.each(
       stmt,
-      function (err, row: { primary_url: string }) {
+      function (err: Error, row: { primary_url: string }) {
         try {
           if (err) {
             throw new Error(err.message);

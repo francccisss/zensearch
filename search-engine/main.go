@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"search-engine/constants"
 	"search-engine/internal/bm25"
 	"search-engine/internal/rabbitmq"
-	"search-engine/internal/segments"
+	"search-engine/internal/segment_serializer"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -16,7 +17,6 @@ import (
 // TODO SYSTEM ERRORS SHOULD RESTART THE SERVICE... I DONT KNOW HOW TO DO IT
 
 // Maximum segment size in bytes
-const MSS = 100000
 
 func main() {
 
@@ -29,6 +29,9 @@ func main() {
 	failOnError(err, "Failed to create a main Channel")
 	dbQueryChannel, err := conn.Channel()
 	failOnError(err, "Failed to create a database Channel")
+
+	// SET PREFETCH FOR CUMULATIVE ACKS
+	dbQueryChannel.Qos(constants.CMLTV_ACK, 0, false)
 
 	rabbitmq.SetNewChannel("dbChannel", dbQueryChannel)
 	rabbitmq.SetNewChannel("mainChannel", mainChannel)
@@ -125,16 +128,24 @@ func main() {
 	// Handling search engine logic for parsing webpage to json, ranking and data segmentation for transpotation
 	go func() {
 
+		// TODO THROW ERRORS TO FRONT END
 		for webpageBuffer := range webpageBytesChan {
 			// Parsing webpages
 
 			timeStart := time.Now()
-			webpages, err := ParseWebpages(webpageBuffer)
+			// compressor := util.NewSegmentBuffer()
+			// decompressed, err := compressor.DecompressData(webpageBuffer)
+			// if err != nil {
+			// 	fmt.Println(err.Error())
+			// 	continue
+			// }
+			webpages, err := ParseWebpages(webpageBuffer.Bytes())
 			if err != nil {
 				fmt.Printf(err.Error())
-				log.Panicf("Unable to parse webpages")
+				log.Println("Unable to parse webpages")
+				continue
 			}
-			fmt.Printf("\nTime elapsed parsing: %dms\n", time.Until(timeStart).Abs().Milliseconds())
+			fmt.Printf("Time elapsed parsing: %dms\n", time.Until(timeStart).Abs().Milliseconds())
 
 			// Ranking webpages
 			timeStart = time.Now()
@@ -146,10 +157,11 @@ func main() {
 
 			// create segments in this section after ranking
 			timeStart = time.Now()
-			segments, err := segments.CreateSegments(rankedWebpages, MSS)
+			segments, err := segments.CreateSegments(rankedWebpages, constants.MSS)
 			if err != nil {
 				fmt.Println(err.Error())
-				log.Panicf("Unable to create segments")
+				log.Println("Unable to create segments")
+				continue
 			}
 
 			fmt.Printf("Time elapsed data segmentation: %dms\n", time.Until(timeStart).Abs().Milliseconds())
@@ -172,10 +184,10 @@ func failOnError(err error, msg string) {
 	}
 }
 
-func ParseWebpages(data bytes.Buffer) (*[]bm25.WebpageTFIDF, error) {
+func ParseWebpages(data []byte) (*[]bm25.WebpageTFIDF, error) {
 
 	var webpages []bm25.WebpageTFIDF
-	err := json.Unmarshal(data.Bytes(), &webpages)
+	err := json.Unmarshal(data, &webpages)
 	if err != nil {
 		return nil, err
 	}

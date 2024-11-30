@@ -9,7 +9,6 @@
     "build": "npx tsc",
     "postbuild": "cp -r src/db_utils/ dist/"
   },
-  "type": "module",
   "keywords": [],
   "author": "",
   "license": "ISC",
