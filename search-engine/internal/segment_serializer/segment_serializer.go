@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"search-engine/constants"
 	"search-engine/internal/bm25"
 	"time"
 
@@ -34,9 +35,10 @@ func ListenIncomingSegments(dbChannel *amqp.Channel, incomingSegmentsChan <-chan
 	var webpageBytes bytes.Buffer
 	for newSegment := range incomingSegmentsChan {
 
-		segment, err := DecodeSegments(newSegment)
+		segment, err := DecodeSegments(newSegment.Body)
 		if err != nil {
 			log.Panicf("Unable to decode segments")
+			return
 		}
 
 		if segment.Header.SequenceNum != expectedSequenceNum {
@@ -52,10 +54,15 @@ func ListenIncomingSegments(dbChannel *amqp.Channel, incomingSegmentsChan <-chan
 		segmentCounter++
 		expectedSequenceNum++
 
-		dbChannel.Ack(newSegment.DeliveryTag, false)
+		if segmentCounter%constants.CMLTV_ACK == 0 {
+			fmt.Println("Ack all prior messages from")
+			dbChannel.Ack(newSegment.DeliveryTag, true)
+		}
 		webpageBytes.Write(segment.Payload)
 
 		if segmentCounter == segment.Header.TotalSegments {
+			fmt.Println("Ack all prior messages")
+			dbChannel.Ack(newSegment.DeliveryTag, true)
 			fmt.Printf("Received all of the segments from Database %d\n", segmentCounter)
 			// reset everything
 			expectedSequenceNum = 0
@@ -64,18 +71,18 @@ func ListenIncomingSegments(dbChannel *amqp.Channel, incomingSegmentsChan <-chan
 		}
 	}
 	webpageBytesChan <- webpageBytes
-	fmt.Printf("Time elapsed Listening to segments: %dms", time.Until(timeStart).Abs().Milliseconds())
+	fmt.Printf("Time elapsed Listening to segments: %dms\n", time.Until(timeStart).Abs().Milliseconds())
 }
 
-func DecodeSegments(newSegment amqp.Delivery) (Segment, error) {
+func DecodeSegments(newSegment []byte) (Segment, error) {
 
-	segmentHeader, err := GetSegmentHeader(newSegment.Body[:8])
+	segmentHeader, err := GetSegmentHeader(newSegment[:8])
 	if err != nil {
 		fmt.Println("Unable to extract segment header")
 		return Segment{}, err
 	}
 
-	segmentPayload, err := GetSegmentPayload(newSegment.Body)
+	segmentPayload, err := GetSegmentPayload(newSegment)
 	if err != nil {
 		fmt.Println("Unable to extract segment payload")
 		return Segment{}, err

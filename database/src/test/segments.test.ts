@@ -1,18 +1,21 @@
 import test, { describe, mock } from "node:test";
-import segmentSerializer from "../serializer/segment_serializer.ts";
-import { mockWebpages } from "./test_objects.ts";
+import segmentSerializer from "../serializer/segment_serializer";
+import { mockWebpages } from "./test_objects";
 import { fail } from "node:assert";
-import { CompressData, DecompressData } from "../compression.ts";
+import { CompressData, DecompressData } from "../compression";
 
 describe("Creating segments", () => {
-  let dataL = 10000;
+  let dataL = 250000;
   let generatedWebpages = [];
   for (let i = 0; i < dataL; i++) {
     generatedWebpages.push(mockWebpages);
   }
   test("Data segmentation with compression", async () => {
     try {
-      const compressed = await CompressData(JSON.stringify(generatedWebpages));
+      const compressed = await CompressData(
+        JSON.stringify(generatedWebpages),
+        0,
+      );
 
       const webpageBuf = segmentSerializer.createSegments(
         Buffer.from(compressed),

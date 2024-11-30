@@ -1,7 +1,14 @@
+type SegmentHeader = {
+  TotalSegments: number;
+  SequenceNumber: number;
+};
+
+//
 // MSS is number in bytes
 function createSegments(
   webpages: Buffer, // webpages queried from database
   MSS: number,
+  handler?: (newSegment: Buffer) => Promise<void>,
 ): Array<Buffer> {
   const dataLength = webpages.byteLength;
   let currentIndex = 0;
@@ -22,7 +29,12 @@ function createSegments(
     pointerPosition += Math.min(MSS, Math.abs(currentIndex - dataLength));
     const payload = Buffer.alloc(slicedArray.length);
     payload.set(slicedArray);
-    segments.push(newSegment(i, segmentCount, Buffer.from(payload)));
+    const segment = newSegment(i, segmentCount, Buffer.from(payload));
+
+    if (handler !== undefined) {
+      handler(segment);
+    }
+    segments.push(segment);
   }
   return segments;
 }
@@ -46,4 +58,54 @@ function convertIntToBuffer(int: number): Buffer {
   return bytes;
 }
 
-export default { createSegments };
+// FOR TESTING
+function listenIncomingSegments(segments: Array<Buffer>): Buffer {
+  let expectedSequenceNum = 0;
+  let segmentCount = 0;
+  let webpageBuffer: Uint8Array[] = [];
+
+  for (let i = 0; i < segments.length; i++) {
+    const segment = decodeSegments(segments[i]);
+    if (segment.header.SequenceNumber !== expectedSequenceNum) {
+      throw new Error("Unexpected sequence number");
+    }
+
+    webpageBuffer.push(segment.payload);
+    expectedSequenceNum++;
+    segmentCount++;
+
+    if (segmentCount == segment.header.TotalSegments) {
+      console.log("Receieved all segments from search engine");
+      console.log("Total Segments Decoded: %d", segmentCount);
+      expectedSequenceNum = 0;
+      segmentCount = 0;
+      break;
+    }
+  }
+
+  return Buffer.concat(webpageBuffer);
+}
+
+function decodeSegments(segment: Buffer): {
+  header: SegmentHeader;
+  payload: Uint8Array;
+} {
+  return {
+    header: getSegmentHeader(segment.slice(0, 8)),
+    payload: getSegmentPayload(segment),
+  };
+}
+
+function getSegmentHeader(bytes: Buffer): SegmentHeader {
+  const seqNumBuff = bytes.slice(0, 4);
+  const totalSegmentsBuff = bytes.slice(4, 8);
+  return {
+    SequenceNumber: seqNumBuff.readUint32LE(),
+    TotalSegments: totalSegmentsBuff.readUint32LE(),
+  };
+}
+
+function getSegmentPayload(bytes: Buffer): Buffer {
+  return bytes.slice(8);
+}
+export default { createSegments, listenIncomingSegments };

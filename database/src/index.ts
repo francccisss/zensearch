@@ -6,6 +6,7 @@ import channelOperations from "./rabbitmq/channel_operations";
 import { readFile } from "fs";
 
 const db = init_database();
+const cumulativeAckCount = 1000;
 exec_scripts(db, path.join(__dirname, "./db_utils/websites.init.sql"));
 
 (async () => {
@@ -14,6 +15,7 @@ exec_scripts(db, path.join(__dirname, "./db_utils/websites.init.sql"));
   try {
     const databaseChannel = await connection.createChannel();
     console.log("Channel Created");
+    databaseChannel.prefetch(cumulativeAckCount, false);
     await channelOperations.channelHandler(db, databaseChannel);
   } catch (err) {
     const error = err as Error;
