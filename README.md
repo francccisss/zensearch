@@ -34,7 +34,17 @@ A distributed search engine where user's are able to control what they can searc
 - [ ] Create a list of known websites (websites that have been indexed.) on the front-end
 
 ## IMPORTANT FOR USERS OF THIS PROJECT
-You will take full responsibility in the event that you will be blocked by a website author, so make sure you're crawling a website that would generally accept web crawlers and has a rate-limiting mechanism in their services, I have implemented a rudimentary rate-limiter for the crawler in `crawler/page_navigator.go` file called `requestDelay()`.
+
+#### Crawl Cancellations or Downed Connections
+As of now while crawling webpages when for some reason user's would want to cancel or any system errors might occur while crawling, the webpages that are crawled up to that point will **NOT SAVED** unfortunately, I'll have to implement a safety net for saving and resuming crawled webpages, sorry about that.
+
+So for now just crawl websites with fewer contents/pages for expermentation and testing.
+
+- if the `Crawl list` sidebar is opened with ongoing crawls and zensearch is down, to reset the UI navigate to the browser's `devtools` and clear the `cookies` and `local storage`.
+
+
+#### Disclaimer
+User's will have take to full responsibility in the event that they will be blocked by a website author, so make sure you're crawling a website that would generally accept web crawlers and has a rate-limiting mechanism in their services, I have implemented a rudimentary rate-limiter for the crawler in `crawler/page_navigator.go` file called `requestDelay()`.
 
 
 ```
@@ -78,10 +88,6 @@ cd path/to/zensearch/
 docker compose up
 ```
 
-### Database file size for rabbitmq
-Rabbitmq has a limited message size it can transfer from one service to another, so if a user sends a query to the search engine, the search engine will then query the database to retrieve all of the indexed webpages, but if the database is > than what the rabbitmq can hold, then rabbitmq will throw an error due to the size of the message being sent. so for now please refrain from crawling too much, I'll try to build a sliding window algorithm such that it can scale despite how large the size of database.
-
-
 ### Database
 The project uses Sqlite3 database which is stored within `database/dist/website_collection.db`, you can go into it if you have `sqlite3` installed in your system and if not go ahead and install then after that:
 - `cd` to the `database/dist/website_collection.db`
@@ -120,6 +126,11 @@ I have not yet implemented a way for users to delete individual crawled websites
 - if you are in the zensearch directory do `docker exec -ti db sh` else find the docker running docker container prefixed with `zensearch-` using `docker ps` copy the container id of `zensearch-db` then do the same `docker exec -ti <id of container> sh` remove the brackets.
 - run `sqlite3 dist/webiste_collection.db`
 - remove the indexed website's data
+
+
+
+
+
 
 # Tools and Dependencies
 
