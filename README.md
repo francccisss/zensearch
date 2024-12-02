@@ -35,15 +35,15 @@ A distributed search engine where user's are able to control what they can searc
 
 ## IMPORTANT FOR USERS OF THIS PROJECT
 
-#### Crawl Cancellations or Downed Connections
-As of now while crawling webpages when for some reason user's would want to cancel or any system errors might occur while crawling, the webpages that are crawled up to that point will **NOT SAVED** unfortunately, I'll have to implement a safety net for saving and resuming crawled webpages, sorry about that.
+### Crawl Cancellations or Downed Connections
+As of now while crawling webpages when for some reason user's would want to cancel or any system errors might occur while crawling, the webpages that are crawled up to that point will **NOT BE SAVED** unfortunately, I'll have to implement a safety net for saving and resuming crawled webpages, sorry about that.
 
 So for now just crawl websites with fewer contents/pages for expermentation and testing.
 
 - if the `Crawl list` sidebar is opened with ongoing crawls and zensearch is down, to reset the UI navigate to the browser's `devtools` and clear the `cookies` and `local storage`.
 
 
-#### Disclaimer
+### Disclaimer
 User's will have take to full responsibility in the event that they will be blocked by a website author, so make sure you're crawling a website that would generally accept web crawlers and has a rate-limiting mechanism in their services, I have implemented a rudimentary rate-limiter for the crawler in `crawler/page_navigator.go` file called `requestDelay()`.
 
 
