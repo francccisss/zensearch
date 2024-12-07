@@ -44,7 +44,7 @@ So for now just crawl websites with fewer contents/pages for expermentation and 
 
 
 ### Disclaimer
-User's will have take to full responsibility in the event that they will be blocked by a website author, so make sure you're crawling a website that would generally accept web crawlers and has a rate-limiting mechanism in their services, I have implemented a rudimentary rate-limiter for the crawler in `crawler/page_navigator.go` file called `requestDelay()`.
+User will have take to full responsibility in the event that they will be blocked by a website author, so make sure you're crawling a website that would generally accept web crawlers and has a rate-limiting mechanism in their services, I have implemented a rudimentary rate-limiter for the crawler in `crawler/page_navigator.go` file called `requestDelay()`.
 
 
 ```
