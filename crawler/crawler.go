@@ -284,10 +284,10 @@ Returns an array of text contents from an array of common elements specified
 by the current selector eg: p, a, span etc.
 */
 func sendResult(constructMessage func(message string) ([]byte, error), routingKey string, callbackQueue string, message string) error {
-	conn, err := rabbitmqclient.GetConnection("receiverConn")
+	conn, err := rabbitmqclient.GetConnection("conn")
 	if err != nil {
 		fmt.Print(err.Error())
-		log.Panicf("ERROR: Unable to get %s connection.\n", "receiverConn")
+		log.Panicf("ERROR: Unable to get %s connection.\n", "conn")
 	}
 	channel, err := conn.Channel()
 	if err != nil {

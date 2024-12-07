@@ -6,6 +6,22 @@ import (
 	"log"
 )
 
+func EstablishConnection(retries int) error {
+
+	if retries > 0 {
+		conn, err := amqp.Dial("amqp://rabbitmq:5672/")
+		if err != nil {
+			retries--
+			fmt.Println("Retrying Search engine service connection")
+			return EstablishConnection(retries)
+		}
+		SetNewConnection("conn", conn)
+		return nil
+	}
+
+	return fmt.Errorf("Shutting down search engine after serveral retries")
+}
+
 func QueryDatabase(message string) {
 
 	ch, err := GetChannel("dbChannel")
