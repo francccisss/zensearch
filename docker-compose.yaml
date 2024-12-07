@@ -25,9 +25,6 @@ services:
     build:
       context: ./express-server/
       dockerfile: Dockerfile
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
     restart: always
     ports:
       - "8080:8080"
@@ -38,9 +35,6 @@ services:
     build:
       context: ./database/
       dockerfile: Dockerfile
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
     restart: always
     networks:
       - zennet
@@ -52,9 +46,6 @@ services:
       context: ./search-engine/
       dockerfile: Dockerfile
     restart: always
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
     networks:
       - zennet
 
@@ -62,11 +53,6 @@ services:
     build:
       context: ./crawler/
       dockerfile: Dockerfile
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      selenium:
-        condition: service_healthy
     restart: always
     networks:
       - zennet

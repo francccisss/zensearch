@@ -2,8 +2,10 @@ package rabbitmq
 
 import (
 	"fmt"
-	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
+	"time"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 func EstablishConnection(retries int) error {
@@ -13,6 +15,7 @@ func EstablishConnection(retries int) error {
 		if err != nil {
 			retries--
 			fmt.Println("Retrying Search engine service connection")
+			time.Sleep(2000)
 			return EstablishConnection(retries)
 		}
 		SetNewConnection("conn", conn)

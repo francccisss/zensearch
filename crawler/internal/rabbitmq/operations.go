@@ -2,6 +2,8 @@ package rabbitmqclient
 
 import (
 	"fmt"
+	"time"
+
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -12,6 +14,7 @@ func EstablishConnection(retries int) error {
 		if err != nil {
 			retries--
 			fmt.Println("Retrying Crawler service connection")
+			time.Sleep(2000)
 			return EstablishConnection(retries)
 		}
 		SetNewConnection("conn", conn)

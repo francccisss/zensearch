@@ -36,7 +36,7 @@ async function establishConnection(retries: number): Promise<Connection> {
         const timeoutID = setTimeout(() => {
           resolve("Done blocking");
           clearTimeout(timeoutID);
-        }, 10);
+        }, 2000);
       });
       return await establishConnection(retries);
     }
