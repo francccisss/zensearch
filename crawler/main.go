@@ -4,8 +4,10 @@ import (
 	rabbitmqclient "crawler/internal/rabbitmq"
 	"encoding/json"
 	"fmt"
-	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
+	"os"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 const crawlQueue = "crawl_queue"
@@ -26,15 +28,20 @@ type site struct {
 
 func main() {
 
-	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq:5672/")
-	log.Println("Successfully connected to rabbitmq")
+	err := rabbitmqclient.EstablishConnection(7)
+
 	if err != nil {
-		log.Panicf("Unable to establish a tcp connection with message broker.")
+		fmt.Println(err.Error())
+		os.Exit(1)
 	}
-	rabbitmqclient.SetNewConnection("receiverConn", conn)
+
+	conn, err := rabbitmqclient.GetConnection("conn")
 	if err != nil {
-		log.Printf("Unable to create a new connection.")
+		fmt.Println("Connection does not exist")
+		os.Exit(1)
 	}
+	fmt.Println("Crawler established TCP Connection with RabbitMQ")
+
 	defer conn.Close()
 
 	crawlChannel, err := conn.Channel()

@@ -17,25 +17,26 @@ class RabbitMQClient {
   eventEmitter: EventEmitter = new EventEmitter();
   circleBuffer: CircularBuffer = new CircularBuffer(100);
 
-  async connectClient() {
-    /*
-     Check if there already exists a connection if not create a new connection else just return
-     A single pattern to make sure that we are only creating a single tcp connection
-    */
-    if (this.connection == null) {
+  async establishConnection(retryCount: number): Promise<RabbitMQClient> {
+    if (retryCount-- > 0) {
       try {
         this.connection = await amqp.connect("amqp://rabbitmq:5672");
-      } catch (err) {
-        const error = err as Error;
-        console.error(
-          "ERROR:Unable establish a tcp connection with rabbitmq server.",
+        console.log(
+          `Successfully connected to rabbitmq after ${retryCount} retries`,
         );
-
-        console.error(error);
-        throw new Error(error.message);
+        return this;
+      } catch (err) {
+        console.error("Retrying Web server service connection");
+        await new Promise((resolve) => {
+          const timeoutID = setTimeout(() => {
+            resolve("Done blocking");
+            clearTimeout(timeoutID);
+          }, 2000);
+        });
+        return await this.establishConnection(retryCount);
       }
     }
-    return this;
+    throw new Error("Shutting down web server after several retries");
   }
 
   async initChannelQueues() {
