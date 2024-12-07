@@ -14,7 +14,7 @@ func EstablishConnection(retries int) error {
 		if err != nil {
 			retries--
 			fmt.Println("Retrying Crawler service connection")
-			time.Sleep(2000)
+			time.Sleep(2000 * time.Millisecond)
 			return EstablishConnection(retries)
 		}
 		SetNewConnection("conn", conn)
