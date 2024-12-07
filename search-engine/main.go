@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"search-engine/constants"
 	"search-engine/internal/bm25"
 	"search-engine/internal/rabbitmq"
@@ -20,9 +21,19 @@ import (
 
 func main() {
 
-	conn, err := amqp.Dial("amqp://rabbitmq:5672/")
-	failOnError(err, "Failed to create a new TCP Connection")
-	fmt.Printf("Established TCP Connection with RabbitMQ\n")
+	err := rabbitmq.EstablishConnection(7)
+
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+
+	conn, err := rabbitmq.GetConnection("conn")
+	if err != nil {
+		fmt.Println("Connection does not exist")
+		os.Exit(1)
+	}
+	fmt.Println("Search engine established TCP Connection with RabbitMQ")
 
 	// DECLARING CHANNELS
 	mainChannel, err := conn.Channel()

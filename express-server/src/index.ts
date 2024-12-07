@@ -12,7 +12,7 @@ const PORT = 8080;
    Creates an indefinite loop to listen/receive
    new messages from the message broker.
   */
-  const rbqClient = await rabbitmq.client.connectClient();
+  const rbqClient = await rabbitmq.client.establishConnection(7);
 
   // Connect Websocket for search results retrieved
   const wss: WebSocketServer = new WebSocketServer({ server: httpServer });

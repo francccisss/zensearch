@@ -1,6 +1,6 @@
 import sqlite3 from "sqlite3";
 import path from "path";
-import amqp from "amqplib";
+import amqp, { Channel, Connection } from "amqplib";
 import databaseOperations from "./database_operations";
 import channelOperations from "./rabbitmq/channel_operations";
 import { readFile } from "fs";
@@ -10,9 +10,8 @@ const cumulativeAckCount = 1000;
 exec_scripts(db, path.join(__dirname, "./db_utils/websites.init.sql"));
 
 (async () => {
-  const connection = await amqp.connect("amqp://rabbitmq");
-  console.log("Connected to rabbitmq");
   try {
+    const connection = await establishConnection(7);
     const databaseChannel = await connection.createChannel();
     console.log("Channel Created");
     databaseChannel.prefetch(cumulativeAckCount, false);
@@ -20,9 +19,30 @@ exec_scripts(db, path.join(__dirname, "./db_utils/websites.init.sql"));
   } catch (err) {
     const error = err as Error;
     console.error(error.message);
-    console.log("ERROR: Unable to create a channel for databas service.");
   }
 })();
+
+async function establishConnection(retries: number): Promise<Connection> {
+  if (retries-- > 0) {
+    try {
+      const connection = await amqp.connect("amqp://rabbitmq:5672");
+      console.log(
+        `Successfully connected to rabbitmq after ${retries} retries`,
+      );
+      return connection;
+    } catch (err) {
+      console.error("Retrying Database service connection");
+      await new Promise((resolve) => {
+        const timeoutID = setTimeout(() => {
+          resolve("Done blocking");
+          clearTimeout(timeoutID);
+        }, 2000);
+      });
+      return await establishConnection(retries);
+    }
+  }
+  throw new Error("Shutting down database server after several retries");
+}
 
 function init_database(): sqlite3.Database {
   const dbFile = "/app/data/website_collection.db";
@@ -51,9 +71,6 @@ async function exec_scripts(db: sqlite3.Database, scriptPath: string) {
 
     stmts.forEach((statement) => {
       db.run(statement, [], (err) => {
-        if (err) {
-          console.error(err);
-        }
         console.log("Executed statement: %s ", statement);
       });
     });
