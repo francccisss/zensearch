@@ -1,8 +1,8 @@
 services:
   rabbitmq:
     image: rabbitmq
-    healthcheck: &hck
-      test: ["CMD","echo","Testing"]
+    healthcheck:
+      test: ["CMD", "echo", "Testing"]
       interval: 10s
       retries: 5
       start_period: 30s
@@ -13,7 +13,11 @@ services:
     image: selenium/standalone-chrome
     shm_size: 2g
     healthcheck:
-      <<: *hck
+      test: ["CMD", "echo", "Testing"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
     networks:
       - zennet
 
@@ -21,10 +25,10 @@ services:
     build:
       context: ./express-server/
       dockerfile: Dockerfile
-    depends_on: &depends
+    depends_on:
       rabbitmq:
         condition: service_healthy
-        restart: true
+    restart: always
     ports:
       - "8080:8080"
     networks:
@@ -35,7 +39,9 @@ services:
       context: ./database/
       dockerfile: Dockerfile
     depends_on:
-      <<: *depends
+      rabbitmq:
+        condition: service_healthy
+    restart: always
     networks:
       - zennet
     volumes:
@@ -45,8 +51,10 @@ services:
     build:
       context: ./search-engine/
       dockerfile: Dockerfile
+    restart: always
     depends_on:
-      <<: *depends
+      rabbitmq:
+        condition: service_healthy
     networks:
       - zennet
 
@@ -55,13 +63,13 @@ services:
       context: ./crawler/
       dockerfile: Dockerfile
     depends_on:
-      <<: *depends
+      rabbitmq:
+        condition: service_healthy
       selenium:
         condition: service_healthy
-        restart: true
     restart: always
     networks:
-        - zennet
+      - zennet
 
 networks:
   zennet:
