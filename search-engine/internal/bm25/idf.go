@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// Takes O(n)
 func CalculateIDF(term string, webpages *[]WebpageTFIDF) float64 {
 
 	numberOfDocumentsInCorpa := float64(len(*webpages))

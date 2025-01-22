@@ -23,6 +23,7 @@ type WebpageRanking struct {
 	Rating float64
 }
 
+// takes exponential time
 func CalculateBMRatings(query string, webpages *[]WebpageTFIDF, AvgDocLen float64) *[]WebpageTFIDF {
 	tokenizedQuery := Tokenizer(query)
 	fmt.Println(tokenizedQuery)
@@ -32,6 +33,7 @@ func CalculateBMRatings(query string, webpages *[]WebpageTFIDF, AvgDocLen float6
 		// IDF is a constant throughout the current term
 		IDF := CalculateIDF(tokenizedQuery[i], webpages)
 
+		// Dont need to return, it just uses the address of the webpages
 		// First calculate term frequency of each webpage for each token
 		// TF(q1,webpages) -> TF(qT2,webpages)...
 		_ = TF(tokenizedQuery[i], webpages, AvgDocLen)

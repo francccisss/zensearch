@@ -10,6 +10,7 @@ const (
 	b  = .4 // controlling document normalization
 )
 
+// Updating TF ranking of each webpage
 func TF(searchQuery string, webpages *[]WebpageTFIDF, AvgDocLen float64) error {
 
 	for i := range *webpages {
