@@ -4,9 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
-	// "time"
 )
 
 var fileExec = [][]string{{"express-server", "node", "express-server/src/index.ts"}}
@@ -35,32 +33,22 @@ loop:
 			fmt.Printf("Stopping process...\n")
 			break loop
 		case "build":
-			fmt.Printf("Input received %s:\n", input)
-			fmt.Printf("Building...\n")
-
-			for _, file := range fileExec {
-
-				cmd := exec.Command(file[1], file[2])
-				err := cmd.Run()
-				if err != nil {
-					fmt.Println("Error: cannot run command")
-					errArr = append(errArr, []string{file[0], err.Error()})
-					continue
-				}
-				go func(c *exec.Cmd) {
-					b := []byte{}
-					_, err := c.Stdout.Write(b)
-					_, err = c.Stderr.Write(b)
-					if err != nil {
-						errArr = append(errArr, []string{file[0], err.Error()})
-					}
-					fmt.Printf("%s > %s\n", file[0], b)
-				}(cmd)
-
-				// time.Sleep(10 * time.Second)
-			}
-			printErrors(&errArr)
+			fmt.Printf("zensearch: Building...\n")
+			build(buildCmd, &errArr)
 			break
+		case "help":
+			fmt.Printf(`
+Welcome to zensearch cli this will be your main tool for manipulating different services that makes zensearch running.
+
+Usage: 
+- "start" to build and run zensearch
+- "stop"  stops all of the zensearch services
+- "build" for building and installing dependencies
+
+For database handling, for now you can use the system installed sqlite3 for manipulating your database located in the '/database/website_collection.db' if you know how to use sqlite3 then you know what to do, but for others please read the sqlite3 docs :D
+
+`)
+			fmt.Println("")
 		default:
 			break
 		}
@@ -74,5 +62,4 @@ func printErrors(errArr *[][]string) {
 		fmt.Printf("%s: ERROR %s\n", err[0], err[1])
 	}
 	*errArr = nil
-
 }
