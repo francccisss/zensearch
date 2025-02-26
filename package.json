@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "db": "file:database",
+    "search-engine": "file:express-server"
+  }
+}
