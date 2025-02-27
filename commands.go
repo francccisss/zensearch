@@ -53,3 +53,19 @@ func build(commands [][]string, errArr *[][]string) {
 	}
 
 }
+
+func help() {
+	fmt.Printf(`
+Welcome to zensearch cli this will be your main tool for manipulating different services that makes zensearch running.
+
+Usage: 
+- "start" to build and run zensearch
+- "stop"  stops all of the zensearch services
+- "build" for building and installing dependencies
+
+For database handling, for now you can use the system installed sqlite3 for manipulating your database located in the '/database/website_collection.db' if you know how to use sqlite3 then you know what to do, but for others please read the sqlite3 docs :D
+
+`)
+	fmt.Println("")
+
+}
