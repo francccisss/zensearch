@@ -1,14 +1,101 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"log"
+	"os"
 	"os/exec"
 	"sync"
 	"testing"
+
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 )
 
 var wg sync.WaitGroup
+
+// const dockerArgs = "-it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4.0-management"
+const dockerArgs = "-it --rm -p 5672:5672 -p 15672:15672 rabbitmq:4.0-management"
+
+func stringToArr(str string) []string {
+	tmp := []string{}
+	startP := 0
+	for i := range str {
+		if str[i] == ' ' {
+			tmp = append(tmp, str[startP:i])
+			startP = i + 1
+		}
+	}
+	tmp = append(tmp, str[startP:])
+	return tmp
+}
+
+const imageName = "rabbitmq"
+
+func TestDockerRabbitmq(t *testing.T) {
+
+	fmt.Println("Starting docker...")
+	fmt.Println("Docker args")
+	fmt.Println(dockerArgs)
+
+	filter := filters.NewArgs()
+	filter.Add("name", imageName)
+
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		log.Panic(err.Error())
+	}
+	cli.Close()
+
+	list, err := cli.ContainerList(ctx, container.ListOptions{Size: false, Filters: filter})
+	if err != nil {
+		fmt.Println("Unable to get list of containers")
+		panic(err)
+	}
+	fmt.Printf("%+v\n", list)
+	fmt.Println(len(list))
+
+	reader, err := cli.ImagePull(ctx, imageName, image.PullOptions{})
+	if err != nil {
+		log.Panic(err)
+	}
+
+	io.Copy(os.Stdout, reader)
+	defer reader.Close()
+
+	resp, err := cli.ContainerCreate(ctx, &container.Config{
+		Image:        "rabbitmq",
+		AttachStdin:  true,
+		AttachStdout: true,
+		AttachStderr: true,
+		Cmd:          stringToArr(dockerArgs),
+	}, nil, nil, nil, imageName)
+
+	fmt.Printf("Container ID: %s\n", resp.ID)
+	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		fmt.Println("Unable to start rabbitmq container")
+		panic(err)
+	}
+	statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+
+	select {
+	case err := <-errCh:
+		fmt.Println("Container state not positive")
+		panic(err)
+	case s := <-statusCh:
+		fmt.Println("Container status:")
+		fmt.Println(s.Error.Message)
+	}
+
+	out, err := cli.ContainerLogs(ctx, resp.ID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
+	stdcopy.StdCopy(os.Stdout, os.Stderr, out)
+}
 
 func TestCommandExec(t *testing.T) {
 	for _, build := range buildCmd {
