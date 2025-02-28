@@ -41,12 +41,8 @@ func TestDocker(t *testing.T) {
 		ContainerPorts: ContainerPorts{{"5672", "5672"}, {"15672", "15672"}}}
 	defer cli.Close()
 
-	_, err = clientContainer.getContainer(ctx)
-
-	if err != nil {
-		fmt.Printf("Docker: %s\n", err.Error())
-		clientContainer.Run(ctx, "rabbitmq", "4.0-management")
-	}
+	fmt.Printf("Docker: %s\n", err.Error())
+	clientContainer.Run(ctx, "rabbitmq", "4.0-management")
 
 }
 
