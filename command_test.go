@@ -47,7 +47,7 @@ type ClientContainer struct {
 	ContainerID   string
 }
 
-type HostPorts [][]string
+type HostPorts []string
 type ContainerPorts [][]string
 
 type Container interface {
@@ -81,7 +81,6 @@ func (cc ClientContainer) getContainer(ctx context.Context) (container.Summary, 
 func (cc *ClientContainer) Run(ctx context.Context, imageName string, tag string) {
 
 	imageNameWithTag := imageName + ":" + tag
-	fmt.Printf("Docker: container does not exist creating %s container\n", cc.ContainerName)
 	fmt.Printf("Docker: pulling %s image...\n", imageNameWithTag)
 	reader, err := cc.Client.ImagePull(ctx, imageName+":"+tag, image.PullOptions{})
 	if err != nil {
@@ -91,7 +90,7 @@ func (cc *ClientContainer) Run(ctx context.Context, imageName string, tag string
 	io.Copy(os.Stdout, reader)
 	defer reader.Close()
 
-	err = cc.Create(ctx, imageName, tag)
+	cc.Create(ctx, imageName, tag)
 	if err != nil {
 		panic(err)
 	}
@@ -104,7 +103,7 @@ func (cc *ClientContainer) Run(ctx context.Context, imageName string, tag string
 	// dont know when it is completely finished, need to set a timer for other
 	// process that depends on rabbitmq
 	fmt.Printf("Docker: %s container started!\n", cc.ContainerName)
-	fmt.Printf("Docker: %s container exposed ports -> %s, %s\n", cc.ContainerName, ":5672", ":15672")
+	fmt.Printf("Docker: %s container exposed ports -> %+v\n", cc.ContainerName, cc.HostPorts)
 
 	fmt.Printf("Docker: waiting for %s container status...\n", cc.ContainerName)
 	statusCh, errCh := cc.Client.ContainerWait(ctx, cc.ContainerID, container.WaitConditionNotRunning)
@@ -122,24 +121,35 @@ func (cc *ClientContainer) Run(ctx context.Context, imageName string, tag string
 	stdcopy.StdCopy(os.Stdout, os.Stderr, out)
 }
 
-func (cc *ClientContainer) Create(ctx context.Context, imageName string, tag string) error {
+// Creates a new container and updates the clientContainer's ContainerID field is successful
+// else will panic
+func (cc *ClientContainer) Create(ctx context.Context, imageName string, tag string) {
 
+	fmt.Println("Creating container")
 	imageNameWithTag := imageName + ":" + tag
 	hostPorts := map[nat.Port][]nat.PortBinding{}
 	for _, hostPort := range cc.HostPorts {
-		_, ok := hostPorts[nat.Port(fmt.Sprintf("%s/tcp", hostPort[0]))]
-		if ok {
-			contPorts := hostPorts[nat.Port(fmt.Sprintf("%s/tcp", hostPort[0]))]
-			hostPorts[nat.Port(fmt.Sprintf("%s/tcp", hostPort[0]))] = append(contPorts, nat.PortBinding{HostIP: "0.0.0.0", HostPort: hostPort[1]})
+		fmt.Println("Docker: applying host ports")
+		_, ok := hostPorts[nat.Port(fmt.Sprintf("%s/tcp", hostPort))]
+		if !ok {
+			ports := hostPorts[nat.Port(fmt.Sprintf("%s/tcp", hostPort))]
+			fmt.Printf("Current ports %+v\n", ports)
+			hostPorts[nat.Port(fmt.Sprintf("%s/tcp", hostPort))] = append(ports, nat.PortBinding{HostIP: "0.0.0.0", HostPort: hostPort})
+			ports = hostPorts[nat.Port(fmt.Sprintf("%s/tcp", hostPort))]
+			fmt.Printf("Appended ports %+v\n", ports)
 		}
 	}
 	containerPorts := map[nat.Port]struct{}{}
 	for _, contPort := range cc.ContainerPorts {
+		fmt.Println("Docker: applying container ports")
 		_, ok := hostPorts[nat.Port(fmt.Sprintf("%s/tcp", contPort[0]))]
-		if ok {
+		if !ok {
 			containerPorts[nat.Port(fmt.Sprintf("%s/tcp", contPort[0]))] = struct{}{}
 		}
 	}
+
+	fmt.Println(cc.HostPorts)
+	fmt.Println(cc.ContainerPorts)
 
 	// grabs latest version of rabbitmq
 	fmt.Printf("Docker: creating container from %s image as %s \n", imageNameWithTag, cc.ContainerName)
@@ -163,7 +173,6 @@ func (cc *ClientContainer) Create(ctx context.Context, imageName string, tag str
 	}
 	fmt.Printf("Docker: %s's container ID %s\n", cc.ContainerName, resp.ID)
 	cc.ContainerID = resp.ID
-	return nil
 }
 
 func TestDockerRabbitmq(t *testing.T) {
@@ -177,15 +186,18 @@ func TestDockerRabbitmq(t *testing.T) {
 	clientContainer := ClientContainer{
 		Client:         cli,
 		ContainerName:  "zensearch-cli-rabbitmq",
-		HostPorts:      HostPorts{{"5672", "5672"}, {"15672", "15672"}},
+		HostPorts:      HostPorts{"5672", "15672"},
 		ContainerPorts: ContainerPorts{{"5672", "5672"}, {"15672", "15672"}}}
 	defer cli.Close()
 
 	_, err = clientContainer.getContainer(ctx)
-	if err != nil {
-		fmt.Printf("Docker: %s", err.Error())
-		clientContainer.Create(ctx, "rabbitmq", "4.0-management")
 
+	// if container does not exist create make sure to pull needed image
+	// then create
+	if err != nil {
+		fmt.Printf("Docker: %s\n", err.Error())
+		clientContainer.Run(ctx, "rabbitmq", "4.0-management")
+		// clientContainer.Create(ctx, "rabbitmq", "4.0-management")
 	}
 
 }
