@@ -15,12 +15,13 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/docker/go-connections/nat"
 )
 
 var wg sync.WaitGroup
 
 // const dockerArgs = "-it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4.0-management"
-const dockerArgs = "-it --rm -p 5672:5672 -p 15672:15672 "
+const dockerContainerCmd = "-p 5672:5672 -p 15672:15672" // commands when creating container
 
 func stringToArr(str string) []string {
 	tmp := []string{}
@@ -37,8 +38,8 @@ func stringToArr(str string) []string {
 
 func TestDockerRabbitmq(t *testing.T) {
 
-	fmt.Println("Docker: Starting docker...")
-	fmt.Printf("Docker: Args -> %s\n", dockerArgs)
+	fmt.Println("Docker: starting docker...")
+	fmt.Printf("Docker: container commands -> %s\n", dockerContainerCmd)
 
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -70,24 +71,29 @@ func TestDockerRabbitmq(t *testing.T) {
 		io.Copy(os.Stdout, reader)
 		defer reader.Close()
 
+		mappedPort := nat.PortMap{"5672": {nat.PortBinding{HostPort: "5672"}}, "15672": {nat.PortBinding{HostPort: "15672"}}}
+
 		// grabs latest version of rabbitmq
 		fmt.Printf("Docker: creating container from %s image as %s \n", imageName, setContainerName)
 		resp, err := cli.ContainerCreate(ctx, &container.Config{
-			Image:        "rabbitmq",
+			Image: "rabbitmq",
+			// attaching container to process exec is on `-it`
 			AttachStdin:  true,
 			AttachStdout: true,
 			AttachStderr: true,
-			Cmd:          stringToArr(dockerArgs),
-		}, nil, nil, nil, imageName)
+		}, &container.HostConfig{PortBindings: mappedPort}, nil, nil, setContainerName)
 
 		fmt.Printf("Docker: %s's container ID %s\n", setContainerName, resp.ID)
 		currentContainerID = resp.ID
+
+		cs, _ := cli.ContainerList(ctx, container.ListOptions{Size: false, Filters: filter, All: true})
+		fmt.Println(cs)
 	} else {
 		currentContainerID = containers[0].ID
 		fmt.Printf("Docker: container already exists from %s image as %s \n", imageName, containers[0].Names)
 		fmt.Printf("Docker: %s's container ID %s\n", setContainerName, currentContainerID)
 	}
-	fmt.Printf("Docker: starting %s container...", setContainerName)
+	fmt.Printf("Docker: starting %s container...\n", setContainerName)
 	if err := cli.ContainerStart(ctx, currentContainerID, container.StartOptions{}); err != nil {
 		fmt.Println("Unable to start rabbitmq container")
 		panic(err)
@@ -100,7 +106,7 @@ func TestDockerRabbitmq(t *testing.T) {
 		panic(err)
 	case s := <-statusCh:
 		fmt.Println("Container status:")
-		fmt.Println(s.Error.Message)
+		fmt.Println(s.Error)
 	}
 
 	out, err := cli.ContainerLogs(ctx, currentContainerID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
