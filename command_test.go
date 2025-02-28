@@ -21,7 +21,6 @@ import (
 var wg sync.WaitGroup
 
 // const dockerArgs = "-it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4.0-management"
-const dockerContainerCmd = "-p 5672:5672 -p 15672:15672" // commands when creating container
 
 func stringToArr(str string) []string {
 	tmp := []string{}
@@ -38,15 +37,15 @@ func stringToArr(str string) []string {
 
 func TestDockerRabbitmq(t *testing.T) {
 
-	fmt.Println("Docker: starting docker...")
-	fmt.Printf("Docker: container commands -> %s\n", dockerContainerCmd)
-
 	ctx := context.Background()
+	fmt.Printf("Docker: connecting client to docker daemon...\n")
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		log.Panic(err.Error())
 	}
 	defer cli.Close()
+
+	fmt.Printf("Docker: connection successful\n")
 
 	var currentContainerID string
 	imageName := "rabbitmq"
@@ -55,6 +54,8 @@ func TestDockerRabbitmq(t *testing.T) {
 	setContainerName := "zensearch-rabbitmq-cli"
 	filter := filters.NewArgs()
 	filter.Add("name", setContainerName)
+
+	fmt.Printf("Docker: starting %s container...\n", setContainerName)
 
 	containers, err := cli.ContainerList(ctx, container.ListOptions{Size: false, Filters: filter, All: true})
 	if err != nil {
@@ -95,8 +96,6 @@ func TestDockerRabbitmq(t *testing.T) {
 		fmt.Printf("Docker: %s's container ID %s\n", setContainerName, resp.ID)
 		currentContainerID = resp.ID
 
-		cs, _ := cli.ContainerList(ctx, container.ListOptions{Size: false, Filters: filter, All: true})
-		fmt.Println(cs)
 	} else {
 		currentContainerID = containers[0].ID
 		fmt.Printf("Docker: container already exists from %s image as %s \n", imageNameWithTag, containers[0].Names)
@@ -108,7 +107,12 @@ func TestDockerRabbitmq(t *testing.T) {
 		panic(err)
 	}
 
-	fmt.Printf("Docker: waiting for %s container...\n", setContainerName)
+	// dont know when it is completely finished, need to set a timer for other
+	// process that depends on rabbitmq
+	fmt.Printf("Docker: %s container started!\n", setContainerName)
+	fmt.Printf("Docker: %s container exposed ports -> %s, %s\n", setContainerName, ":5672", ":15672")
+
+	fmt.Printf("Docker: waiting for %s container status...\n", setContainerName)
 	statusCh, errCh := cli.ContainerWait(ctx, currentContainerID, container.WaitConditionNotRunning)
 	select {
 	case err := <-errCh:
@@ -116,12 +120,13 @@ func TestDockerRabbitmq(t *testing.T) {
 		panic(err)
 	case s := <-statusCh:
 		fmt.Println("Container status:")
-		fmt.Println(s.Error)
+		if s.Error == nil {
+			fmt.Println("Docker: container closed gracefully")
+		}
 	}
-
-	fmt.Printf("Docker: %s container started!", setContainerName)
-	out, err := cli.ContainerLogs(ctx, currentContainerID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
+	out, _ := cli.ContainerLogs(ctx, currentContainerID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
 	stdcopy.StdCopy(os.Stdout, os.Stderr, out)
+
 }
 
 func TestCommandExec(t *testing.T) {
