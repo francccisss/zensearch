@@ -20,7 +20,7 @@ import (
 var wg sync.WaitGroup
 
 // const dockerArgs = "-it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4.0-management"
-const dockerArgs = "-it --rm -p 5672:5672 -p 15672:15672 rabbitmq:4.0-management"
+const dockerArgs = "-it --rm -p 5672:5672 -p 15672:15672 "
 
 func stringToArr(str string) []string {
 	tmp := []string{}
@@ -35,55 +35,65 @@ func stringToArr(str string) []string {
 	return tmp
 }
 
-const imageName = "rabbitmq"
-
 func TestDockerRabbitmq(t *testing.T) {
 
-	fmt.Println("Starting docker...")
-	fmt.Println("Docker args")
-	fmt.Println(dockerArgs)
-
-	filter := filters.NewArgs()
-	filter.Add("name", imageName)
+	fmt.Println("Docker: Starting docker...")
+	fmt.Printf("Docker: Args -> %s\n", dockerArgs)
 
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		log.Panic(err.Error())
 	}
-	cli.Close()
+	defer cli.Close()
 
-	list, err := cli.ContainerList(ctx, container.ListOptions{Size: false, Filters: filter})
+	var currentContainerID string
+	imageName := "rabbitmq"
+	setContainerName := "zensearch-rabbitmq"
+	filter := filters.NewArgs()
+	filter.Add("name", imageName)
+
+	containers, err := cli.ContainerList(ctx, container.ListOptions{Size: false, Filters: filter, All: true})
 	if err != nil {
 		fmt.Println("Unable to get list of containers")
 		panic(err)
 	}
-	fmt.Printf("%+v\n", list)
-	fmt.Println(len(list))
 
-	reader, err := cli.ImagePull(ctx, imageName, image.PullOptions{})
-	if err != nil {
-		log.Panic(err)
+	if len(containers) == 0 {
+
+		fmt.Printf("Docker: pulling latest %s image...\n", imageName)
+		reader, err := cli.ImagePull(ctx, imageName, image.PullOptions{})
+		if err != nil {
+			log.Panic(err)
+		}
+
+		io.Copy(os.Stdout, reader)
+		defer reader.Close()
+
+		// grabs latest version of rabbitmq
+		fmt.Printf("Docker: creating container from %s image as %s \n", imageName, setContainerName)
+		resp, err := cli.ContainerCreate(ctx, &container.Config{
+			Image:        "rabbitmq",
+			AttachStdin:  true,
+			AttachStdout: true,
+			AttachStderr: true,
+			Cmd:          stringToArr(dockerArgs),
+		}, nil, nil, nil, imageName)
+
+		fmt.Printf("Docker: %s's container ID %s\n", setContainerName, resp.ID)
+		currentContainerID = resp.ID
+	} else {
+		currentContainerID = containers[0].ID
+		fmt.Printf("Docker: container already exists from %s image as %s \n", imageName, containers[0].Names)
+		fmt.Printf("Docker: %s's container ID %s\n", setContainerName, currentContainerID)
 	}
-
-	io.Copy(os.Stdout, reader)
-	defer reader.Close()
-
-	resp, err := cli.ContainerCreate(ctx, &container.Config{
-		Image:        "rabbitmq",
-		AttachStdin:  true,
-		AttachStdout: true,
-		AttachStderr: true,
-		Cmd:          stringToArr(dockerArgs),
-	}, nil, nil, nil, imageName)
-
-	fmt.Printf("Container ID: %s\n", resp.ID)
-	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+	fmt.Printf("Docker: starting %s container...", setContainerName)
+	if err := cli.ContainerStart(ctx, currentContainerID, container.StartOptions{}); err != nil {
 		fmt.Println("Unable to start rabbitmq container")
 		panic(err)
 	}
-	statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
 
+	statusCh, errCh := cli.ContainerWait(ctx, currentContainerID, container.WaitConditionNotRunning)
 	select {
 	case err := <-errCh:
 		fmt.Println("Container state not positive")
@@ -93,7 +103,7 @@ func TestDockerRabbitmq(t *testing.T) {
 		fmt.Println(s.Error.Message)
 	}
 
-	out, err := cli.ContainerLogs(ctx, resp.ID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
+	out, err := cli.ContainerLogs(ctx, currentContainerID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
 	stdcopy.StdCopy(os.Stdout, os.Stderr, out)
 }
 

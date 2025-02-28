@@ -1,5 +1,5 @@
 {
-  "name": "search-engine",
+  "name": "express-server",
   "version": "1.0.0",
   "description": "Building a small scale search engine using NodeJs for Crawling and indexing.",
   "main": "dist/index.js",
