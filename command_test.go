@@ -35,6 +35,121 @@ func stringToArr(str string) []string {
 	return tmp
 }
 
+// TODO contain in docker/containers.go
+// create separate image and container initialization
+// for rabbitmq and selenium containers
+
+type ClientContainer struct {
+	Client         *client.Client
+	HostPorts      [][]string
+	ContainerPorts [][]string
+	ContainerName  string
+	ContainerID    string
+}
+
+type Container interface {
+	Run()
+	Start()
+	// Restart()
+	BuildImage()
+	Stop()
+}
+
+// Returnes specific container using filter to isolate container name
+// used for checking duplicate containers
+func (cc ClientContainer) getContainer(name string, ctx context.Context) (container.Summary, error) {
+	filter := filters.NewArgs()
+	filter.Add("name", name)
+
+	containers, err := cc.Client.ContainerList(ctx, container.ListOptions{Size: false, Filters: filter, All: true})
+	if err != nil {
+		fmt.Println("Unable to get list of containers")
+		panic(err)
+	}
+
+	if len(containers) == 0 {
+		return container.Summary{}, fmt.Errorf("container %s does not exist", name)
+	}
+	return containers[0], nil
+
+}
+
+// Pulls the image from the registry then creates the container
+func (cc *ClientContainer) Run(ctx context.Context, imageName string, tag string) {
+
+	imageNameWithTag := imageName + ":" + tag
+	fmt.Printf("Docker: container does not exist creating %s container\n", cc.ContainerName)
+	fmt.Printf("Docker: pulling %s image...\n", imageNameWithTag)
+	reader, err := cc.Client.ImagePull(ctx, imageName+":"+tag, image.PullOptions{})
+	if err != nil {
+		log.Panic(err)
+	}
+
+	io.Copy(os.Stdout, reader)
+	defer reader.Close()
+
+	hostPorts := map[nat.Port][]nat.PortBinding{}
+	for _, hostPort := range cc.HostPorts {
+		_, ok := hostPorts[nat.Port(fmt.Sprintf("%s/tcp", hostPort[0]))]
+		if ok {
+			contPorts := hostPorts[nat.Port(fmt.Sprintf("%s/tcp", hostPort[0]))]
+			hostPorts[nat.Port(fmt.Sprintf("%s/tcp", hostPort[0]))] = append(contPorts, nat.PortBinding{HostIP: "0.0.0.0", HostPort: hostPort[1]})
+		}
+	}
+	containerPorts := map[nat.Port]struct{}{nat.Port("5672/tcp"): {}, nat.Port("15672/tcp"): {}}
+	for _, contPort := range cc.ContainerPorts {
+		_, ok := hostPorts[nat.Port(fmt.Sprintf("%s/tcp", contPort[0]))]
+		if ok {
+			containerPorts[nat.Port(fmt.Sprintf("%s/tcp", contPort[0]))] = struct{}{}
+		}
+	}
+
+	// grabs latest version of rabbitmq
+	fmt.Printf("Docker: creating container from %s image as %s \n", imageNameWithTag, cc.ContainerName)
+	resp, err := cc.Client.ContainerCreate(ctx, &container.Config{
+		Image: imageNameWithTag,
+		// attaching container to process exec is on `-it`
+		AttachStdin:  true,
+		AttachStdout: true,
+		AttachStderr: true,
+		ExposedPorts: containerPorts,
+	},
+		&container.HostConfig{
+			Binds: []string{
+				"/var/run/docker.sock:/var/run/docker.sock",
+			},
+			PortBindings: hostPorts}, nil, nil, cc.ContainerName)
+
+	fmt.Printf("Docker: %s's container ID %s\n", cc.ContainerName, resp.ID)
+	cc.ContainerID = resp.ID
+
+	fmt.Printf("Docker: starting %s container...\n", cc.ContainerName)
+	if err := cc.Client.ContainerStart(ctx, cc.ContainerID, container.StartOptions{}); err != nil {
+		fmt.Println("Unable to start rabbitmq container")
+		panic(err)
+	}
+
+	// dont know when it is completely finished, need to set a timer for other
+	// process that depends on rabbitmq
+	fmt.Printf("Docker: %s container started!\n", cc.ContainerName)
+	fmt.Printf("Docker: %s container exposed ports -> %s, %s\n", cc.ContainerName, ":5672", ":15672")
+
+	fmt.Printf("Docker: waiting for %s container status...\n", cc.ContainerName)
+	statusCh, errCh := cc.Client.ContainerWait(ctx, cc.ContainerID, container.WaitConditionNotRunning)
+	select {
+	case err := <-errCh:
+		fmt.Println("Container state not positive")
+		panic(err)
+	case s := <-statusCh:
+		fmt.Println("Container status:")
+		if s.Error == nil {
+			fmt.Println("Docker: container closed gracefully")
+		}
+	}
+	out, _ := cc.Client.ContainerLogs(ctx, cc.ContainerID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
+	stdcopy.StdCopy(os.Stdout, os.Stderr, out)
+}
+
 func TestDockerRabbitmq(t *testing.T) {
 
 	ctx := context.Background()
