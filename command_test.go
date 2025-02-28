@@ -50,9 +50,11 @@ func TestDockerRabbitmq(t *testing.T) {
 
 	var currentContainerID string
 	imageName := "rabbitmq"
-	setContainerName := "zensearch-rabbitmq"
+	imageNameWithTag := imageName + ":4.0-management"
+
+	setContainerName := "zensearch-rabbitmq-cli"
 	filter := filters.NewArgs()
-	filter.Add("name", imageName)
+	filter.Add("name", setContainerName)
 
 	containers, err := cli.ContainerList(ctx, container.ListOptions{Size: false, Filters: filter, All: true})
 	if err != nil {
@@ -62,8 +64,9 @@ func TestDockerRabbitmq(t *testing.T) {
 
 	if len(containers) == 0 {
 
-		fmt.Printf("Docker: pulling latest %s image...\n", imageName)
-		reader, err := cli.ImagePull(ctx, imageName, image.PullOptions{})
+		fmt.Printf("Docker: container does not exist creating %s container\n", setContainerName)
+		fmt.Printf("Docker: pulling %s image...\n", imageNameWithTag)
+		reader, err := cli.ImagePull(ctx, imageNameWithTag, image.PullOptions{})
 		if err != nil {
 			log.Panic(err)
 		}
@@ -71,17 +74,23 @@ func TestDockerRabbitmq(t *testing.T) {
 		io.Copy(os.Stdout, reader)
 		defer reader.Close()
 
-		mappedPort := nat.PortMap{"5672": {nat.PortBinding{HostPort: "5672"}}, "15672": {nat.PortBinding{HostPort: "15672"}}}
-
+		mappedPort := nat.PortMap{nat.Port("5672/tcp"): {nat.PortBinding{HostIP: "0.0.0.0", HostPort: "5672"}}, nat.Port("15672/tcp"): {nat.PortBinding{HostIP: "0.0.0.0", HostPort: "15672"}}}
+		containerPorts := nat.PortSet{nat.Port("5672/tcp"): struct{}{}, nat.Port("15672/tcp"): struct{}{}}
 		// grabs latest version of rabbitmq
-		fmt.Printf("Docker: creating container from %s image as %s \n", imageName, setContainerName)
+		fmt.Printf("Docker: creating container from %s image as %s \n", imageNameWithTag, setContainerName)
 		resp, err := cli.ContainerCreate(ctx, &container.Config{
-			Image: "rabbitmq",
+			Image: imageNameWithTag,
 			// attaching container to process exec is on `-it`
 			AttachStdin:  true,
 			AttachStdout: true,
 			AttachStderr: true,
-		}, &container.HostConfig{PortBindings: mappedPort}, nil, nil, setContainerName)
+			ExposedPorts: containerPorts,
+		},
+			&container.HostConfig{
+				Binds: []string{
+					"/var/run/docker.sock:/var/run/docker.sock",
+				},
+				PortBindings: mappedPort}, nil, nil, setContainerName)
 
 		fmt.Printf("Docker: %s's container ID %s\n", setContainerName, resp.ID)
 		currentContainerID = resp.ID
@@ -90,7 +99,7 @@ func TestDockerRabbitmq(t *testing.T) {
 		fmt.Println(cs)
 	} else {
 		currentContainerID = containers[0].ID
-		fmt.Printf("Docker: container already exists from %s image as %s \n", imageName, containers[0].Names)
+		fmt.Printf("Docker: container already exists from %s image as %s \n", imageNameWithTag, containers[0].Names)
 		fmt.Printf("Docker: %s's container ID %s\n", setContainerName, currentContainerID)
 	}
 	fmt.Printf("Docker: starting %s container...\n", setContainerName)
@@ -99,6 +108,7 @@ func TestDockerRabbitmq(t *testing.T) {
 		panic(err)
 	}
 
+	fmt.Printf("Docker: waiting for %s container...\n", setContainerName)
 	statusCh, errCh := cli.ContainerWait(ctx, currentContainerID, container.WaitConditionNotRunning)
 	select {
 	case err := <-errCh:
@@ -109,6 +119,7 @@ func TestDockerRabbitmq(t *testing.T) {
 		fmt.Println(s.Error)
 	}
 
+	fmt.Printf("Docker: %s container started!", setContainerName)
 	out, err := cli.ContainerLogs(ctx, currentContainerID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
 	stdcopy.StdCopy(os.Stdout, os.Stderr, out)
 }
