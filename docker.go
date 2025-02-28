@@ -79,10 +79,29 @@ func (cc *ClientContainer) Run(ctx context.Context, imageName string, tag string
 }
 
 func (cc *ClientContainer) Start(ctx context.Context) error {
+	if cc.ContainerID == "" {
+		return fmt.Errorf("Docker: ERROR current container does not have an associated ContainerID which means the container does not exist, instead run the Run() function to create and run a new container from an image")
+	}
+	err := cc.Client.ContainerStart(ctx, cc.ContainerID, container.StartOptions{})
+	if err != nil {
+		fmt.Println("Docker: Unable to start the container")
+		return err
+	}
+	out, err := cc.Client.ContainerLogs(ctx, cc.ContainerID, container.LogsOptions{ShowStderr: true, ShowStdout: true})
+	io.Copy(os.Stdout, out)
+
 	return nil
 }
 
 func (cc *ClientContainer) Stop(ctx context.Context) error {
+	if cc.ContainerID == "" {
+		return fmt.Errorf("Docker: ERROR there's nothing to stop because the container does not exist")
+	}
+	err := cc.Client.ContainerStop(ctx, cc.ContainerID, container.StopOptions{})
+	if err != nil {
+		return fmt.Errorf("Docker: ERROR Something went wrong, zensearch is unable to stop the currently running container with ID starting with %s", cc.ContainerID[:8])
+	}
+	fmt.Printf("Docker: Successfully stopped %s with ID starting with %s", cc.ContainerName, cc.ContainerID[:8])
 	return nil
 }
 
