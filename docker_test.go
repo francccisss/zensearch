@@ -12,25 +12,6 @@ import (
 	"github.com/docker/docker/client"
 )
 
-func TestDocker(t *testing.T) {
-
-	var cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	ctx := context.Background()
-	fmt.Printf("Docker: connecting client to docker daemon...\n")
-	if err != nil {
-		log.Panic(err.Error())
-	}
-	clientContainer := ClientContainer{
-		Client:         cli,
-		ContainerName:  "zensearch-cli-rabbitmq",
-		HostPorts:      HostPorts{"5672", "15672"},
-		ContainerPorts: ContainerPorts{{"5672", "5672"}, {"15672", "15672"}}}
-	defer cli.Close()
-	defer killCont(ctx, clientContainer)
-
-	clientContainer.Run(ctx, "rabbitmq", "4.0-management")
-}
-
 func TestNoContainer(t *testing.T) {
 
 	var cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
