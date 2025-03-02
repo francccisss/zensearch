@@ -3,3 +3,9 @@ dist/
 data.json
 Journey.md
 TODO.md
+*.bin
+*.out
+*.exe
+zensearch
+crawler
+search-engine
