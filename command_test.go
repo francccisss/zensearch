@@ -1,11 +1,8 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"github.com/docker/docker/client"
 	"io"
-	"log"
 	"os/exec"
 	"sync"
 	"testing"
@@ -13,45 +10,11 @@ import (
 
 var wg sync.WaitGroup
 
-func stringToArr(str string) []string {
-	tmp := []string{}
-	startP := 0
-	for i := range str {
-		if str[i] == ' ' {
-			tmp = append(tmp, str[startP:i])
-			startP = i + 1
-		}
-	}
-	tmp = append(tmp, str[startP:])
-	return tmp
-}
-
-func TestDocker(t *testing.T) {
-
-	ctx := context.Background()
-	fmt.Printf("Docker: connecting client to docker daemon...\n")
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		log.Panic(err.Error())
-	}
-	clientContainer := ClientContainer{
-		Client:         cli,
-		ContainerName:  "zensearch-cli-rabbitmq",
-		HostPorts:      HostPorts{"5672", "15672"},
-		ContainerPorts: ContainerPorts{{"5672", "5672"}, {"15672", "15672"}}}
-	defer cli.Close()
-
-	fmt.Printf("Docker: %s\n", err.Error())
-	clientContainer.Run(ctx, "rabbitmq", "4.0-management")
-
-}
-
-func TestCommandExec(t *testing.T) {
+func TestBuildCmd(t *testing.T) {
 	for _, build := range buildCmd {
 
 		cmd := exec.Command(build[1], build[2:]...)
 		stdErr, err := cmd.StderrPipe()
-		// stdOut, err := cmd.StdoutPipe()
 		err = cmd.Start()
 		if err != nil {
 			fmt.Println("Error: cannot run command")
