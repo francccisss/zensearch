@@ -12,6 +12,15 @@ import (
 	"github.com/docker/docker/client"
 )
 
+func TestWithExistingContainer(t *testing.T) {
+	ctx := context.Background()
+	cont := NewContainer("zensearch-cli-rabbitmq", rabbitmqContConfig.HostPorts, rabbitmqContConfig.ContainerPorts)
+	err := cont.Run(ctx, "rabbitmq", "4.0-management")
+	if err != nil {
+		fmt.Println(err)
+		t.FailNow()
+	}
+}
 func TestNoContainer(t *testing.T) {
 
 	var cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
