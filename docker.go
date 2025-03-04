@@ -66,8 +66,8 @@ func (cc ClientContainer) Run(ctx context.Context, imageName string, tag string)
 		if err != nil {
 			fmt.Printf("Docker: %s container already exists, starting...\n", cc.ContainerName)
 			return err
-			// return fmt.Errorf("Docker: ERROR container already exists, either rename the current container or remove the existing container\nContainer ID: %s\n\n", c.ID)
 		}
+		go cc.ListenContainerState(ctx)
 		return nil
 	}
 	fmt.Println("Docker: creating container...")
@@ -80,7 +80,6 @@ func (cc ClientContainer) Run(ctx context.Context, imageName string, tag string)
 
 	io.Copy(os.Stdout, reader)
 	defer reader.Close()
-
 	cc.create(ctx, imageName, tag)
 	fmt.Printf("Docker: starting %s container...\n", cc.ContainerName)
 
@@ -103,9 +102,12 @@ func (cc ClientContainer) ListenContainerState(ctx context.Context) {
 	select {
 	case err := <-errCh:
 		fmt.Println("Container state not positive")
-		panic(err)
+		fmt.Println(err)
+		return
 	case s := <-statusCh:
+
 		fmt.Println("Container status:")
+		fmt.Println(s.Error.Message)
 		if s.Error == nil {
 			fmt.Println("Docker: container closed gracefully")
 		}
@@ -135,7 +137,6 @@ func (cc ClientContainer) Start(ctx context.Context, containerID string) error {
 	}
 	fmt.Printf("Docker: container %s started\n", cc.ContainerName)
 
-	go cc.ListenContainerState(ctx)
 	return nil
 }
 

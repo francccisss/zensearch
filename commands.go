@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"sync"
-	"time"
 )
 
 type StdError struct {
@@ -30,25 +29,17 @@ func (se *StdError) addError(value string) {
 // TODO make sure docker services are running first
 // use go routines and wait for state changes
 // need to start containerized services first eg: selenium/rabbitmq
-func startServices(commands [][]string) {
-	ctx, cancelFunc := context.WithCancel(context.Background())
+func startServices(pctx context.Context, commands [][]string) {
+	fmt.Println("zensearch: Starting services...")
+	ctx, cancelFunc := context.WithCancel(pctx)
 	errChan := make(chan error)
 
 	var wg sync.WaitGroup
-	go func() {
-		for _, contConfig := range dockerContainerConf {
-			wg.Add(1)
-			defer wg.Done()
-			time.Sleep(time.Second * 3)
-			cont := NewContainer(contConfig.Name, contConfig.HostPorts, contConfig.ContainerPorts)
-			err := cont.Run(ctx, "rabbitmq", "4.0-management")
-			if err != nil {
-				errChan <- err
-				return
-			}
-		}
-	}()
 
+	for _, contConfig := range dockerContainerConf {
+		wg.Add(1)
+		go runningDockerService(ctx, &wg, contConfig, errChan)
+	}
 	wg.Wait()
 	go func() {
 		for _, command := range commands {
@@ -58,20 +49,39 @@ func startServices(commands [][]string) {
 	}()
 
 	//TODO CLEAN UP PROCESSES
-	err := <-errChan
-	fmt.Println(err.Error())
-	cancelFunc()
-	fmt.Println("zensearch: cancelling all services...")
-	fmt.Println("zensearch: services cancelled")
+	go func() {
+		err := <-errChan
+		fmt.Println(err.Error())
+		cancelFunc()
+		fmt.Println("zensearch: cancelling all services...")
+		fmt.Println("zensearch: services cancelled")
 
-	<-ctx.Done()
-	fmt.Println("zensearch: cleaning up services...")
-	fmt.Println("zensearch: services stopped")
+		<-ctx.Done()
+		fmt.Println("zensearch: cleaning up services...")
+		fmt.Println("zensearch: services stopped")
+	}()
 
 }
 
-func runningDockerService(ctx context.Context, cmd *exec.Cmd, errChan chan error, cmdName string) {
+func runningDockerService(ctx context.Context, wg *sync.WaitGroup, contConfig DockerContainerConfig, errChan chan error) {
+	defer wg.Done()
 
+	cont := NewContainer(contConfig.Name, contConfig.HostPorts, contConfig.ContainerPorts)
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			fmt.Printf("Docker: shutting down %s container...\n", contConfig.Name)
+			cont.Stop(ctx)
+			fmt.Printf("Docker: %s container stopped\n", contConfig.Name)
+		}
+	}()
+
+	err := cont.Run(ctx, "rabbitmq", "4.0-management")
+	if err != nil {
+		errChan <- err
+		return
+	}
 }
 func runningService(ctx context.Context, cmd *exec.Cmd, errChan chan error, cmdName string) {
 	newStdErr := NewStdError(cmdName)
@@ -85,10 +95,16 @@ func runningService(ctx context.Context, cmd *exec.Cmd, errChan chan error, cmdN
 
 	if err != nil {
 		fmt.Printf("zensearch: ERROR unable to set up stdout for process %s\n", cmdName)
+		newStdErr.addError(err.Error())
+		errChan <- newStdErr
+		return
 	}
 	err = cmd.Start()
 	if err != nil {
 		fmt.Printf("zensearch: ERROR unable to start process %s\n", cmdName)
+		newStdErr.addError(err.Error())
+		errChan <- newStdErr
+		return
 	}
 	// for handling stderr
 	go func() {
@@ -99,10 +115,13 @@ func runningService(ctx context.Context, cmd *exec.Cmd, errChan chan error, cmdN
 		newStdErr.addError(string(readErrors))
 		errChan <- newStdErr
 	}()
+
 	io.Copy(os.Stdout, stdout)
 	// use stderr to check the state of the process
-	if cmd.Wait(); err != nil {
-		fmt.Printf("zensearch: ERROR unable to wait for process %s", cmdName)
+	err = cmd.Wait()
+	if err != nil {
+		newStdErr.addError(err.Error())
+		errChan <- newStdErr
 	}
 }
 
