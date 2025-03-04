@@ -20,6 +20,8 @@ func TestWithExistingContainer(t *testing.T) {
 		fmt.Println(err)
 		t.FailNow()
 	}
+	v := make(chan int)
+	<-v
 }
 func TestNoContainer(t *testing.T) {
 

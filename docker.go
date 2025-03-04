@@ -64,9 +64,11 @@ func (cc ClientContainer) Run(ctx context.Context, imageName string, tag string)
 	if exists {
 		err := cc.Start(ctx, c.ID)
 		if err != nil {
-			fmt.Printf("Docker: %s container already exists, starting...\n", cc.ContainerName)
+			fmt.Printf("Docker: unable to start %s from existing container...\n", cc.ContainerName)
 			return err
 		}
+		// assigning container ID
+		cc.ContainerID = c.ID
 		go cc.ListenContainerState(ctx)
 		return nil
 	}
@@ -80,7 +82,11 @@ func (cc ClientContainer) Run(ctx context.Context, imageName string, tag string)
 
 	io.Copy(os.Stdout, reader)
 	defer reader.Close()
-	cc.create(ctx, imageName, tag)
+	err = cc.create(ctx, imageName, tag)
+	if err != nil {
+		fmt.Printf("Unable to create %s container", cc.ContainerName)
+		return err
+	}
 	fmt.Printf("Docker: starting %s container...\n", cc.ContainerName)
 
 	if err := cc.Client.ContainerStart(ctx, cc.ContainerID, container.StartOptions{}); err != nil {
@@ -97,7 +103,7 @@ func (cc ClientContainer) Run(ctx context.Context, imageName string, tag string)
 }
 
 func (cc ClientContainer) ListenContainerState(ctx context.Context) {
-	fmt.Printf("Docker: waiting for %s container status...\n", cc.ContainerName)
+	fmt.Printf("\nDocker: waiting for %s container status...\n", cc.ContainerName)
 	statusCh, errCh := cc.Client.ContainerWait(ctx, cc.ContainerID, container.WaitConditionNotRunning)
 	select {
 	case err := <-errCh:
@@ -125,6 +131,7 @@ func (cc ClientContainer) Start(ctx context.Context, containerID string) error {
 	fmt.Printf("Docker: starting %s container...\n", cc.ContainerName)
 	if containerID != "" {
 		cc.ContainerID = containerID
+		fmt.Printf("Docker: assigning container ID %s\n", cc.ContainerID)
 	}
 	if cc.ContainerID == "" {
 		return fmt.Errorf("Docker: ERROR current container does not have an associated ContainerID which means the container does not exist, instead run the Run() function to create and run a new container from an image\n")
@@ -156,7 +163,7 @@ func (cc ClientContainer) Stop(ctx context.Context) error {
 // Creates a new container and updates the cc's ContainerID field is successful
 // else will panic dont use separately from Run() because port mapping is only initialized
 // on container startup and not on creation... i dont know why
-func (cc *ClientContainer) create(ctx context.Context, imageName string, tag string) {
+func (cc *ClientContainer) create(ctx context.Context, imageName string, tag string) error {
 
 	fmt.Println("Docker: creating container...")
 	imageNameWithTag := imageName + ":" + tag
@@ -196,10 +203,11 @@ func (cc *ClientContainer) create(ctx context.Context, imageName string, tag str
 
 	if err != nil {
 		fmt.Printf("Docker: ERROR was not able to create %s container\n", cc.ContainerName)
-		panic(err)
+		return err
 	}
 	fmt.Printf("Docker: %s's container ID %s\n", cc.ContainerName, resp.ID)
 	cc.ContainerID = resp.ID
+	return nil
 }
 
 // Returnes specific container using filter to isolate container name
