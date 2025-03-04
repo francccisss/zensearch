@@ -5,15 +5,16 @@ import { WebSocketServer } from "ws";
 import app from "./express_server";
 import { exit } from "process";
 
+const httpServer = http.createServer(app);
 const PORT = 8080;
 (async function start_server() {
   console.log("Starting express server");
-  const httpServer = http.createServer(app);
 
   httpServer.on("error", (err: any) => {
     if (err.code == "EADDRINUSE") {
       console.error(err.message);
-      console.log("shutting down");
+      httpServer.close();
+      console.log("exiting process");
       exit(1);
     }
   });
@@ -60,6 +61,7 @@ const PORT = 8080;
   */
 })().catch((e) => {
   console.error(e);
+  httpServer.close();
   console.log("SHUTDOWN");
   exit(1);
 });

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -17,9 +18,9 @@ var runCmds = [][]string{
 
 var buildCmds = [][]string{
 	{"express", "npm", "run", "build", "--prefix", "./express-server"},
-	{"database", "npm", "run", "build", "--prefix", "./database"},
-	{"crawler", "go", "build", "-C", "./crawler/"},
-	{"search-engine", "go", "build", "-C", "./search-engine/"},
+	// {"database", "npm", "run", "build", "--prefix", "./database"},
+	// {"crawler", "go", "build", "-C", "./crawler/"},
+	// {"search-engine", "go", "build", "-C", "./search-engine/"},
 }
 
 var npmInstall = [][]string{
@@ -37,6 +38,7 @@ var dockerContainerConf = []DockerContainerConfig{rabbitmqContConfig}
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
 
+	ctx, cancelFunc := context.WithCancel(context.Background())
 loop:
 	for {
 		fmt.Printf("zensearch> ")
@@ -45,16 +47,18 @@ loop:
 		input := strings.Trim(text, " ")
 		switch input {
 		case "start":
-			startServices(runCmds)
+			startServices(ctx, runCmds)
+			fmt.Println("zensearch: services started")
 			break
 		case "stop":
 			// send kill signal to each process
 			fmt.Printf("Input received %s:\n", input)
 			fmt.Printf("Stopping services...\n")
+			cancelFunc()
 			break loop
 		case "build":
 			fmt.Printf("zensearch: Building...\n")
-			// runCommands(buildCmds, &errArr)
+			runCommands(buildCmds, &errArr)
 			break
 		case "help":
 			help()
