@@ -62,7 +62,13 @@ func (cc ClientContainer) Run(ctx context.Context, imageName string, tag string)
 	// err is nil if it exists, else not nil if container does not exists
 	c, exists := cc.getContainer(ctx)
 	if exists {
-		return fmt.Errorf("Docker: ERROR container already exists, either rename the current container or remove the existing container\nContainer ID: %s\n\n", c.ID)
+		err := cc.Start(ctx, c.ID)
+		if err != nil {
+			fmt.Printf("Docker: %s container already exists, starting...\n", cc.ContainerName)
+			return err
+			// return fmt.Errorf("Docker: ERROR container already exists, either rename the current container or remove the existing container\nContainer ID: %s\n\n", c.ID)
+		}
+		return nil
 	}
 	fmt.Println("Docker: creating container...")
 	imageNameWithTag := imageName + ":" + tag
@@ -76,9 +82,6 @@ func (cc ClientContainer) Run(ctx context.Context, imageName string, tag string)
 	defer reader.Close()
 
 	cc.create(ctx, imageName, tag)
-	if err != nil {
-		return err
-	}
 	fmt.Printf("Docker: starting %s container...\n", cc.ContainerName)
 
 	if err := cc.Client.ContainerStart(ctx, cc.ContainerID, container.StartOptions{}); err != nil {
@@ -118,13 +121,13 @@ func (cc ClientContainer) ListenContainerState(ctx context.Context) {
 func (cc ClientContainer) Start(ctx context.Context, containerID string) error {
 
 	fmt.Printf("Docker: starting %s container...\n", cc.ContainerName)
+	if containerID != "" {
+		cc.ContainerID = containerID
+	}
 	if cc.ContainerID == "" {
 		return fmt.Errorf("Docker: ERROR current container does not have an associated ContainerID which means the container does not exist, instead run the Run() function to create and run a new container from an image\n")
 	}
 
-	if containerID != "" {
-		cc.ContainerID = containerID
-	}
 	err := cc.Client.ContainerStart(ctx, cc.ContainerID, container.StartOptions{})
 	if err != nil {
 		fmt.Println("Docker: Unable to start the container")
@@ -213,6 +216,7 @@ func (cc ClientContainer) getContainer(ctx context.Context) (container.Summary, 
 		fmt.Printf("Docker: container %s does not exist\n", cc.ContainerName)
 		return container.Summary{}, false
 	}
+	fmt.Println(containers[0].ID)
 	return containers[0], true
 
 }
