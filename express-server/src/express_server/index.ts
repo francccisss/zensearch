@@ -97,6 +97,7 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     */
 
     // TODO need to return some error after some amount of time if there is not ack received
+    // results are the array of websites that have NOT been indexed yet
     const results = await rabbitmq.client.crawlListCheck(encoded_docs);
     if (results === null) {
       throw new Error("Unable to check user's crawl list.");
@@ -112,18 +113,20 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
 
     /*
       Need to notify users that some of the items in the list have already been indexed,
-      so we need to send back the items that are not included in the unindexed list
+      so we need to send back the items that were NOT included in the unindexed list
       (means return only the indexed ones).
 
-      Doing the opposite by filtering out websites that have already been indexed and
+      Doing the opposite by filtering out websites that have already been indexed from `Docs` and
       return it back to the user to change these entries.
+
+      This returns the unindexed list to the user
     */
     if (results.undindexed.length !== Docs.length) {
       return res.status(200).json({
         is_crawling: false,
         message: "Some of the items in this list has already been indexed.",
         crawl_list: Docs.filter(
-          (website) => !results.undindexed.includes(website) ?? website,
+          (website) => results.undindexed.includes(website) ?? website,
         ),
       });
     }
