@@ -102,16 +102,16 @@ func (cc ClientContainer) Run(ctx context.Context, imageName string, tag string)
 	return nil
 }
 
+// TODO figure out what to do with this
 func (cc ClientContainer) ListenContainerState(ctx context.Context) {
 	fmt.Printf("\nDocker: waiting for %s container status...\n", cc.ContainerName)
 	statusCh, errCh := cc.Client.ContainerWait(ctx, cc.ContainerID, container.WaitConditionNotRunning)
 	select {
 	case err := <-errCh:
-		fmt.Println("Container state not positive")
-		fmt.Println(err)
+		fmt.Println("docker: closing docker container")
+		fmt.Printf("cause for closing container: %s\n", err.Error())
 		return
 	case s := <-statusCh:
-
 		fmt.Println("Container status:")
 		fmt.Println(s.Error.Message)
 		if s.Error == nil {
@@ -131,7 +131,7 @@ func (cc ClientContainer) Start(ctx context.Context, containerID string) error {
 	fmt.Printf("Docker: starting %s container...\n", cc.ContainerName)
 	if containerID != "" {
 		cc.ContainerID = containerID
-		fmt.Printf("Docker: assigning container ID %s\n", cc.ContainerID)
+		fmt.Printf("Docker: assigning container ID for %s\n", cc.ContainerName)
 	}
 	if cc.ContainerID == "" {
 		return fmt.Errorf("Docker: ERROR current container does not have an associated ContainerID which means the container does not exist, instead run the Run() function to create and run a new container from an image\n")

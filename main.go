@@ -18,7 +18,7 @@ var runCmds = [][]string{
 
 var buildCmds = [][]string{
 	{"express", "npm", "run", "build", "--prefix", "./express-server"},
-	// {"database", "npm", "run", "build", "--prefix", "./database"},
+	{"database", "npm", "run", "build", "--prefix", "./database"},
 	// {"crawler", "go", "build", "-C", "./crawler/"},
 	// {"search-engine", "go", "build", "-C", "./search-engine/"},
 }
@@ -52,11 +52,20 @@ loop:
 			break
 		case "stop":
 			// send kill signal to each process
+			fmt.Printf("Stopping services...\n")
+			cancelFunc()
+			break
+		case "exit":
+			// send kill signal to each process
 			fmt.Printf("Input received %s:\n", input)
 			fmt.Printf("Stopping services...\n")
 			cancelFunc()
 			break loop
 		case "build":
+			fmt.Printf("zensearch: Building...\n")
+			runCommands(buildCmds, &errArr)
+			break
+		case "node-install":
 			fmt.Printf("zensearch: Building...\n")
 			runCommands(buildCmds, &errArr)
 			break
