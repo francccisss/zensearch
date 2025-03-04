@@ -26,7 +26,7 @@ exec_scripts(db, path.join(__dirname, "./db_utils/websites.init.sql"));
 async function establishConnection(retries: number): Promise<Connection> {
   if (retries-- > 0) {
     try {
-      const connection = await amqp.connect("amqp://rabbitmq:5672");
+      const connection = await amqp.connect("amqp://localhost:5672");
       console.log(
         `Successfully connected to rabbitmq after ${retries} retries`,
       );

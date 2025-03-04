@@ -3,11 +3,20 @@ import rabbitmq from "./rabbitmq/index";
 import WebsocketService from "./websocket";
 import { WebSocketServer } from "ws";
 import app from "./express_server";
+import { exit } from "process";
 
 const PORT = 8080;
 (async function start_server() {
   console.log("Starting express server");
   const httpServer = http.createServer(app);
+
+  httpServer.on("error", (err: any) => {
+    if (err.code == "EADDRINUSE") {
+      console.error(err.message);
+      console.log("shutting down");
+      exit(1);
+    }
+  });
   /*
    Connect Rabbitmq
    Creates an indefinite loop to listen/receive
@@ -49,4 +58,8 @@ const PORT = 8080;
    Catching errors propogated by these initializers defined inside
    in the try block
   */
-})().catch(console.error);
+})().catch((e) => {
+  console.error(e);
+  console.log("SHUTDOWN");
+  exit(1);
+});

@@ -20,7 +20,7 @@ class RabbitMQClient {
   async establishConnection(retryCount: number): Promise<RabbitMQClient> {
     if (retryCount-- > 0) {
       try {
-        this.connection = await amqp.connect("amqp://rabbitmq:5672");
+        this.connection = await amqp.connect("amqp://localhost:5672");
         console.log(
           `Successfully connected to rabbitmq after ${retryCount} retries`,
         );
