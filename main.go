@@ -7,13 +7,24 @@ import (
 	"strings"
 )
 
-var fileExec = [][]string{{"express-server", "node", "express-server/src/index.ts"}}
 var errArr = [][]string{}
 var runCmds = [][]string{
-	{"express", "node", "./database/dist/index.js"},
-	{"database", "node", "./express-server/dist/index.js"},
-	{"crawler", "./crawler/crawler"},
-	{"search-engine", "./search-engine/search-engine"},
+	{"express", "node", "./express-server/dist/index.js"},
+	{"database", "node", "./database/dist/index.js"},
+	// {"crawler", "./crawler/crawler"},
+	// {"search-engine", "./search-engine/search-engine"},
+}
+
+var buildCmds = [][]string{
+	{"express", "npm", "run", "build", "--prefix", "./express-server"},
+	{"database", "npm", "run", "build", "--prefix", "./database"},
+	{"crawler", "go", "build", "-C", "./crawler/"},
+	{"search-engine", "go", "build", "-C", "./search-engine/"},
+}
+
+var npmInstall = [][]string{
+	{"express", "npm", "install", "express-server/"},
+	{"database", "npm", "install", "database/"},
 }
 
 var rabbitmqContConfig = DockerContainerConfig{

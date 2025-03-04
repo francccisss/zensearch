@@ -27,6 +27,7 @@ func (se *StdError) addError(value string) {
 	se.value = value
 }
 
+// TODO make sure docker services are running first
 // use go routines and wait for state changes
 // need to start containerized services first eg: selenium/rabbitmq
 func startServices(commands [][]string) {
@@ -48,27 +49,24 @@ func startServices(commands [][]string) {
 		}
 	}()
 
+	wg.Wait()
 	go func() {
-		wg.Wait()
 		for _, command := range commands {
 			cmd := exec.Command(command[1], command[2:]...)
 			go runningService(ctx, cmd, errChan, command[0])
 		}
 	}()
 
-	for {
-		select {
-		case <-ctx.Done():
-			fmt.Println("Do something after context cancelled")
-			break
-		case err := <-errChan:
-			fmt.Println(err)
-			fmt.Println("zensearch: cancelling all services...")
-			cancelFunc()
-			fmt.Println("zensearch: services cancelled")
-			return
-		}
-	}
+	//TODO CLEAN UP PROCESSES
+	err := <-errChan
+	fmt.Println(err.Error())
+	cancelFunc()
+	fmt.Println("zensearch: cancelling all services...")
+	fmt.Println("zensearch: services cancelled")
+
+	<-ctx.Done()
+	fmt.Println("zensearch: cleaning up services...")
+	fmt.Println("zensearch: services stopped")
 
 }
 
