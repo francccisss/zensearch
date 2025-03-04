@@ -1,18 +1,122 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"sync"
+	"time"
 )
 
-func build(commands [][]string, errArr *[][]string) {
+type StdError struct {
+	src   string
+	value string
+}
 
+func NewStdError(src string) StdError {
+	return StdError{src: src}
+}
+
+func (se StdError) Error() string {
+	return fmt.Sprintf("%s: ERROR %s", se.src, se.value)
+}
+
+func (se *StdError) addError(value string) {
+	se.value = value
+}
+
+// use go routines and wait for state changes
+// need to start containerized services first eg: selenium/rabbitmq
+func startServices(commands [][]string) {
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	errChan := make(chan error)
+
+	var wg sync.WaitGroup
+	go func() {
+		for _, contConfig := range dockerContainerConf {
+			wg.Add(1)
+			defer wg.Done()
+			time.Sleep(time.Second * 3)
+			cont := NewContainer(contConfig.Name, contConfig.HostPorts, contConfig.ContainerPorts)
+			err := cont.Run(ctx, "rabbitmq", "4.0-management")
+			if err != nil {
+				errChan <- err
+				return
+			}
+		}
+	}()
+
+	go func() {
+		wg.Wait()
+		for _, command := range commands {
+			cmd := exec.Command(command[1], command[2:]...)
+			go runningService(ctx, cmd, errChan, command[0])
+		}
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Println("Do something after context cancelled")
+			break
+		case err := <-errChan:
+			fmt.Println(err)
+			fmt.Println("zensearch: cancelling all services...")
+			cancelFunc()
+			fmt.Println("zensearch: services cancelled")
+			return
+		}
+	}
+
+}
+
+func runningDockerService(ctx context.Context, cmd *exec.Cmd, errChan chan error, cmdName string) {
+
+}
+func runningService(ctx context.Context, cmd *exec.Cmd, errChan chan error, cmdName string) {
+	newStdErr := NewStdError(cmdName)
+	stdout, err := cmd.StdoutPipe()
+	stderr, err := cmd.StderrPipe()
+
+	go func() {
+		<-ctx.Done()
+		fmt.Printf("%s shutting down process...\n", cmdName)
+	}()
+
+	if err != nil {
+		fmt.Printf("zensearch: ERROR unable to set up stdout for process %s\n", cmdName)
+	}
+	err = cmd.Start()
+	if err != nil {
+		fmt.Printf("zensearch: ERROR unable to start process %s\n", cmdName)
+	}
+	// for handling stderr
+	go func() {
+		readErrors, err := io.ReadAll(stderr)
+		if err != nil {
+			fmt.Printf("zensearch: ERROR unable to read errors from process %s\n", cmdName)
+		}
+		newStdErr.addError(string(readErrors))
+		errChan <- newStdErr
+	}()
+	io.Copy(os.Stdout, stdout)
+	// use stderr to check the state of the process
+	if cmd.Wait(); err != nil {
+		fmt.Printf("zensearch: ERROR unable to wait for process %s", cmdName)
+	}
+}
+
+func runCommands(commands [][]string, errArr *[][]string) {
+
+	fmt.Println("NOTICE FOR DATABASE SERVICE: make sure you have sqlite3 installed on your system!")
 	for _, command := range commands {
 		cmd := exec.Command(command[1], command[2:]...)
 		stdErr, err := cmd.StderrPipe()
-		// stdOut, err := cmd.StdoutPipe()
+		stdOut, err := cmd.StdoutPipe()
 		err = cmd.Start()
+		io.Copy(os.Stdout, stdOut)
 		if err != nil {
 			fmt.Println("Error: cannot run command")
 			switch e := err.(type) {
@@ -32,23 +136,26 @@ func build(commands [][]string, errArr *[][]string) {
 			}
 			*errArr = append(*errArr, []string{command[0], err.Error()})
 		}
-		fmt.Printf("%s: building %s service...\n", command[0], command[0])
-		if command[0] == "database" {
-			fmt.Println("NOTICE FOR DATABASE SERVICE: make sure you have sqlite3 installed on your system!")
+
+		for _, str := range command {
+			if str == "install" {
+				fmt.Printf("%s: installing dependencies for %s service...\n", command[0], command[0])
+			} else if str == "build" {
+				fmt.Printf("%s: building %s service...\n", command[0], command[0])
+			}
 		}
-		// readStdOut, err := io.ReadAll(stdOut)
 		if err != nil {
 			fmt.Println(err.Error())
 			*errArr = append(*errArr, []string{command[0], err.Error()})
 		}
 		cmd.Wait()
-		switch command[1] {
-		case "go":
-			fmt.Printf("%s: build successful\n", command[0])
-			break
-		case "npm":
-			fmt.Printf("%s: installed node dependencies\n", command[0])
-			break
+
+		for _, str := range command {
+			if str == "install" {
+				fmt.Printf("%s: dependencies successfully installed\n", command[0])
+			} else if str == "build" {
+				fmt.Printf("%s: build successful\n", command[0])
+			}
 		}
 	}
 
