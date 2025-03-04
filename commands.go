@@ -48,17 +48,20 @@ func startServices(pctx context.Context, commands [][]string) {
 		}
 	}()
 
-	//TODO CLEAN UP PROCESSES
+	// main context listener
 	go func() {
-		err := <-errChan
-		fmt.Println(err.Error())
-		cancelFunc()
-		fmt.Println("zensearch: cancelling all services...")
-		fmt.Println("zensearch: services cancelled")
-
-		<-ctx.Done()
-		fmt.Println("zensearch: cleaning up services...")
-		fmt.Println("zensearch: services stopped")
+		fmt.Println("zensearch: spawning context listener")
+		select {
+		case err := <-errChan:
+			fmt.Println(err.Error())
+			cancelFunc()
+			fmt.Println("zensearch: cancelling all services...")
+			fmt.Println("zensearch: services cancelled")
+		case <-ctx.Done():
+			// TODO CLEAN UP SERVICES HERE
+			fmt.Println("zensearch: cleaning up services...")
+			fmt.Println("zensearch: services stopped")
+		}
 	}()
 
 }
@@ -69,12 +72,10 @@ func runningDockerService(ctx context.Context, wg *sync.WaitGroup, contConfig Do
 	cont := NewContainer(contConfig.Name, contConfig.HostPorts, contConfig.ContainerPorts)
 
 	go func() {
-		select {
-		case <-ctx.Done():
-			fmt.Printf("Docker: shutting down %s container...\n", contConfig.Name)
-			cont.Stop(ctx)
-			fmt.Printf("Docker: %s container stopped\n", contConfig.Name)
-		}
+		<-ctx.Done()
+		fmt.Printf("Docker: shutting down %s container...\n", contConfig.Name)
+		cont.Stop(ctx)
+		fmt.Printf("Docker: %s container stopped\n", contConfig.Name)
 	}()
 
 	err := cont.Run(ctx, "rabbitmq", "4.0-management")
