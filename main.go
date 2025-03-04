@@ -3,20 +3,25 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"os"
-	"os/exec"
 	"strings"
 )
 
 var fileExec = [][]string{{"express-server", "node", "express-server/src/index.ts"}}
-var buildCmd = [][]string{
-	{"express-server", "npm", "install", "./express-server"},
-	{"database", "npm", "install", "./database"},
-	{"crawler", "go", "build", "-C", "./crawler/"},
-	{"search-engine", "go", "build", "-C", "./search-engine/"},
-}
 var errArr = [][]string{}
+var runCmds = [][]string{
+	{"express", "node", "./database/dist/index.js"},
+	{"database", "node", "./express-server/dist/index.js"},
+	{"crawler", "./crawler/crawler"},
+	{"search-engine", "./search-engine/search-engine"},
+}
+
+var rabbitmqContConfig = DockerContainerConfig{
+	HostPorts:      HostPorts{"5672", "15672"},
+	ContainerPorts: ContainerPorts{{"5672", "5672"}, {"15672", "15672"}},
+	Name:           "zensearch-cli-rabbitmq",
+}
+var dockerContainerConf = []DockerContainerConfig{rabbitmqContConfig}
 
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
@@ -29,36 +34,7 @@ loop:
 		input := strings.Trim(text, " ")
 		switch input {
 		case "start":
-			fmt.Printf("Input received %s:\n", input)
-			docker := "docker run -it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4.0-management"
-			cmd := exec.Command(docker)
-			stdOut, err := cmd.StdoutPipe()
-			cmd.Start()
-
-			if err != nil {
-				fmt.Println("Error: cannot run command")
-				switch e := err.(type) {
-				case *exec.Error:
-					fmt.Println("failed executing:", err)
-					break
-				case *exec.ExitError:
-					fmt.Println(err.Error())
-					fmt.Println("command exit rc =", e.ExitCode())
-					panic(err)
-				default:
-					panic(err)
-				}
-			}
-
-			readOut, err := io.ReadAll(stdOut)
-			if err != nil {
-				fmt.Println("Unable to read stdout")
-				fmt.Println(err.Error())
-				errArr = append(errArr, []string{"docker", err.Error()})
-			}
-			fmt.Println(string(readOut))
-			cmd.Wait()
-
+			startServices(runCmds)
 			break
 		case "stop":
 			// send kill signal to each process
@@ -67,7 +43,7 @@ loop:
 			break loop
 		case "build":
 			fmt.Printf("zensearch: Building...\n")
-			build(buildCmd, &errArr)
+			// runCommands(buildCmds, &errArr)
 			break
 		case "help":
 			help()

@@ -15,6 +15,12 @@ import (
 	"github.com/docker/go-connections/nat"
 )
 
+type DockerContainerConfig struct {
+	Name string
+	HostPorts
+	ContainerPorts
+}
+
 type ClientContainer struct {
 	Client *client.Client
 	HostPorts
@@ -28,13 +34,29 @@ type ContainerPorts [][]string
 
 type Container interface {
 	Run(ctx context.Context, imageName string, tag string) error
-	Start(ctx context.Context) error
-	Stop(ctx context.Context) error
+	Start(context.Context, string) error
+	Stop(context.Context) error
 }
 
+// TODO fix function for killing and destroyin a container (mostly for testing purposes)
+
+func NewContainer(name string, hports HostPorts, cports ContainerPorts) Container {
+	fmt.Printf("Docker: connecting client to docker daemon...\n")
+	var cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		log.Panic(err.Error())
+	}
+	return ClientContainer{
+		Client:         cli,
+		ContainerName:  "zensearch-cli-rabbitmq",
+		HostPorts:      HostPorts{"5672", "15672"},
+		ContainerPorts: ContainerPorts{{"5672", "5672"}, {"15672", "15672"}}}
+}
+
+// TODO maybe instead of creating image name here, instead do it when creating a new Container?
 // Pulls image from registry build the image, adds port mapping arguments and then runs
 // the container (the port mapping is only done when the container first starts up)
-func (cc *ClientContainer) Run(ctx context.Context, imageName string, tag string) error {
+func (cc ClientContainer) Run(ctx context.Context, imageName string, tag string) error {
 
 	fmt.Println("Docker: checking for existing container before running...")
 	// err is nil if it exists, else not nil if container does not exists
@@ -47,7 +69,7 @@ func (cc *ClientContainer) Run(ctx context.Context, imageName string, tag string
 	fmt.Printf("Docker: pulling %s image...\n", imageNameWithTag)
 	reader, err := cc.Client.ImagePull(ctx, imageName+":"+tag, image.PullOptions{})
 	if err != nil {
-		log.Panic(err)
+		return err
 	}
 
 	io.Copy(os.Stdout, reader)
@@ -55,13 +77,13 @@ func (cc *ClientContainer) Run(ctx context.Context, imageName string, tag string
 
 	cc.create(ctx, imageName, tag)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	fmt.Printf("Docker: starting %s container...\n", cc.ContainerName)
 
 	if err := cc.Client.ContainerStart(ctx, cc.ContainerID, container.StartOptions{}); err != nil {
-		fmt.Println("Unable to start rabbitmq container")
-		panic(err)
+		fmt.Printf("Unable to start %s container", cc.ContainerName)
+		return err
 	}
 	// dont know when it is completely finished, need to set a timer for other
 	// process that depends on rabbitmq
@@ -72,7 +94,7 @@ func (cc *ClientContainer) Run(ctx context.Context, imageName string, tag string
 	return nil
 }
 
-func (cc *ClientContainer) ListenContainerState(ctx context.Context) {
+func (cc ClientContainer) ListenContainerState(ctx context.Context) {
 	fmt.Printf("Docker: waiting for %s container status...\n", cc.ContainerName)
 	statusCh, errCh := cc.Client.ContainerWait(ctx, cc.ContainerID, container.WaitConditionNotRunning)
 	select {
@@ -93,7 +115,7 @@ func (cc *ClientContainer) ListenContainerState(ctx context.Context) {
 // TODO how to start already existing container?
 // which means a container not created programmatically in here
 // but instead passing in an existing ContainerID in the user's docker container list
-func (cc *ClientContainer) Start(ctx context.Context, containerID string) error {
+func (cc ClientContainer) Start(ctx context.Context, containerID string) error {
 
 	fmt.Printf("Docker: starting %s container...\n", cc.ContainerName)
 	if cc.ContainerID == "" {
@@ -114,7 +136,7 @@ func (cc *ClientContainer) Start(ctx context.Context, containerID string) error 
 	return nil
 }
 
-func (cc *ClientContainer) Stop(ctx context.Context) error {
+func (cc ClientContainer) Stop(ctx context.Context) error {
 	if cc.ContainerID == "" {
 		return fmt.Errorf("Docker: ERROR there's nothing to stop because the container does not exist\n")
 	}

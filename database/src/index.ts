@@ -10,6 +10,7 @@ const cumulativeAckCount = 1000;
 exec_scripts(db, path.join(__dirname, "./db_utils/websites.init.sql"));
 
 (async () => {
+  console.log("Starting database server");
   try {
     const connection = await establishConnection(7);
     const databaseChannel = await connection.createChannel();
@@ -45,10 +46,10 @@ async function establishConnection(retries: number): Promise<Connection> {
 }
 
 function init_database(): sqlite3.Database {
-  const dbFile = "/app/data/website_collection.db";
+  const dbFile = "../website_collection.db";
   const sqlite = sqlite3.verbose();
   const db = new sqlite.Database(
-    path.join(dbFile),
+    path.join(__dirname, dbFile),
     sqlite.OPEN_READWRITE,
     (err) => {
       if (err) {

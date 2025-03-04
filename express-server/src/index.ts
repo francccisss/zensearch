@@ -6,6 +6,7 @@ import app from "./express_server";
 
 const PORT = 8080;
 (async function start_server() {
+  console.log("Starting express server");
   const httpServer = http.createServer(app);
   /*
    Connect Rabbitmq

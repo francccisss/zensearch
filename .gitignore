@@ -9,3 +9,5 @@ TODO.md
 zensearch
 crawler
 search-engine
+*.db
+website_collection.db
