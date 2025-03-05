@@ -69,17 +69,21 @@ func startServices(pctx context.Context, commands [][]string) {
 
 func runningDockerService(ctx context.Context, wg *sync.WaitGroup, contConfig DockerContainerConfig, errChan chan error) {
 	defer wg.Done()
+	dockerCtx := context.Background()
 
 	cont := NewContainer(contConfig.Name, contConfig.HostPorts, contConfig.ContainerPorts)
 
 	go func() {
 		<-ctx.Done()
 		fmt.Printf("Docker: shutting down %s container...\n", contConfig.Name)
-		cont.Stop(ctx)
+		if err := cont.Stop(dockerCtx); err != nil {
+			fmt.Println(err)
+			return
+		}
 		fmt.Printf("Docker: %s container stopped\n", contConfig.Name)
 	}()
 
-	err := cont.Run(ctx, "rabbitmq", "4.0-management")
+	err := cont.Run(dockerCtx, "rabbitmq", "4.0-management")
 	if err != nil {
 		errChan <- err
 		return
