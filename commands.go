@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"syscall"
 )
 
 type StdError struct {
@@ -91,7 +92,9 @@ func runningService(ctx context.Context, cmd *exec.Cmd, errChan chan error, cmdN
 
 	go func() {
 		<-ctx.Done()
-		fmt.Printf("%s shutting down process...\n", cmdName)
+		fmt.Printf("%s: shutting down process...\n", cmdName)
+		cmd.Process.Signal(syscall.SIGTERM)
+		fmt.Printf("%s: closed\n", cmdName)
 	}()
 
 	if err != nil {
