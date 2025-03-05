@@ -98,6 +98,30 @@ func TestContainerStopAndStart(t *testing.T) {
 	}
 }
 
+// When calling cancelFunc, and then docker.Stop, docker container does not stop
+// for some reason, it could be cleaned up inside the docker sdk
+func TestDockerStop(t *testing.T) {
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	// ctx := context.Background()
+
+	cont := NewContainer(dockerContainerConf[0].Name, dockerContainerConf[0].HostPorts, dockerContainerConf[0].ContainerPorts)
+	cont.Run(context.Background(), "rabbitmq", "4.0-management")
+
+	sleepTime := 2
+	fmt.Printf("TEST: Exiting in %d seconds\n", sleepTime)
+	time.Sleep(time.Duration(sleepTime) * time.Second)
+	fmt.Println("TEST: Exiting container")
+	cancelFunc()
+	//
+	<-ctx.Done()
+	fmt.Println("TEST: Stopped")
+	cont.Stop(context.Background())
+	v := make(chan int)
+	<-v
+
+}
+
 func killCont(ctx context.Context, cc ClientContainer) {
 	err := cc.Client.ContainerRemove(ctx, cc.ContainerID, container.RemoveOptions{Force: true})
 	if err != nil {
