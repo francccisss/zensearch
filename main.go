@@ -37,8 +37,9 @@ var dockerContainerConf = []DockerContainerConfig{rabbitmqContConfig}
 
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
+	// for reassigning cancel func if input is start
+	var cancelFunc context.CancelFunc
 
-	ctx, cancelFunc := context.WithCancel(context.Background())
 loop:
 	for {
 		fmt.Printf("zensearch> ")
@@ -47,6 +48,8 @@ loop:
 		input := strings.Trim(text, " ")
 		switch input {
 		case "start":
+			ctx, cancel := context.WithCancel(context.Background())
+			cancelFunc = cancel
 			startServices(ctx, runCmds)
 			fmt.Println("zensearch: services started")
 			break
