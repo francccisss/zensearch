@@ -39,7 +39,7 @@ func main() {
 	scanner := bufio.NewScanner(os.Stdin)
 	// for reassigning cancel func if input is start
 	var cancelFunc context.CancelFunc
-
+	// TODO fix input field needs to be appended after every stdout
 loop:
 	for {
 		fmt.Printf("zensearch> ")
@@ -56,21 +56,25 @@ loop:
 		case "stop":
 			// send kill signal to each process
 			fmt.Printf("Stopping services...\n")
-			cancelFunc()
+			if cancelFunc != nil {
+				cancelFunc()
+			}
 			break
 		case "exit":
 			// send kill signal to each process
 			fmt.Printf("Input received %s:\n", input)
 			fmt.Printf("Stopping services...\n")
-			cancelFunc()
+			if cancelFunc != nil {
+				cancelFunc()
+			}
 			break loop
 		case "build":
 			fmt.Printf("zensearch: Building...\n")
 			runCommands(buildCmds, &errArr)
 			break
 		case "node-install":
-			fmt.Printf("zensearch: Building...\n")
-			runCommands(buildCmds, &errArr)
+			fmt.Printf("zensearch: installing node dependencies...\n")
+			runCommands(npmInstall, &errArr)
 			break
 		case "help":
 			help()

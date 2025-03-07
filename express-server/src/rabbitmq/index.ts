@@ -18,7 +18,8 @@ class RabbitMQClient {
   circleBuffer: CircularBuffer = new CircularBuffer(100);
 
   async establishConnection(retryCount: number): Promise<RabbitMQClient> {
-    if (retryCount-- > 0) {
+    if (retryCount > 0) {
+      retryCount--;
       try {
         this.connection = await amqp.connect("amqp://localhost:5672");
         console.log(
