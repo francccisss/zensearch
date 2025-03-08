@@ -123,7 +123,7 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
         is_crawling: false,
         message: "Some of the items in this list has already been indexed.",
         crawl_list: Docs.filter(
-          (website) => !results.undindexed.includes(website) ?? website,
+          (website) => results.undindexed.includes(website) ?? website,
         ),
       });
     }
