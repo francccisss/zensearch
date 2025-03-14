@@ -12,15 +12,15 @@ var errArr = [][]string{}
 var runCmds = [][]string{
 	{"express", "node", "./express-server/dist/index.js"},
 	{"database", "node", "./database/dist/index.js"},
-	// {"crawler", "./crawler/crawler"},
-	// {"search-engine", "./search-engine/search-engine"},
+	{"crawler", "./crawler/crawler"},
+	{"search-engine", "./search-engine/search-engine"},
 }
 
 var buildCmds = [][]string{
 	{"express", "npm", "run", "build", "--prefix", "./express-server"},
 	{"database", "npm", "run", "build", "--prefix", "./database"},
-	// {"crawler", "go", "build", "-C", "./crawler/"},
-	// {"search-engine", "go", "build", "-C", "./search-engine/"},
+	{"crawler", "go", "build", "-C", "./crawler/"},
+	{"search-engine", "go", "build", "-C", "./search-engine/"},
 }
 
 var npmInstall = [][]string{

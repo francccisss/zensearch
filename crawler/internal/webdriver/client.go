@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	webDriverURL = "http://selenium:4444/wd/hub"
+	webDriverURL = "http://localhost:4444/wd/hub"
 )
 
 /*

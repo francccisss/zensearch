@@ -10,7 +10,7 @@ import (
 func EstablishConnection(retries int) error {
 
 	if retries > 0 {
-		conn, err := amqp.Dial("amqp://rabbitmq:5672/")
+		conn, err := amqp.Dial("amqp://localhost:5672/")
 		if err != nil {
 			retries--
 			fmt.Println("Retrying Crawler service connection")
