@@ -56,7 +56,6 @@ type Results struct {
 var indexedList map[string]IndexedWebpage
 
 const (
-	threadPool   = 10
 	crawlFail    = 0
 	crawlSuccess = 1
 )
@@ -169,7 +168,7 @@ func (s *Spawner) SpawnCrawlers() Results {
 
 	return Results{
 		Message:     "Crawled and indexed webpages",
-		ThreadsUsed: threadPool,
+		ThreadsUsed: s.threadPool,
 		URLCount:    len(s.URLs),
 		PageResult:  resultsChan,
 	}
