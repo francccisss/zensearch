@@ -19,6 +19,7 @@ type DockerContainerConfig struct {
 	Name string
 	HostPorts
 	ContainerPorts
+	ShmSize int64
 }
 
 type ClientContainer struct {
@@ -27,6 +28,7 @@ type ClientContainer struct {
 	ContainerPorts
 	ContainerName string
 	ContainerID   string
+	ShmSize       int64
 }
 
 type HostPorts []string
@@ -40,7 +42,7 @@ type ContainerPorts [][]string
 
 // TODO write context purpose of dtx
 
-func NewContainer(name string, hports HostPorts, cports ContainerPorts) ClientContainer {
+func NewContainer(name string, hports HostPorts, cports ContainerPorts, shmsize int64) ClientContainer {
 	fmt.Printf("Docker: connecting client to docker daemon...\n")
 	var cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -50,7 +52,9 @@ func NewContainer(name string, hports HostPorts, cports ContainerPorts) ClientCo
 		Client:         cli,
 		ContainerName:  name,
 		HostPorts:      hports,
-		ContainerPorts: cports}
+		ContainerPorts: cports,
+		ShmSize:        shmsize,
+	}
 }
 
 // TODO maybe instead of creating image name here, instead do it when creating a new Container?
@@ -175,6 +179,7 @@ func (cc *ClientContainer) create(dctx context.Context, imageName string, tag st
 		ExposedPorts: containerPorts,
 	},
 		&container.HostConfig{
+			ShmSize: cc.ShmSize,
 			Binds: []string{
 				"/var/run/docker.sock:/var/run/docker.sock",
 			},
