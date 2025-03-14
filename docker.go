@@ -139,7 +139,7 @@ func (cc *ClientContainer) Stop(dctx context.Context) error {
 	fmt.Printf("Docker: stopping %s container...\n", cc.ContainerName)
 	err := cc.Client.ContainerStop(dctx, cc.ContainerID, container.StopOptions{Signal: "SIGKILL"})
 	if err != nil {
-		return fmt.Errorf("Docker: ERROR Something went wrong, zensearch is unable to stop the currently running container with ID starting with %s\n", cc.ContainerID[:8])
+		return fmt.Errorf("Docker: ERROR Something went wrong, zensearch is unable to stop the container %s with ID of %s\n", cc.ContainerID[:8], cc.ContainerName)
 	}
 	fmt.Printf("Docker: Successfully stopped %s with ID starting with %s\n", cc.ContainerName, cc.ContainerID[:8])
 	return nil
@@ -203,22 +203,25 @@ func (cc *ClientContainer) listenContainerState(dctx context.Context) {
 	// Listening to stdout of container
 	go func() {
 		out, _ := cc.Client.ContainerLogs(dctx, cc.ContainerID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
-		stdcopy.StdCopy(os.Stdout, os.Stderr, out)
+		_, err := stdcopy.StdCopy(os.Stdout, os.Stderr, out)
+		if err != nil {
+			fmt.Println(err.Error())
+		}
 	}()
+
 	select {
 	case err := <-errCh:
 		fmt.Println("docker: closing docker container")
 		fmt.Printf("cause for closing container: %s\n", err.Error())
 		return
 	case s := <-statusCh:
-		fmt.Println("Container status:")
+		fmt.Printf("Container %s status:\n", cc.ContainerName)
 		if s.Error != nil {
 			fmt.Println(s.Error)
 			return
 		}
-		fmt.Println("Docker: container closed gracefully")
+		fmt.Printf("Docker: %s container closed gracefully\n", cc.ContainerName)
 	}
-
 }
 
 // Returnes specific container using filter to isolate container name
