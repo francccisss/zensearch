@@ -33,7 +33,13 @@ var rabbitmqContConfig = DockerContainerConfig{
 	ContainerPorts: ContainerPorts{{"5672", "5672"}, {"15672", "15672"}},
 	Name:           "zensearch-cli-rabbitmq",
 }
-var dockerContainerConf = []DockerContainerConfig{rabbitmqContConfig}
+
+var seleniumContConfig = DockerContainerConfig{
+	HostPorts:      HostPorts{"4444", "7900"},
+	ContainerPorts: ContainerPorts{{"4444", "4444"}, {"7900", "7900"}},
+	Name:           "zensearch-cli-selenium",
+}
+var dockerContainerConf = []DockerContainerConfig{rabbitmqContConfig, seleniumContConfig}
 
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)

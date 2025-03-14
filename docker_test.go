@@ -14,8 +14,9 @@ import (
 
 func TestWithExistingContainer(t *testing.T) {
 	ctx := context.Background()
-	cont := NewContainer("zensearch-cli-rabbitmq", rabbitmqContConfig.HostPorts, rabbitmqContConfig.ContainerPorts)
-	err := cont.Run(ctx, "rabbitmq", "4.0-management")
+
+	scont := NewContainer("zensearch-cli-selenium", seleniumContConfig.HostPorts, seleniumContConfig.ContainerPorts)
+	err := scont.Run(ctx, "selenium/standalone-chrome", "latest")
 	if err != nil {
 		fmt.Println(err)
 		t.FailNow()
