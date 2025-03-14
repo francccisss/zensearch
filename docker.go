@@ -48,9 +48,9 @@ func NewContainer(name string, hports HostPorts, cports ContainerPorts) ClientCo
 	}
 	return ClientContainer{
 		Client:         cli,
-		ContainerName:  "zensearch-cli-rabbitmq",
-		HostPorts:      HostPorts{"5672", "15672"},
-		ContainerPorts: ContainerPorts{{"5672", "5672"}, {"15672", "15672"}}}
+		ContainerName:  name,
+		HostPorts:      hports,
+		ContainerPorts: cports}
 }
 
 // TODO maybe instead of creating image name here, instead do it when creating a new Container?
