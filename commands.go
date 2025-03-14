@@ -83,7 +83,7 @@ func runningDockerService(ctx context.Context, wg *sync.WaitGroup, contConfig Do
 		fmt.Printf("Docker: %s container stopped\n", contConfig.Name)
 	}()
 
-	err := cont.Run(dockerCtx, "rabbitmq", "4.0-management")
+	err := cont.Run(dockerCtx, contConfig.ImageName, contConfig.Tag)
 	if err != nil {
 		errChan <- err
 		return

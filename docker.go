@@ -16,7 +16,9 @@ import (
 )
 
 type DockerContainerConfig struct {
-	Name string
+	ImageName string
+	Tag       string
+	Name      string
 	HostPorts
 	ContainerPorts
 	ShmSize int64

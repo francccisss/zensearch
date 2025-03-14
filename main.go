@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"math"
 	"os"
 	"strings"
 )
@@ -33,14 +32,18 @@ var rabbitmqContConfig = DockerContainerConfig{
 	HostPorts:      HostPorts{"5672", "15672"},
 	ContainerPorts: ContainerPorts{{"5672", "5672"}, {"15672", "15672"}},
 	Name:           "zensearch-cli-rabbitmq",
+	ImageName:      "rabbitmq",
+	Tag:            "4.0-management",
 }
 
 // TODO use options method for optional arguments still dont know how to do that
 var seleniumContConfig = DockerContainerConfig{
+	ImageName:      "selenium/standalone-chrome",
+	Tag:            "latest",
 	HostPorts:      HostPorts{"4444", "7900"},
 	ContainerPorts: ContainerPorts{{"4444", "4444"}, {"7900", "7900"}},
 	Name:           "zensearch-cli-selenium",
-	ShmSize:        int64(2 * math.Pow(1024, 3)),
+	ShmSize:        int64(2000000000),
 }
 var dockerContainerConf = []DockerContainerConfig{rabbitmqContConfig, seleniumContConfig}
 
