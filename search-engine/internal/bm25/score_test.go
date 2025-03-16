@@ -2,7 +2,7 @@ package bm25
 
 import (
 	"bytes"
-	"encoding/json"
+	_ "encoding/json"
 	"fmt"
 	"log"
 	"search-engine/internal/rabbitmq"
@@ -15,8 +15,6 @@ import (
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
-
-const TEST_QRY = "javascript"
 
 func TestProcessParallelism(t *testing.T) {
 
@@ -69,6 +67,7 @@ func TestProcessParallelism(t *testing.T) {
 
 	}(dbQueryChannel)
 
+	const TEST_QRY = "semaphore is really good"
 	// send database query
 	rabbitmq.QueryDatabase(TEST_QRY)
 
@@ -89,33 +88,46 @@ func TestProcessParallelism(t *testing.T) {
 		log.Println("Unable to parse webpages")
 		t.Fatal(err.Error())
 	}
-	t.Logf("TEST: Time elapsed parsing: %dms\n", time.Until(timeStart).Abs().Milliseconds())
+	t.Logf("TEST: Time elapsed parsing: %dms\n\n\n", time.Until(timeStart).Abs().Milliseconds())
 
-	// Ranking webpages
-	timeStart = time.Now()
+	fmt.Println("TEST: Comparing runtime")
 
 	// CHANGE HERE
-	calculatedRatings := CalculateBMRatings(TEST_QRY, webpages)
-	rankedWebpages := RankBM25Ratings(calculatedRatings)
+	timeStart = time.Now()
+	best := CalculateBMRatings(TEST_QRY, webpages)
+	t.Logf("TEST: Total ranked webpages: %d\n", len(*best))
+	t.Logf("TEST: Time elapsed for best: %dms\n", time.Until(timeStart).Abs().Milliseconds())
 
-	if len((*rankedWebpages)) > 0 {
-		b, err := json.Marshal((*rankedWebpages)[0])
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		t.Logf("TEST: 1st webpage title: %+v\n", (*rankedWebpages)[0].Url)
-		t.Logf("TEST: 2nd webpage title: %+v\n", (*rankedWebpages)[1].Url)
-		t.Logf("TEST: webpage tf rating: %+v\n", (*rankedWebpages)[0].TfRating)
-		t.Logf("TEST: webpage bm rating: %+v\n", (*rankedWebpages)[0].Bm25rating)
-		t.Logf("TEST: webpage size: %dkb, %db", len(b)/1024, len(b))
-	}
-	t.Logf("TEST: Total ranked webpages: %d\n", len(*rankedWebpages))
-	t.Logf("TEST: Time elapsed ranking: %dms\n", time.Until(timeStart).Abs().Milliseconds())
+	timeStart = time.Now()
+	concurrency := Bm25TestConcurrency(TEST_QRY, webpages)
+	t.Logf("test: total ranked webpages: %d\n", len(*concurrency))
+	t.Logf("TEST: Time elapsed for con: %dms\n", time.Until(timeStart).Abs().Milliseconds())
+
+	timeStart = time.Now()
+	old := Bm25TestSequential(TEST_QRY, webpages)
+	t.Logf("TEST: Total ranked webpages: %d\n", len(*old))
+	t.Logf("TEST: Time elapsed for old: %dms\n", time.Until(timeStart).Abs().Milliseconds())
+	// rankedWebpages := RankBM25Ratings(calculatedRatings)
+
+	// if len((*rankedWebpages)) > 0 {
+	// 	b, err := json.Marshal((*rankedWebpages)[0])
+	// 	if err != nil {
+	// 		t.Fatal(err.Error())
+	// 	}
+	// 	t.Logf("TEST: 1st webpage title: %+v\n", (*rankedWebpages)[0].Url)
+	// 	t.Logf("TEST: 2nd webpage title: %+v\n", (*rankedWebpages)[1].Url)
+	// 	t.Logf("TEST: webpage tf rating: %+v\n", (*rankedWebpages)[0].TfRating)
+	// 	t.Logf("TEST: webpage bm rating: %+v\n", (*rankedWebpages)[0].Bm25rating)
+	// 	t.Logf("TEST: webpage size: %dkb, %db", len(b)/1024, len(b))
+	// }
+	// t.Logf("TEST: Total ranked webpages: %d\n", len(*rankedWebpages))
+	// t.Logf("TEST: Time elapsed ranking: %dms\n", time.Until(timeStart).Abs().Milliseconds())
 }
 
 var m *sync.Mutex
 
-func Bm25TestRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF {
+func Bm25TestSequential(query string, webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF {
+	fmt.Println("\n\nTEST: sequential")
 	tokenizedTerms := Tokenizer(query)
 	fmt.Println(tokenizedTerms)
 	docLen := utilities.AvgDocLen(webpages)
@@ -131,8 +143,8 @@ func Bm25TestRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.Webp
 	return webpages
 }
 
-func Bm25TestRatingsConcurrency(query string, webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF {
-	fmt.Println("\n\nTEST: Process Pattern")
+func Bm25TestConcurrency(query string, webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF {
+	fmt.Println("\n\nTEST: MS/TP Pattern")
 	tokenizedTerms := Tokenizer(query)
 	fmt.Println(tokenizedTerms)
 
