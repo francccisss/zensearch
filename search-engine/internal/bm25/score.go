@@ -7,11 +7,11 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 )
 
 // takes exponential time
 func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF {
+	fmt.Println("\n\nTEST: MS Pattern")
 	tokenizedTerms := Tokenizer(query)
 	fmt.Println(tokenizedTerms)
 
@@ -20,9 +20,7 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 	IDFChan := make(chan float64, 10)
 	// TODO do master slave, aggregate results back to go master routine
 
-	timeStart := time.Now()
 	go func() {
-		timeStart = time.Now()
 		var mwg sync.WaitGroup
 		for i := range tokenizedTerms {
 			mwg.Add(1)
@@ -36,7 +34,6 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 		fmt.Println("TEST: waiting for subprocess to return IDF[]")
 		mwg.Wait()
 		close(IDFChan)
-		fmt.Printf("TEST: Time elapsed calculating IDF: %dms\n", time.Until(timeStart).Abs().Milliseconds())
 		fmt.Println("TEST: Finished getting IDF rating for each token")
 	}()
 
@@ -45,7 +42,6 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 
 		// Ranking webpages
 		docLen := utilities.AvgDocLen(webpages)
-		timeStart = time.Now()
 		for _, term := range tokenizedTerms {
 			// IDF is a constant throughout the current term
 			// Dont need to return, it uses the address of the webpages
@@ -54,7 +50,6 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 			_ = TF(term, webpages, docLen)
 		}
 		fmt.Println("TEST: Finished calculating and applying TF rating of each token to webpages")
-		fmt.Printf("TEST: Time elapsed applying TF: %dms\n", time.Until(timeStart).Abs().Milliseconds())
 		wg.Done()
 	}()
 

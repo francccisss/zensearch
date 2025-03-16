@@ -27,7 +27,6 @@ func TestProcessParalellism(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Connection does not exist")
 	}
-	t.Log("Search engine established TCP Connection with RabbitMQ")
 	dbQueryChannel, err := conn.Channel()
 	if err != nil {
 		t.Fatalf("Unable to create a database channel")
@@ -89,7 +88,7 @@ func TestProcessParalellism(t *testing.T) {
 		log.Println("Unable to parse webpages")
 		t.Fatal(err.Error())
 	}
-	t.Logf("Time elapsed parsing: %dms\n", time.Until(timeStart).Abs().Milliseconds())
+	t.Logf("TEST: Time elapsed parsing: %dms\n", time.Until(timeStart).Abs().Milliseconds())
 
 	// Ranking webpages
 	timeStart = time.Now()
@@ -97,8 +96,8 @@ func TestProcessParalellism(t *testing.T) {
 	calculatedRatings := Bm25TestRatingsConcurrency(TEST_QRY, webpages)
 	rankedWebpages := RankBM25Ratings(calculatedRatings)
 
-	t.Logf("Total ranked webpages: %d\n", len(*rankedWebpages))
-	t.Logf("Time elapsed ranking: %dms\n", time.Until(timeStart).Abs().Milliseconds())
+	t.Logf("TEST: Total ranked webpages: %d\n", len(*rankedWebpages))
+	t.Logf("TEST: Time elapsed ranking: %dms\n", time.Until(timeStart).Abs().Milliseconds())
 }
 
 func Bm25TestRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF {
@@ -118,6 +117,7 @@ func Bm25TestRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.Webp
 }
 
 func Bm25TestRatingsConcurrency(query string, webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF {
+	fmt.Println("\n\nTEST: Process Pattern")
 	tokenizedTerms := Tokenizer(query)
 	fmt.Println(tokenizedTerms)
 
