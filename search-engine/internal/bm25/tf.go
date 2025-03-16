@@ -1,6 +1,7 @@
 package bm25
 
 import (
+	"search-engine/internal/types"
 	"search-engine/utilities"
 	"strings"
 )
@@ -11,7 +12,7 @@ const (
 )
 
 // Updating TF ranking of each webpage
-func TF(searchQuery string, webpages *[]WebpageTFIDF, AvgDocLen float64) error {
+func TF(searchQuery string, webpages *[]types.WebpageTFIDF, AvgDocLen float64) error {
 
 	for i := range *webpages {
 
@@ -24,13 +25,4 @@ func TF(searchQuery string, webpages *[]WebpageTFIDF, AvgDocLen float64) error {
 		(*webpages)[i].TokenRating.TfRating = numerator / denominator
 	}
 	return nil
-}
-
-func AvgDocLen(webpages *[]WebpageTFIDF) float64 {
-	totalTermCount := 0
-	for i := range *webpages {
-		docLength := utilities.DocLength((*webpages)[i].Contents)
-		totalTermCount += docLength
-	}
-	return float64(totalTermCount) / float64(len(*webpages))
 }

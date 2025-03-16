@@ -85,6 +85,20 @@ func main() {
 	webpageBytesChan := make(chan bytes.Buffer)
 	var currentSearchQuery string
 
+	// Receiving User's Query
+	go func(searchQueryChan chan string) {
+		for userSearch := range msgs {
+			searchQuery := string(userSearch.Body)
+
+			searchQueryChan <- searchQuery
+			mainChannel.Ack(userSearch.DeliveryTag, true)
+
+			fmt.Printf("User's Query: %s\n", searchQuery)
+			currentSearchQuery = searchQuery
+		}
+	}(searchQueryChan)
+
+	// Consumes and pushes segments to the `incomingSegmentsChan` channel
 	go func(chann *amqp.Channel) {
 
 		dbMsg, err := chann.Consume(
@@ -108,20 +122,8 @@ func main() {
 
 	}(dbQueryChannel)
 
-	// Receiving User's Query
-	go func(searchQueryChan chan string) {
-		for userSearch := range msgs {
-			searchQuery := string(userSearch.Body)
-
-			searchQueryChan <- searchQuery
-			mainChannel.Ack(userSearch.DeliveryTag, true)
-
-			fmt.Printf("User's Query: %s\n", searchQuery)
-			currentSearchQuery = searchQuery
-		}
-	}(searchQueryChan)
-
-	// Sending to query database and creating a segment listener
+	// the consumed incoming segments will be processed here and
+	// waits for all of the incoming segments and decodes then appends bytes into the `webpageBytesChan`
 	go func() {
 		for searchQuery := range searchQueryChan {
 
@@ -152,7 +154,7 @@ func main() {
 			// }
 			webpages, err := ParseWebpages(webpageBuffer.Bytes())
 			if err != nil {
-				fmt.Printf(err.Error())
+				fmt.Println(err.Error())
 				log.Println("Unable to parse webpages")
 				continue
 			}
@@ -160,7 +162,8 @@ func main() {
 
 			// Ranking webpages
 			timeStart = time.Now()
-			calculatedRatings := bm25.CalculateBMRatings(currentSearchQuery, webpages, bm25.AvgDocLen(webpages))
+
+			calculatedRatings := bm25.CalculateBMRatings(currentSearchQuery, webpages)
 			rankedWebpages := bm25.RankBM25Ratings(calculatedRatings)
 
 			fmt.Printf("Total ranked webpages: %d\n", len(*rankedWebpages))
