@@ -9,6 +9,8 @@ import (
 	"sync"
 )
 
+const CHUNK_SIZE = 40
+
 // takes exponential time
 func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF {
 	fmt.Println("\n\nTEST: MS Pattern")
@@ -40,15 +42,24 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 	wg.Add(1)
 	go func() {
 
+		var mwg sync.WaitGroup
 		// Ranking webpages
+		var m *sync.Mutex
 		docLen := utilities.AvgDocLen(webpages)
 		for _, term := range tokenizedTerms {
+			mwg.Add(1)
 			// IDF is a constant throughout the current term
 			// Dont need to return, it uses the address of the webpages
 			// First calculate term frequency of each webpage for each token
 			// TF(q1,webpages) -> TF(qT2,webpages)...
-			_ = TF(term, webpages, docLen)
+			// for i := 0; i < len(*webpages); i++ {
+			go func() {
+				defer mwg.Done()
+				_ = TF(term, webpages, docLen, m)
+			}()
+			// }
 		}
+		mwg.Wait()
 		fmt.Println("TEST: Finished calculating and applying TF rating of each token to webpages")
 		wg.Done()
 	}()
