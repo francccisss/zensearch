@@ -41,6 +41,8 @@ func (pn *PageNavigator) navigatePageWithRetries(retries int, currentUrl string)
 		if err != nil {
 			pn.mselapsed = 0
 			fmt.Println(err.Error())
+			fmt.Println("Retrying connection...")
+			time.Sleep(5 * time.Second)
 			return pn.navigatePageWithRetries(retries-1, currentUrl)
 		}
 		timeout := time.Now()

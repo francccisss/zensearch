@@ -12,15 +12,15 @@ var errArr = [][]string{}
 var runCmds = [][]string{
 	{"express", "node", "./express-server/dist/index.js"},
 	{"database", "node", "./database/dist/index.js"},
-	{"crawler", "./crawler/crawler"},
-	{"search-engine", "./search-engine/search-engine"},
+	{"crawler", "./crawler/crawler-bin"},
+	{"search-engine", "./search-engine/search-engine-bin"},
 }
 
 var buildCmds = [][]string{
 	{"express", "npm", "run", "build", "--prefix", "./express-server"},
 	{"database", "npm", "run", "build", "--prefix", "./database"},
-	{"crawler", "go", "build", "-C", "./crawler/"},
-	{"search-engine", "go", "build", "-C", "./search-engine/"},
+	{"crawler", "go", "build", "-C", "./crawler/", "-o", "crawler-bin"},
+	{"search-engine", "go", "build", "-C", "./search-engine/", "-o", "search-engine-bin"},
 }
 
 var npmInstall = [][]string{
@@ -43,7 +43,7 @@ var seleniumContConfig = DockerContainerConfig{
 	HostPorts:      HostPorts{"4444", "7900"},
 	ContainerPorts: ContainerPorts{{"4444", "4444"}, {"7900", "7900"}},
 	Name:           "zensearch-cli-selenium",
-	ShmSize:        int64(2000000000),
+	ShmSize:        3 * 1024 * 1024 * 1024,
 }
 var dockerContainerConf = []DockerContainerConfig{rabbitmqContConfig, seleniumContConfig}
 
