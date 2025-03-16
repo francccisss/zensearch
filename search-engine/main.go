@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -10,6 +9,7 @@ import (
 	"search-engine/internal/bm25"
 	"search-engine/internal/rabbitmq"
 	"search-engine/internal/segment_serializer"
+	"search-engine/utilities"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -123,7 +123,6 @@ func main() {
 	}(dbQueryChannel)
 
 	// the consumed incoming segments will be processed here and
-	// waits for all of the incoming segments and decodes then appends bytes into the `webpageBytesChan`
 	go func() {
 		for searchQuery := range searchQueryChan {
 
@@ -134,7 +133,7 @@ func main() {
 			fmt.Print("Spawn segment listener\n")
 
 			// Listens for incoming segments from the database Query channel consumer
-			go segments.ListenIncomingSegments(dbQueryChannel, incomingSegmentsChan, webpageBytesChan)
+			go segments.HandleIncomingSegments(dbQueryChannel, incomingSegmentsChan, webpageBytesChan)
 		}
 	}()
 
@@ -152,7 +151,7 @@ func main() {
 			// 	fmt.Println(err.Error())
 			// 	continue
 			// }
-			webpages, err := ParseWebpages(webpageBuffer.Bytes())
+			webpages, err := utilities.ParseWebpages(webpageBuffer.Bytes())
 			if err != nil {
 				fmt.Println(err.Error())
 				log.Println("Unable to parse webpages")
@@ -196,14 +195,4 @@ func failOnError(err error, msg string) {
 	if err != nil {
 		log.Panicf("%s: %s", msg, err.Error())
 	}
-}
-
-func ParseWebpages(data []byte) (*[]bm25.WebpageTFIDF, error) {
-
-	var webpages []bm25.WebpageTFIDF
-	err := json.Unmarshal(data, &webpages)
-	if err != nil {
-		return nil, err
-	}
-	return &webpages, nil
 }
