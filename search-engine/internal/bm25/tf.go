@@ -4,7 +4,6 @@ import (
 	"search-engine/internal/types"
 	"search-engine/utilities"
 	"strings"
-	"sync"
 )
 
 const (
@@ -13,9 +12,9 @@ const (
 )
 
 // Updating TF ranking of each webpage
-func TF(searchQuery string, webpages *[]types.WebpageTFIDF, AvgDocLen float64, m *sync.Mutex) error {
+func TF(searchQuery string, AvgDocLen float64, webpages *[]types.WebpageTFIDF, start int, end int) error {
 
-	for i := range *webpages {
+	for i := range (*webpages)[start:end] {
 
 		currentDocument := (*webpages)[i].Contents
 		currentDocLength := float64(utilities.DocLength(currentDocument))
@@ -23,10 +22,8 @@ func TF(searchQuery string, webpages *[]types.WebpageTFIDF, AvgDocLen float64, m
 
 		numerator := rawTermCount * (k1 + 1.0)
 		denominator := (rawTermCount + k1) * ((1.0 - b + b) * (currentDocLength / AvgDocLen))
-		// m.Lock()
 		oldRating := (*webpages)[i].TokenRating.TfRating
 		(*webpages)[i].TokenRating.TfRating = numerator/denominator + oldRating
-		// m.Unlock()
 	}
 	return nil
 }

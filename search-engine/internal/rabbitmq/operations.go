@@ -39,11 +39,9 @@ func QueryDatabase(message string) {
 			Body:        []byte(message),
 		},
 	)
-	fmt.Printf("Push message to database service.\n")
 	if err != nil {
-		log.Panicf(err.Error())
+		log.Panic(err.Error())
 	}
-	log.Printf("End of Query\n")
 }
 
 func PublishScoreRanking(segments [][]byte) {
