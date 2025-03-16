@@ -33,8 +33,9 @@ function createSegments(
 
     if (handler !== undefined) {
       handler(segment);
+    } else {
+      segments.push(segment);
     }
-    segments.push(segment);
   }
   return segments;
 }

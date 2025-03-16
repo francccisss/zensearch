@@ -14,13 +14,10 @@ const CHUNK_SIZE = 40
 
 // takes exponential time
 func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF {
-	fmt.Println("\n\nTEST: MS Pattern")
+	fmt.Println("\n\nTEST: DP/TP/MS Pattern")
 	tokenizedTerms := Tokenizer(query)
-	fmt.Println(tokenizedTerms)
 
-	wpLen := len(*webpages)
-
-	fmt.Printf("TEST: Webpage length=%d\n", wpLen)
+	// wpLen := len(*webpages)
 
 	var wg sync.WaitGroup
 	// get IDF and TF for each token
@@ -38,10 +35,8 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 				IDFChan <- IDF
 			}()
 		}
-		fmt.Println("TEST: waiting for subprocess to return IDF[]")
 		mwg.Wait()
 		close(IDFChan)
-		fmt.Println("TEST: Finished getting IDF rating for each token")
 	}()
 
 	wg.Add(1)
@@ -60,33 +55,34 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 				// First calculate term frequency of each webpage for each token
 				// TF(q1,webpages) -> TF(qT2,webpages)...
 
-				fmt.Printf("TEST: creating data chunks using data parallelism for term=%s\n", term)
+				// fmt.Printf("TEST: creating data chunks using data parallelism for term=%s\n", term)
 				var swg sync.WaitGroup
-				var m sync.Mutex
 				start := float64(0)
 				end := float64(CHUNK_SIZE)
 				wpLen := float64(len(*webpages))
+				chunks := int(wpLen/CHUNK_SIZE + 1)
+				// fmt.Printf("TEST chunk_distribution_length=%d\n", chunks)
 
 				// creates data parallelism
-				for i := 0; i < len(*webpages); i++ {
-					// if equal to valid chunk size
-					if int(math.Abs(start-end)) <= CHUNK_SIZE {
-						swg.Add(1)
-						go func() {
-							defer swg.Done()
-							_ = TF(term, docLen, webpages, int(start), int(end))
-						}()
-						m.Lock()
-						fmt.Printf("TEST: slicing chunk term '%s', with start=%d, end=%d\n", term, int(start), int(end))
-						start = end
-						end = start + math.Min(math.Abs(start+end-wpLen), CHUNK_SIZE)
-						i = int(start)
-						m.Unlock()
-					}
+				if len(tokenizedTerms) == 1 {
+					fmt.Printf("TEST: aggregate chunks for term=%s\n", term)
+					mwg.Done()
+					return
 				}
-				fmt.Println("TEST: waiting for chunks")
+				for i := 0; i < chunks; i++ {
+					// if equal to valid chunk size
+					// fmt.Printf("TEST: start=%d, end=%d, diff=%d\n", int(start), int(end), int(math.Min(math.Abs(end-wpLen), CHUNK_SIZE)))
+					swg.Add(1)
+					go func() {
+						defer swg.Done()
+						_ = TF(term, docLen, webpages, int(start), int(end))
+					}()
+					start = float64(i) * CHUNK_SIZE
+					end = start + math.Min(math.Abs(start+end-wpLen), CHUNK_SIZE)
+				}
+				// fmt.Println("TEST: waiting for chunks")
 				swg.Wait()
-				fmt.Printf("TEST: aggregate chunks for term=%s\n", term)
+				// fmt.Printf("TEST: aggregate chunks for term=%s\n", term)
 				mwg.Done()
 			}()
 		}
