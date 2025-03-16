@@ -2,6 +2,7 @@ package bm25
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"log"
 	"search-engine/internal/rabbitmq"
@@ -15,9 +16,9 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-const TEST_QRY = "loops"
+const TEST_QRY = "threads"
 
-func TestProcessParalellism(t *testing.T) {
+func TestProcessParallelism(t *testing.T) {
 
 	incomingSegmentsChan := make(chan amqp.Delivery)
 	webpageBytesChan := make(chan bytes.Buffer)
@@ -93,12 +94,25 @@ func TestProcessParalellism(t *testing.T) {
 	// Ranking webpages
 	timeStart = time.Now()
 
-	calculatedRatings := Bm25TestRatingsConcurrency(TEST_QRY, webpages)
+	calculatedRatings := CalculateBMRatings(TEST_QRY, webpages)
 	rankedWebpages := RankBM25Ratings(calculatedRatings)
 
+	if len((*rankedWebpages)) > 0 {
+		b, err := json.Marshal((*rankedWebpages)[0])
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		t.Logf("TEST: 1st webpage title: %+v\n", (*rankedWebpages)[0].Url)
+		t.Logf("TEST: 2nd webpage title: %+v\n", (*rankedWebpages)[1].Url)
+		t.Logf("TEST: webpage tf rating: %+v\n", (*rankedWebpages)[0].TfRating)
+		t.Logf("TEST: webpage bm rating: %+v\n", (*rankedWebpages)[0].Bm25rating)
+		t.Logf("TEST: webpage size: %dkb, %db", len(b)/1024, len(b))
+	}
 	t.Logf("TEST: Total ranked webpages: %d\n", len(*rankedWebpages))
 	t.Logf("TEST: Time elapsed ranking: %dms\n", time.Until(timeStart).Abs().Milliseconds())
 }
+
+var m *sync.Mutex
 
 func Bm25TestRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF {
 	tokenizedTerms := Tokenizer(query)
@@ -107,7 +121,7 @@ func Bm25TestRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.Webp
 	for _, term := range tokenizedTerms {
 		// IDF is a constant throughout the current term
 		IDF := CalculateIDF(term, webpages)
-		_ = TF(term, webpages, docLen)
+		_ = TF(term, webpages, docLen, m)
 		for j := range *webpages {
 			bm25rating := BM25(IDF, (*webpages)[j].TfRating)
 			(*webpages)[j].TokenRating.Bm25rating += bm25rating
@@ -146,7 +160,7 @@ func Bm25TestRatingsConcurrency(query string, webpages *[]types.WebpageTFIDF) *[
 			// Dont need to return, it uses the address of the webpages
 			// First calculate term frequency of each webpage for each token
 			// TF(q1,webpages) -> TF(qT2,webpages)...
-			_ = TF(term, webpages, docLen)
+			_ = TF(term, webpages, docLen, m)
 		}
 		fmt.Println("TEST: Finished calculating and applying TF rating of each token to webpages")
 		wg.Done()
