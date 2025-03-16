@@ -16,7 +16,7 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-const TEST_QRY = "threads"
+const TEST_QRY = "javascript for loops"
 
 func TestProcessParallelism(t *testing.T) {
 
@@ -94,6 +94,7 @@ func TestProcessParallelism(t *testing.T) {
 	// Ranking webpages
 	timeStart = time.Now()
 
+	// CHANGE HERE
 	calculatedRatings := CalculateBMRatings(TEST_QRY, webpages)
 	rankedWebpages := RankBM25Ratings(calculatedRatings)
 
@@ -121,7 +122,7 @@ func Bm25TestRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.Webp
 	for _, term := range tokenizedTerms {
 		// IDF is a constant throughout the current term
 		IDF := CalculateIDF(term, webpages)
-		_ = TF(term, webpages, docLen, m)
+		_ = TF(term, docLen, webpages, 0, len(*webpages))
 		for j := range *webpages {
 			bm25rating := BM25(IDF, (*webpages)[j].TfRating)
 			(*webpages)[j].TokenRating.Bm25rating += bm25rating
@@ -160,7 +161,7 @@ func Bm25TestRatingsConcurrency(query string, webpages *[]types.WebpageTFIDF) *[
 			// Dont need to return, it uses the address of the webpages
 			// First calculate term frequency of each webpage for each token
 			// TF(q1,webpages) -> TF(qT2,webpages)...
-			_ = TF(term, webpages, docLen, m)
+			_ = TF(term, docLen, webpages, 0, len(*webpages))
 		}
 		fmt.Println("TEST: Finished calculating and applying TF rating of each token to webpages")
 		wg.Done()
