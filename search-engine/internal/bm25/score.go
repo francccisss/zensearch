@@ -18,6 +18,10 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 	tokenizedTerms := Tokenizer(query)
 	fmt.Println(tokenizedTerms)
 
+	wpLen := len(*webpages)
+
+	fmt.Printf("TEST: Webpage length=%d\n", wpLen)
+
 	var wg sync.WaitGroup
 	// get IDF and TF for each token
 	IDFChan := make(chan float64, 10)
@@ -56,35 +60,38 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 				// First calculate term frequency of each webpage for each token
 				// TF(q1,webpages) -> TF(qT2,webpages)...
 
-				defer mwg.Done()
+				fmt.Printf("TEST: creating data chunks using data parallelism for term=%s\n", term)
+				var swg sync.WaitGroup
+				var m sync.Mutex
 				start := float64(0)
 				end := float64(CHUNK_SIZE)
 				wpLen := float64(len(*webpages))
 
-				var swg sync.WaitGroup
-				fmt.Printf("TEST: creating data chunks using data parallelism for term=%s\n", term)
 				// creates data parallelism
 				for i := 0; i < len(*webpages); i++ {
 					// if equal to valid chunk size
-					if int(math.Abs(start-end)) == CHUNK_SIZE {
+					if int(math.Abs(start-end)) <= CHUNK_SIZE {
 						swg.Add(1)
 						go func() {
 							defer swg.Done()
 							_ = TF(term, docLen, webpages, int(start), int(end))
 						}()
+						m.Lock()
+						fmt.Printf("TEST: slicing chunk term '%s', with start=%d, end=%d\n", term, int(start), int(end))
 						start = end
-						end = math.Min(math.Abs(end-wpLen), CHUNK_SIZE)
-						i += int(end)
+						end = start + math.Min(math.Abs(start+end-wpLen), CHUNK_SIZE)
+						i = int(start)
+						m.Unlock()
 					}
 				}
-				_ = TF(term, docLen, webpages, int(start), int(end))
 				fmt.Println("TEST: waiting for chunks")
 				swg.Wait()
-				fmt.Printf("TEST: Finished calculating chunks for term=%s\n", term)
+				fmt.Printf("TEST: aggregate chunks for term=%s\n", term)
+				mwg.Done()
 			}()
 		}
 		mwg.Wait()
-		fmt.Println("TEST: Finished calculating webpages using task parallelism")
+		fmt.Println("TEST: Finished calculating webpages TF rating using task parallelism")
 		wg.Done()
 	}()
 

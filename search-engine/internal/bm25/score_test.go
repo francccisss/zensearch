@@ -16,7 +16,7 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-const TEST_QRY = "javascript for loops"
+const TEST_QRY = "javascript"
 
 func TestProcessParallelism(t *testing.T) {
 
