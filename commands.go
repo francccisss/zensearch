@@ -61,7 +61,6 @@ func startServices(pctx context.Context, commands [][]string) {
 		case <-ctx.Done():
 			// TODO CLEAN UP SERVICES HERE
 			fmt.Println("zensearch: cleaning up services...")
-			fmt.Println("zensearch: services stopped")
 		}
 	}()
 
