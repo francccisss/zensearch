@@ -2,44 +2,56 @@ package bm25
 
 import (
 	"fmt"
+	"search-engine/internal/types"
+	"search-engine/utilities"
 	"sort"
 	"strings"
+	"sync"
 )
 
-type WebpageTFIDF struct {
-	Contents string
-	Title    string
-	Url      string
-	TokenRating
-}
-type TokenRating struct {
-	Bm25rating float64
-	TfRating   float64
-	IdfRating  float64
-}
-
-type WebpageRanking struct {
-	Url    string
-	Rating float64
-}
-
 // takes exponential time
-func CalculateBMRatings(query string, webpages *[]WebpageTFIDF, AvgDocLen float64) *[]WebpageTFIDF {
+func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF {
 	tokenizedQuery := Tokenizer(query)
 	fmt.Println(tokenizedQuery)
+	docLen := utilities.AvgDocLen(webpages)
 
+	var wg *sync.WaitGroup
 	// get IDF and TF for each token
-	for i := range tokenizedQuery {
-		// IDF is a constant throughout the current term
-		IDF := CalculateIDF(tokenizedQuery[i], webpages)
+	IDFChan := make(chan float64, 10)
 
-		// Dont need to return, it just uses the address of the webpages
-		// First calculate term frequency of each webpage for each token
-		// TF(q1,webpages) -> TF(qT2,webpages)...
-		_ = TF(tokenizedQuery[i], webpages, AvgDocLen)
+	go func() {
+		for i := range tokenizedQuery {
+			wg.Add(1)
+			defer func() {
+				fmt.Println("TEST: Finished getting IDF rating for each token")
+				wg.Done()
+			}()
+			// IDF is a constant throughout the current term
+			IDF := CalculateIDF(tokenizedQuery[i], webpages)
+			IDFChan <- IDF
+		}
+	}()
 
-		// for each token calculate BM25Rating for each webpages
-		// by summing the rating from the previous tokens
+	go func() {
+		for i := range tokenizedQuery {
+			wg.Add(1)
+			defer func() {
+				fmt.Println("TEST: Finished calculating and applying TF rating of each token to webpages")
+				wg.Done()
+			}()
+			// IDF is a constant throughout the current term
+			// Dont need to return, it uses the address of the webpages
+			// First calculate term frequency of each webpage for each token
+			// TF(q1,webpages) -> TF(qT2,webpages)...
+			_ = TF(tokenizedQuery[i], webpages, docLen)
+		}
+	}()
+
+	wg.Wait()
+	// for each token calculate BM25Rating for each webpages
+	// by summing the rating from the previous tokens
+	fmt.Println("TEST: calculating bm25 rating")
+	for IDF := range IDFChan {
 		for j := range *webpages {
 			bm25rating := BM25(IDF, (*webpages)[j].TfRating)
 			(*webpages)[j].TokenRating.Bm25rating += bm25rating
@@ -48,7 +60,7 @@ func CalculateBMRatings(query string, webpages *[]WebpageTFIDF, AvgDocLen float6
 	return webpages
 }
 
-func RankBM25Ratings(webpages *[]WebpageTFIDF) *[]WebpageTFIDF {
+func RankBM25Ratings(webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF {
 	webpagesSlice := (*webpages)[:]
 
 	// TODO replace sort.Slice with slices.SortFunc
@@ -80,8 +92,8 @@ func Tokenizer(query string) []string {
 	return tmpSlice
 }
 
-func filter(webpages []WebpageTFIDF) []WebpageTFIDF {
-	tmp := make([]WebpageTFIDF, 0)
+func filter(webpages []types.WebpageTFIDF) []types.WebpageTFIDF {
+	tmp := make([]types.WebpageTFIDF, 0)
 	for _, webpage := range webpages {
 		if webpage.TokenRating.Bm25rating == 0 {
 			break
