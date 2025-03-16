@@ -11,42 +11,41 @@ import (
 
 // takes exponential time
 func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF {
-	tokenizedQuery := Tokenizer(query)
-	fmt.Println(tokenizedQuery)
-	docLen := utilities.AvgDocLen(webpages)
+	tokenizedTerms := Tokenizer(query)
+	fmt.Println(tokenizedTerms)
 
-	var wg *sync.WaitGroup
+	var wg sync.WaitGroup
 	// get IDF and TF for each token
 	IDFChan := make(chan float64, 10)
+	// TODO do master slave, aggregate results back to go master routine
 
+	wg.Add(1)
+	wg.Add(1)
 	go func() {
-		for i := range tokenizedQuery {
-			wg.Add(1)
-			defer func() {
-				fmt.Println("TEST: Finished getting IDF rating for each token")
-				wg.Done()
-			}()
+		for i := range tokenizedTerms {
 			// IDF is a constant throughout the current term
-			IDF := CalculateIDF(tokenizedQuery[i], webpages)
+			IDF := CalculateIDF(tokenizedTerms[i], webpages)
 			IDFChan <- IDF
 		}
+		close(IDFChan)
+		fmt.Println("TEST: Finished getting IDF rating for each token")
+		wg.Done()
 	}()
 
 	go func() {
-		for i := range tokenizedQuery {
-			wg.Add(1)
-			defer func() {
-				fmt.Println("TEST: Finished calculating and applying TF rating of each token to webpages")
-				wg.Done()
-			}()
+		docLen := utilities.AvgDocLen(webpages)
+		for _, term := range tokenizedTerms {
 			// IDF is a constant throughout the current term
 			// Dont need to return, it uses the address of the webpages
 			// First calculate term frequency of each webpage for each token
 			// TF(q1,webpages) -> TF(qT2,webpages)...
-			_ = TF(tokenizedQuery[i], webpages, docLen)
+			_ = TF(term, webpages, docLen)
 		}
+		fmt.Println("TEST: Finished calculating and applying TF rating of each token to webpages")
+		wg.Done()
 	}()
 
+	fmt.Println("TEST: waiting for TF and IDF calculations")
 	wg.Wait()
 	// for each token calculate BM25Rating for each webpages
 	// by summing the rating from the previous tokens
