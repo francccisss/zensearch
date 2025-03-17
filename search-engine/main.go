@@ -56,19 +56,19 @@ func main() {
 	}()
 
 	// DECLARING QUEUES
-	mainChannel.QueueDeclare(rabbitmq.SEARCH_QUEUE, false, false, false, false, nil)
+	mainChannel.QueueDeclare(rabbitmq.EXPRESS_SENGINE_QUERY_QUEUE, false, false, false, false, nil)
 	failOnError(err, "Failed to create search queue")
-	mainChannel.QueueDeclare(rabbitmq.PUBLISH_QUEUE, false, false, false, false, nil)
+	mainChannel.QueueDeclare(rabbitmq.SENGINE_EXPRESS_QUERY_CBQ, false, false, false, false, nil)
 	failOnError(err, "Failed to create publish queue")
 
-	dbQueryChannel.QueueDeclare(rabbitmq.DB_QUERY_QUEUE, false, false, false, false, nil)
+	dbQueryChannel.QueueDeclare(rabbitmq.SENGINE_DB_REQUEST_QUEUE, false, false, false, false, nil)
 	failOnError(err, "Failed to create query queue")
-	dbQueryChannel.QueueDeclare(rabbitmq.DB_RESPONSE_QUEUE, false, false, false, false, nil)
+	dbQueryChannel.QueueDeclare(rabbitmq.DB_SENGINE_REQUEST_CBQ, false, false, false, false, nil)
 	failOnError(err, "Failed to create db response queue")
 	// DECLARING QUEUES
 
 	msgs, err := mainChannel.Consume(
-		rabbitmq.SEARCH_QUEUE,
+		rabbitmq.EXPRESS_SENGINE_QUERY_QUEUE,
 		"",
 		false,
 		false,
@@ -77,7 +77,7 @@ func main() {
 		nil,
 	)
 	if err != nil {
-		log.Panicf("Unable to listen to %s", rabbitmq.SEARCH_QUEUE)
+		log.Panicf("Unable to listen to %s", rabbitmq.EXPRESS_SENGINE_QUERY_QUEUE)
 	}
 
 	searchQueryChan := make(chan string)
@@ -102,7 +102,7 @@ func main() {
 	go func(chann *amqp.Channel) {
 
 		dbMsg, err := chann.Consume(
-			rabbitmq.DB_RESPONSE_QUEUE,
+			rabbitmq.DB_SENGINE_REQUEST_CBQ,
 			"",
 			false,
 			false,
@@ -112,7 +112,7 @@ func main() {
 		)
 
 		if err != nil {
-			log.Panicf("Unable to listen to %s", rabbitmq.SEARCH_QUEUE)
+			log.Panicf("Unable to listen to %s", rabbitmq.DB_SENGINE_REQUEST_CBQ)
 		}
 
 		// Consume and send segment to segment channel

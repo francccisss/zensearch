@@ -33,10 +33,11 @@ func QueryDatabase(message string) {
 	}
 	err = ch.Publish(
 		"",
-		DB_QUERY_QUEUE,
+		SENGINE_DB_REQUEST_QUEUE,
 		false, false, amqp.Publishing{
 			ContentType: "text/plain",
 			Body:        []byte(message),
+			ReplyTo:     DB_SENGINE_REQUEST_CBQ,
 		},
 	)
 	if err != nil {
@@ -56,7 +57,7 @@ func PublishScoreRanking(segments [][]byte) {
 	for i := 0; i < len(segments); i++ {
 		err = ch.Publish(
 			"",
-			PUBLISH_QUEUE,
+			SENGINE_EXPRESS_QUERY_CBQ,
 			false,
 			false,
 			amqp.Publishing{

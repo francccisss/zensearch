@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import rabbitmq from "../rabbitmq";
 import { create } from "express-handlebars";
 import segmentSerializer from "../segments/segment_serializer";
-import { ES_CRAWLER_QUEUE } from "../rabbitmq/routing_keys";
+import { EXPRESS_CRAWLER_QUEUE } from "../rabbitmq/routing_keys";
 
 const cors = require("cors");
 const body_parser = require("body-parser");
@@ -128,7 +128,7 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
 
     res.cookie("job_id", job_id);
     res.cookie("job_count", results.undindexed.length);
-    res.cookie("job_queue", ES_CRAWLER_QUEUE);
+    res.cookie("job_queue", EXPRESS_CRAWLER_QUEUE);
     res.cookie("message_type", "crawling");
     res.setHeader("Connection", "Upgrade");
     res.setHeader("Upgrade", "Websocket");
