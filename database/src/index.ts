@@ -1,7 +1,7 @@
 import sqlite3 from "sqlite3";
 import path from "path";
 import amqp, { Connection } from "amqplib";
-import channelOperations from "./rabbitmq/channel_operations";
+import rabbitmq from "./rabbitmq";
 import { readFile } from "fs";
 
 const db = init_database();
@@ -15,7 +15,7 @@ exec_scripts(db, path.join(__dirname, "./db_utils/websites.init.sql"));
     const databaseChannel = await connection.createChannel();
     console.log("Channel Created");
     databaseChannel.prefetch(cumulativeAckCount, false);
-    await channelOperations.channelHandler(db, databaseChannel);
+    await rabbitmq.channelHandler(db, databaseChannel);
   } catch (err) {
     const error = err as Error;
     console.error(error.message);
