@@ -6,7 +6,7 @@ import segmentSerializer from "../serializer/segment_serializer";
 import {
   CRAWLER_DB_INDEXING_NOTIF_QUEUE,
   DB_EXPRESS_CHECK_CBQ,
-  DB_EXPRESS_INDEXING_NOTIF_CBQ,
+  DB_CRAWLER_INDEXING_NOTIF_CBQ,
   DB_SENGINE_REQUEST_CBQ,
   EXPRESS_DB_CHECK_QUEUE,
   SENGINE_DB_REQUEST_QUEUE,
@@ -48,7 +48,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
       databaseChannel.ack(data);
       await databaseOperations.indexWebpages(db, deserializeData);
       databaseChannel.sendToQueue(
-        DB_EXPRESS_INDEXING_NOTIF_CBQ,
+        DB_CRAWLER_INDEXING_NOTIF_CBQ,
         Buffer.from(
           JSON.stringify({
             isSuccess: deserializeData.CrawlStatus,

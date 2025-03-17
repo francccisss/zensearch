@@ -8,6 +8,7 @@ import (
 )
 
 var connections = map[string]*amqp.Connection{}
+var channels = map[string]*amqp.Channel{}
 
 func EstablishConnection(retries int) error {
 
@@ -46,4 +47,20 @@ func GetConnection(name string) (*amqp.Connection, error) {
 		return conn, nil
 	}
 	return nil, fmt.Errorf("Connection does not exist: %s\n", name)
+}
+
+func SetNewChannel(name string, channel *amqp.Channel) *amqp.Channel {
+	existingChan, ok := channels[name]
+	if !ok {
+		channels[name] = channel
+		return channel
+	}
+	return existingChan
+}
+
+func GetChannel(name string) (*amqp.Channel, error) {
+	if conn, ok := channels[name]; ok {
+		return conn, nil
+	}
+	return nil, fmt.Errorf("Channel does not exist: %s\n", name)
 }

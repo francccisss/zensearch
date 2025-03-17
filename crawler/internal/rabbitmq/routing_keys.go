@@ -6,7 +6,7 @@ const CRAWLER_DB_INDEXING_NOTIF_QUEUE = "crawler_db_notif_indexing_queue"
 
 // a callback queue for notifying crawler that storing indexed webpages
 // was successful or failure
-const DB_EXPRESS_INDEXING_NOTIF_CBQ = "db_express_notif_indexing_cbq"
+const DB_CRAWLER_INDEXING_NOTIF_CBQ = "db_crawler_indexing_notif_cbq"
 
 // queue used for consuming urls from express server
 const EXPRESS_CRAWLER_QUEUE = "express_crawler_queue"
