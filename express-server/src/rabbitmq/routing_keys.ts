@@ -11,9 +11,9 @@
 // CRAWLER ROUTING KEYS
 // queue for requesting a crawl from express to crawler
 const EXPRESS_CRAWLER_QUEUE = "express_crawler_queue";
-// callback queue passed by crawler to database, express uses it consume message
-// from database after crawler successfully indexed and stored webpages in db
-const DB_EXPRESS_INDEXING_CBQ = "db_express_indexing_cbq";
+// a callback queue from express to crawler to notify express server
+// about the state of the crawl
+const CRAWLER_EXPRESS_CBQ = "crawler_express_cbq";
 
 // SEARCH ENGINE ROUTING KEYS
 // queue for sending search query to search engine from express server
@@ -34,6 +34,6 @@ export {
   EXPRESS_DB_CHECK_QUEUE,
   EXPRESS_SENGINE_QUERY_QUEUE,
   DB_EXPRESS_CHECK_CBQ,
-  DB_EXPRESS_INDEXING_CBQ,
   SENGINE_EXPRESS_QUERY_CBQ,
+  CRAWLER_EXPRESS_CBQ,
 };

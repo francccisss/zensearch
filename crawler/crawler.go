@@ -2,33 +2,15 @@ package main
 
 import (
 	"context"
-	rabbitmq "crawler/internal/rabbitmq"
+	"crawler/internal/types"
 	webdriver "crawler/internal/webdriver"
 	utilities "crawler/utilities"
-	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
 
-	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/tebeka/selenium"
 )
-
-type Header struct {
-	Title string
-	Url   string
-}
-
-type WebpageEntry struct {
-	URL             string
-	IndexedWebpages []IndexedWebpage
-	hostname        string
-	Title           string
-}
-type IndexedWebpage struct {
-	Header   Header
-	Contents string
-}
 
 var elementSelector = []string{
 	"a",
@@ -45,58 +27,28 @@ var elementSelector = []string{
 	"div",
 }
 
-type Results struct {
-	URLCount    int
-	URLsFailed  []string
-	Message     string
-	ThreadsUsed int
-	CrawlResult <-chan CrawlResult
+type Spawner struct {
+	ThreadPool int
+	URLs       []string
 }
 
-var indexedList map[string]IndexedWebpage
+type Crawler struct {
+	URL string
+	WD  *selenium.WebDriver
+}
+
+var indexedList map[string]types.IndexedWebpage
 
 const (
 	crawlFail    = 1
 	crawlSuccess = 0
 )
 
-type CrawlResult struct {
-	URL         string
-	Message     string
-	CrawlStatus int
-	TotalPages  int
-}
-
-type IndexedResult struct {
-	Webpages []IndexedWebpage
-	Header
-	Message     string
-	CrawlStatus int
-}
-
-type ErrorMessage struct {
-	Message     string
-	Url         string
-	CrawlStatus int
-}
-
-type Spawner struct {
-	threadPool int
-	URLs       []string
-}
-
-type Crawler struct {
-	URL string
-	ctx context.Context
-	wd  *selenium.WebDriver
-}
-
 type ThreadToken struct{}
 
 func NewCrawler(entryPoint string, ctx context.Context) (*Crawler, error) {
 	c := &Crawler{
 		URL: entryPoint,
-		ctx: ctx,
 	}
 	wd, err := webdriver.CreateClient()
 	if err != nil {
@@ -104,20 +56,20 @@ func NewCrawler(entryPoint string, ctx context.Context) (*Crawler, error) {
 		log.Printf("ERROR: Unable to create a new connection with Chrome Web Driver.\n")
 		return nil, err
 	}
-	c.wd = wd
+	c.WD = wd
 	return c, nil
 }
 
 func NewSpawner(threadpool int, URLs []string) *Spawner {
 	return &Spawner{
-		threadPool: threadpool,
+		ThreadPool: threadpool,
 		URLs:       URLs,
 	}
 }
 
-func (s *Spawner) SpawnCrawlers() Results {
-	crawlResultsChan := make(chan CrawlResult, len(s.URLs))
-	threadSlot := make(chan struct{}, s.threadPool)
+func (s *Spawner) SpawnCrawlers() types.Results {
+	crawlResultsChan := make(chan types.CrawlResult, len(s.URLs))
+	threadSlot := make(chan struct{}, s.ThreadPool)
 
 	var (
 		wg  sync.WaitGroup
@@ -150,7 +102,7 @@ func (s *Spawner) SpawnCrawlers() Results {
 					log.Printf("NOTIF: Thread token release due to error.\n")
 					return
 				}
-				defer (*crawler.wd).Quit()
+				defer (*crawler.WD).Quit()
 				crawlResultsChan <- result
 			}()
 		}
@@ -166,17 +118,17 @@ func (s *Spawner) SpawnCrawlers() Results {
 
 	log.Println("NOTIF: All Process have finished.")
 
-	return Results{
+	return types.Results{
 		Message:     "Crawled and indexed webpages",
-		ThreadsUsed: s.threadPool,
+		ThreadsUsed: s.ThreadPool,
 		URLCount:    len(s.URLs),
 		CrawlResult: crawlResultsChan,
 	}
 }
 
-func (c Crawler) Crawl() (CrawlResult, error) {
+func (c Crawler) Crawl() (types.CrawlResult, error) {
 	defer log.Printf("NOTIF: Finished Crawling\n")
-	defer (*c.wd).Close()
+	defer (*c.WD).Close()
 
 	log.Printf("NOTIF: Start Crawling %s\n", c.URL)
 	hostname, _, err := utilities.GetHostname(c.URL)
@@ -190,20 +142,20 @@ func (c Crawler) Crawl() (CrawlResult, error) {
 	languagePaths := []string{"/es/", "/ko/", "/tr/", "/th/", "/it/", "/uk/", "/sk/", "/fr/", "/de/", "/zh/", "/ja/", "/ru/", "/ar/", "/pt/", "/hi/", "/zh/", "/zh-tw/", "/zh-c/", "/zh-cn/", "/pt-br/", "/uz/"}
 	disallowedPaths = append(disallowedPaths, languagePaths...)
 	fmt.Printf("DISALLOWED PATHS: %+v\n", disallowedPaths)
-	entry := WebpageEntry{
+	entry := types.WebpageEntry{
 		URL:             c.URL,
-		IndexedWebpages: make([]IndexedWebpage, 0, 10),
-		hostname:        hostname,
+		IndexedWebpages: make([]types.IndexedWebpage, 0, 10),
+		Hostname:        hostname,
 		Title:           "",
 	}
 	pageNavigator := PageNavigator{
-		entry:        &entry,
-		wd:           c.wd,
-		pagesVisited: map[string]string{},
-		queue: Queue{
+		Entry:        &entry,
+		WD:           c.WD,
+		PagesVisited: map[string]string{},
+		Queue: Queue{
 			array: []string{c.URL},
 		},
-		disallowedPaths: disallowedPaths,
+		DisallowedPaths: disallowedPaths,
 	}
 
 	maxRetries := 7
@@ -212,20 +164,13 @@ func (c Crawler) Crawl() (CrawlResult, error) {
 		fmt.Printf("ERROR: Unable to navigate to source url %s\n", c.URL)
 		fmt.Println(err.Error())
 
-		err = sendIndexedResult(IndexedResult{
-			CrawlStatus: crawlFail,
-			Header:      Header{Url: hostname, Title: entry.Title},
-			Message:     "Unable to crawl the source Url",
-			Webpages:    []IndexedWebpage{},
-		},
-		)
 		if err != nil {
 			fmt.Println(err.Error())
-			return CrawlResult{}, fmt.Errorf("ERROR: Unable to send error result to db.\n")
+			return types.CrawlResult{}, fmt.Errorf("ERROR: Unable to send error result to db.\n")
 		}
-		return CrawlResult{}, fmt.Errorf("ERROR: Unable to navigate to the website entry point.\n")
+		return types.CrawlResult{}, fmt.Errorf("ERROR: Unable to navigate to the website entry point.\n")
 	}
-	title, err := (*c.wd).Title()
+	title, err := (*c.WD).Title()
 	if err == nil {
 		entry.Title = title
 	}
@@ -245,12 +190,12 @@ func (c Crawler) Crawl() (CrawlResult, error) {
 	// clean up memory resource since it will linger in memory in the heap
 	// once this function is removed from the stack.
 	defer clear(entry.IndexedWebpages)
-	defer clear(pageNavigator.pagesVisited)
+	defer clear(pageNavigator.PagesVisited)
 
 	/*
 	   TODO Improve error handling code, it looks ugly.
 	*/
-	var result CrawlResult
+	var result types.CrawlResult
 
 	message := "Successfully Crawled & Indexed website"
 	if err != nil {
@@ -258,106 +203,22 @@ func (c Crawler) Crawl() (CrawlResult, error) {
 		message = "Something went wrong while crawling the webpage"
 		fmt.Printf("ERROR: Crawler returned with errors from navigating %s\n", c.URL)
 		fmt.Println(err.Error())
-		result = CrawlResult{
+		result = types.CrawlResult{
 			URL:         c.URL,
 			CrawlStatus: crawlFail,
 			Message:     message,
 			TotalPages:  len(entry.IndexedWebpages),
 		}
 
-		err = sendIndexedResult(IndexedResult{
-			CrawlStatus: crawlFail,
-			Header:      Header{Url: c.URL, Title: entry.Title},
-			Message:     message,
-			Webpages:    []IndexedWebpage{},
-		},
-		)
-
-		if err != nil {
-			fmt.Println(err.Error())
-			return CrawlResult{}, fmt.Errorf("ERROR: Unable to send error result to db.\n")
-		}
 		return result, nil
 	}
 
 	fmt.Printf("NOTIF: Crawler returned with no errors from navigating %s\n", c.URL)
-	result = CrawlResult{
+	result = types.CrawlResult{
 		URL:         c.URL,
 		CrawlStatus: crawlSuccess,
 		Message:     message,
 		TotalPages:  len(entry.IndexedWebpages),
 	}
-	err = sendIndexedResult(IndexedResult{
-		CrawlStatus: crawlFail,
-		Header:      Header{Url: c.URL, Title: entry.Title},
-		Message:     message,
-		Webpages:    []IndexedWebpage{},
-	},
-	)
-
-	if err != nil {
-		fmt.Println(err.Error())
-		return CrawlResult{}, fmt.Errorf("ERROR: Unable to send error result to db.\n")
-	}
 	return result, nil
-}
-
-/*
-Returns an array of text contents from an array of common elements specified
-by the current selector eg: p, a, span etc.
-*/
-func sendIndexedResult(result IndexedResult) error {
-	conn, err := rabbitmq.GetConnection("conn")
-	if err != nil {
-		fmt.Print(err.Error())
-		log.Panicf("ERROR: Unable to get %s connection.\n", "conn")
-	}
-	channel, err := conn.Channel()
-	if err != nil {
-		log.Printf("ERROR: Unable to create a new channel.\n")
-		return err
-	}
-
-	defer channel.Close()
-
-	b, err := json.Marshal(result)
-	if err != nil {
-		log.Printf("ERROR: Unable to marshal result.\n")
-		return err
-	}
-
-	// need to  check declaration and publication before returning nil
-	_, err = channel.QueueDeclare(rabbitmq.CRAWLER_DB_INDEXING_QUEUE, false, false, false, false, nil)
-	if err != nil {
-		log.Printf("ERROR: Unable to declare %s channel.\n", rabbitmq.CRAWLER_DB_INDEXING_QUEUE)
-		return err
-	}
-	err = channel.Publish("", rabbitmq.CRAWLER_DB_INDEXING_QUEUE, false, false, amqp.Publishing{
-		Type:    "text/plain",
-		Body:    []byte(b),
-		ReplyTo: rabbitmq.DB_EXPRESS_INDEXING_CBQ,
-	})
-	if err != nil {
-		log.Printf("ERROR: Unable to publish message to %s channel.\n", rabbitmq.CRAWLER_DB_INDEXING_QUEUE)
-		return err
-	}
-	return nil
-}
-
-func (e *WebpageEntry) marshalIndexedWebpages(message string) ([]byte, error) {
-
-	dataBuffer, err := json.Marshal(IndexedResult{
-		Webpages: e.IndexedWebpages,
-		Header: Header{
-			Title: e.Title,
-			Url:   e.hostname,
-		},
-		Message:     message,
-		CrawlStatus: crawlSuccess,
-	},
-	)
-	if err != nil {
-		return []byte{}, fmt.Errorf("ERROR: Unable to marshal message")
-	}
-	return dataBuffer, nil
 }

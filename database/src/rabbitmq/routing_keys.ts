@@ -10,10 +10,11 @@
 
 // CRAWLER ROUTING KEYS
 // queue used for when crawler is about to save webpages it crawled
-const CRAWLER_DB_INDEXING_QUEUE = "crawler_db_indexing_queue";
-// callback queue passed by crawler to database, express uses it consume message
-// from database after crawler successfully indexed and stored webpages in db
-const DB_EXPRESS_INDEXING_CBQ = "db_express_indexing_cbq";
+const CRAWLER_DB_INDEXING_NOTIF_QUEUE = "crawler_db_notif_indexing_queue";
+
+// a callback queue for notifying crawler that storing indexed webpages
+// was successful or failure
+const DB_EXPRESS_INDEXING_NOTIF_CBQ = "db_express_notif_indexing_cbq";
 
 // SEARCH ENGINE ROUTING KEYS
 // routing key used by search engine service to request database for webpages.
@@ -28,8 +29,8 @@ const EXPRESS_DB_CHECK_QUEUE = "express_db_check_queue";
 const DB_EXPRESS_CHECK_CBQ = "db_express_check_cbq";
 
 export {
-  CRAWLER_DB_INDEXING_QUEUE,
-  DB_EXPRESS_INDEXING_CBQ,
+  CRAWLER_DB_INDEXING_NOTIF_QUEUE,
+  DB_EXPRESS_INDEXING_NOTIF_CBQ,
   SENGINE_DB_REQUEST_QUEUE,
   DB_SENGINE_REQUEST_CBQ,
   EXPRESS_DB_CHECK_QUEUE,
