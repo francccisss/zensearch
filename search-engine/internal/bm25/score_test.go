@@ -180,6 +180,7 @@ func mockConnection(t *testing.T) bytes.Buffer {
 
 	}(dbQueryChannel)
 
+	const TEST_QRY = "semaphore is really good"
 	// send database query
 	rabbitmq.QueryDatabase("nothing burger")
 
