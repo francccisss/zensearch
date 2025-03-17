@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	rabbitmqclient "crawler/internal/rabbitmq"
+	rabbitmq "crawler/internal/rabbitmq"
 	webdriver "crawler/internal/webdriver"
 	utilities "crawler/utilities"
 	"encoding/json"
@@ -215,11 +215,11 @@ func (c Crawler) Crawl() (PageResult, error) {
 	}
 	if err != nil {
 		fmt.Printf("ERROR: Unable to navigate to source url %s\n", c.URL)
-		fmt.Printf(err.Error())
+		fmt.Println(err.Error())
 		// Error for when the crawler was not able to start crawling from the source.
-		err = sendResult(errorMessage.sendErrorOnWebpageCrawl, "crawl_poll_queue", "", "")
+		err = sendResult(errorMessage.sendErrorOnWebpageCrawl, rabbitmq.DB_EXPRESS_INDEXING_CBQ, "", "")
 		if err != nil {
-			fmt.Printf(err.Error())
+			fmt.Println(err.Error())
 		}
 		return PageResult{}, fmt.Errorf("ERROR: Unable to navigate to the website entry point.\n")
 	}
@@ -255,8 +255,7 @@ func (c Crawler) Crawl() (PageResult, error) {
 		fmt.Printf("ERROR: Crawler returned with errors from navigating %s\n", c.URL)
 		fmt.Printf("ERROR MESSAGE: \n")
 		fmt.Println(err.Error())
-		sendResult(errorMessage.sendErrorOnWebpageCrawl, "crawl_poll_queue", "", "")
-		// err = sendResult(entry.saveIndexedWebpages, "db_indexing_crawler", "crawl_poll_queue", "Crawler was stopped but was able to index the website.")
+		sendResult(errorMessage.sendErrorOnWebpageCrawl, rabbitmq.DB_EXPRESS_INDEXING_CBQ, "", "")
 		result = PageResult{
 			URL:         c.URL,
 			CrawlStatus: crawlFail,
@@ -273,7 +272,7 @@ func (c Crawler) Crawl() (PageResult, error) {
 		Message:     "Successfully Crawled & Indexed website",
 		TotalPages:  len(entry.IndexedWebpages),
 	}
-	err = sendResult(entry.saveIndexedWebpages, "db_indexing_crawler", "crawl_poll_queue", "Successfully Crawled and Indexed Website.")
+	err = sendResult(entry.saveIndexedWebpages, rabbitmq.CRAWLER_DB_INDEXING_QUEUE, rabbitmq.DB_EXPRESS_INDEXING_CBQ, "Successfully Crawled and Indexed Website.")
 
 	return result, nil
 }
@@ -283,7 +282,7 @@ Returns an array of text contents from an array of common elements specified
 by the current selector eg: p, a, span etc.
 */
 func sendResult(constructMessage func(message string) ([]byte, error), routingKey string, callbackQueue string, message string) error {
-	conn, err := rabbitmqclient.GetConnection("conn")
+	conn, err := rabbitmq.GetConnection("conn")
 	if err != nil {
 		fmt.Print(err.Error())
 		log.Panicf("ERROR: Unable to get %s connection.\n", "conn")

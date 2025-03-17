@@ -1,7 +1,7 @@
 package main
 
 import (
-	rabbitmqclient "crawler/internal/rabbitmq"
+	"crawler/internal/rabbitmq"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -9,8 +9,6 @@ import (
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
-
-const crawlQueue = "crawl_queue"
 
 type IndexedList struct {
 	Webpages []site
@@ -28,14 +26,14 @@ type site struct {
 
 func main() {
 
-	err := rabbitmqclient.EstablishConnection(7)
+	err := rabbitmq.EstablishConnection(7)
 
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
 
-	conn, err := rabbitmqclient.GetConnection("conn")
+	conn, err := rabbitmq.GetConnection("conn")
 	if err != nil {
 		fmt.Println("Connection does not exist")
 		os.Exit(1)
@@ -49,8 +47,8 @@ func main() {
 		log.Printf("Unable to create a crawl channel.")
 	}
 
-	crawlChannel.QueueDeclare(crawlQueue, false, false, false, false, nil)
-	delivery, err := crawlChannel.Consume("", crawlQueue, false, false, false, false, nil)
+	crawlChannel.QueueDeclare(rabbitmq.CRAWLER_DB_INDEXING_QUEUE, false, false, false, false, nil)
+	delivery, err := crawlChannel.Consume("", rabbitmq.CRAWLER_DB_INDEXING_QUEUE, false, false, false, false, nil)
 
 	defer crawlChannel.Close()
 	if err != nil {
