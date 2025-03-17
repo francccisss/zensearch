@@ -2,7 +2,7 @@ import amqp, { Connection, Channel, ConsumeMessage } from "amqplib";
 import { EventEmitter } from "stream";
 import CircularBuffer from "../segments/circular_buffer";
 import {
-  CRAWLER_ES_CBQ,
+  DB_ES_SUCCESS_INDEXING_CBQ,
   DB_ES_CHECK_CBQ,
   ES_CRAWLER_QUEUE,
   ES_DB_CHECK_QUEUE,
@@ -55,7 +55,7 @@ class RabbitMQClient {
         durable: false,
       });
 
-      this.crawlChannel.assertQueue(CRAWLER_ES_CBQ, {
+      this.crawlChannel.assertQueue(DB_ES_SUCCESS_INDEXING_CBQ, {
         exclusive: false,
         durable: false,
       });
@@ -101,7 +101,7 @@ class RabbitMQClient {
       // -> [db_indexing_crawler]Database[CRAWL_QUEUE_CB] -> [CRAWL_QUEUE_CB]ws this listener -> client.
       // Crawler service directs database service to send a message to the message queue with CRAWL_QUEUE_CB
       // routing key after it finishes storing the indexed websites
-      this.crawlChannel.consume(CRAWLER_ES_CBQ, async (msg) => {
+      this.crawlChannel.consume(DB_ES_SUCCESS_INDEXING_CBQ, async (msg) => {
         if (msg === null) throw new Error("No Response");
         console.log("LOG: Message received from crawling");
         if (this.crawlChannel == null) {
@@ -189,7 +189,7 @@ class RabbitMQClient {
         durable: false,
       });
       const success = chan.sendToQueue(ES_CRAWLER_QUEUE, websites, {
-        replyTo: CRAWLER_ES_CBQ,
+        replyTo: DB_ES_SUCCESS_INDEXING_CBQ,
         correlationId: job.id,
       });
       if (!success) {
