@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"crawler/internal/types"
 	webdriver "crawler/internal/webdriver"
 	utilities "crawler/utilities"
@@ -46,7 +45,7 @@ const (
 
 type ThreadToken struct{}
 
-func NewCrawler(entryPoint string, ctx context.Context) (*Crawler, error) {
+func NewCrawler(entryPoint string) (*Crawler, error) {
 	c := &Crawler{
 		URL: entryPoint,
 	}
@@ -68,12 +67,16 @@ func NewSpawner(threadpool int, URLs []string) *Spawner {
 }
 
 func (s *Spawner) SpawnCrawlers() types.Results {
+	// Holds results of each crawled url
 	crawlResultsChan := make(chan types.CrawlResult, len(s.URLs))
+
+	// A semaphore to limit threads used
 	threadSlot := make(chan struct{}, s.ThreadPool)
 
+	// create parent context and pass to Crawl method
+
 	var (
-		wg  sync.WaitGroup
-		ctx context.Context
+		wg sync.WaitGroup
 	)
 
 	wg.Add(1)
@@ -84,7 +87,7 @@ func (s *Spawner) SpawnCrawlers() types.Results {
 			threadSlot <- ThreadToken{}
 			log.Printf("NOTIF: Thread token insert\n")
 			go func() {
-				crawler, err := NewCrawler(entryPoint, ctx)
+				crawler, err := NewCrawler(entryPoint)
 				if err != nil {
 					log.Print(err.Error())
 					log.Printf("NOTIF: Thread token release due to error.\n")
@@ -131,31 +134,28 @@ func (c Crawler) Crawl() (types.CrawlResult, error) {
 	defer (*c.WD).Close()
 
 	log.Printf("NOTIF: Start Crawling %s\n", c.URL)
+
+	// ROBOTS.TXT HANDLING
 	hostname, _, err := utilities.GetHostname(c.URL)
 	disallowedPaths, err := utilities.ExtractRobotsTxt(c.URL)
 	if err != nil {
 		fmt.Println("ERROR: Unable to extract robots.txt")
 		fmt.Println(err.Error())
 	}
-
-	// bro I only understand english :D just remove the ones that you want to be included
 	languagePaths := []string{"/es/", "/ko/", "/tr/", "/th/", "/it/", "/uk/", "/sk/", "/fr/", "/de/", "/zh/", "/ja/", "/ru/", "/ar/", "/pt/", "/hi/", "/zh/", "/zh-tw/", "/zh-c/", "/zh-cn/", "/pt-br/", "/uz/"}
 	disallowedPaths = append(disallowedPaths, languagePaths...)
 	fmt.Printf("DISALLOWED PATHS: %+v\n", disallowedPaths)
-	entry := types.WebpageEntry{
-		URL:             c.URL,
-		IndexedWebpages: make([]types.IndexedWebpage, 0, 10),
-		Hostname:        hostname,
-		Title:           "",
-	}
+	// ROBOTS.TXT HANDLING
+
 	pageNavigator := PageNavigator{
-		Entry:        &entry,
 		WD:           c.WD,
 		PagesVisited: map[string]string{},
 		Queue: Queue{
 			array: []string{c.URL},
 		},
 		DisallowedPaths: disallowedPaths,
+		IndexedWebpages: make([]types.IndexedWebpage, 0, 50),
+		Hostname:        hostname,
 	}
 
 	maxRetries := 7
@@ -163,16 +163,7 @@ func (c Crawler) Crawl() (types.CrawlResult, error) {
 	if err != nil {
 		fmt.Printf("ERROR: Unable to navigate to source url %s\n", c.URL)
 		fmt.Println(err.Error())
-
-		if err != nil {
-			fmt.Println(err.Error())
-			return types.CrawlResult{}, fmt.Errorf("ERROR: Unable to send error result to db.\n")
-		}
 		return types.CrawlResult{}, fmt.Errorf("ERROR: Unable to navigate to the website entry point.\n")
-	}
-	title, err := (*c.WD).Title()
-	if err == nil {
-		entry.Title = title
 	}
 
 	/*
@@ -189,7 +180,6 @@ func (c Crawler) Crawl() (types.CrawlResult, error) {
 
 	// clean up memory resource since it will linger in memory in the heap
 	// once this function is removed from the stack.
-	defer clear(entry.IndexedWebpages)
 	defer clear(pageNavigator.PagesVisited)
 
 	/*
@@ -207,7 +197,7 @@ func (c Crawler) Crawl() (types.CrawlResult, error) {
 			URL:         c.URL,
 			CrawlStatus: crawlFail,
 			Message:     message,
-			TotalPages:  len(entry.IndexedWebpages),
+			TotalPages:  len(pageNavigator.IndexedWebpages),
 		}
 
 		return result, nil
@@ -218,7 +208,7 @@ func (c Crawler) Crawl() (types.CrawlResult, error) {
 		URL:         c.URL,
 		CrawlStatus: crawlSuccess,
 		Message:     message,
-		TotalPages:  len(entry.IndexedWebpages),
+		TotalPages:  len(pageNavigator.IndexedWebpages),
 	}
 	return result, nil
 }

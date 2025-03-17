@@ -7,12 +7,6 @@ type Header struct {
 	URL   string
 }
 
-type WebpageEntry struct {
-	URL             string
-	IndexedWebpages []IndexedWebpage
-	Hostname        string
-	Title           string
-}
 type IndexedWebpage struct {
 	Header   Header
 	Contents string
