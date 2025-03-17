@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crawler/internal/types"
 	"crawler/utilities"
 	"fmt"
 	"log"
@@ -13,12 +14,12 @@ import (
 )
 
 type PageNavigator struct {
-	entry           *WebpageEntry
-	wd              *selenium.WebDriver
-	pagesVisited    map[string]string
-	queue           Queue
-	disallowedPaths []string
-	retryCount      int
+	Entry           *types.WebpageEntry
+	WD              *selenium.WebDriver
+	PagesVisited    map[string]string
+	Queue           Queue
+	DisallowedPaths []string
+	RetryCount      int
 	RequestTime
 }
 
@@ -37,7 +38,7 @@ func (pn *PageNavigator) navigatePageWithRetries(retries int, currentUrl string)
 	startTimer := time.Now()
 
 	if retries > 0 {
-		err := (*pn.wd).Get(currentUrl)
+		err := (*pn.WD).Get(currentUrl)
 		if err != nil {
 			pn.mselapsed = 0
 			fmt.Println(err.Error())
@@ -54,7 +55,7 @@ func (pn *PageNavigator) navigatePageWithRetries(retries int, currentUrl string)
 
 func (pn *PageNavigator) isPathAllowed(path string) bool {
 
-	for _, dapath := range pn.disallowedPaths {
+	for _, dapath := range pn.DisallowedPaths {
 		if strings.Contains(path, dapath) {
 			return false
 		}
@@ -89,21 +90,21 @@ func (pn *PageNavigator) requestDelay(multiplier int) {
 
 func (pn *PageNavigator) navigatePages(currentUrl string) error {
 
-	if pn.retryCount >= maxRetries {
-		return fmt.Errorf("Exceeded maximum retry count for this website, the crawler might be blocked while crawling Url: %s\nreturning...", pn.entry.hostname)
+	if pn.RetryCount >= maxRetries {
+		return fmt.Errorf("Exceeded maximum retry count for this website, the crawler might be blocked while crawling Url: %s\nreturning...", pn.Entry.Hostname)
 	}
 
-	if len(pn.queue.array) == 0 {
+	if len(pn.Queue.array) == 0 {
 		fmt.Printf("NOTIF: Queue is empty.\n")
 		return nil
 	}
 	// Oh and while I was debugging, i forgot to call Dequeue and kept wondering
 	// why the first element is not being removed... almost an hour i guess before
 	// i figured it out.
-	pn.queue.Dequeue()
+	pn.Queue.Dequeue()
 
 	fmt.Printf("NOTIF: `%s` has popped from queue.\n", currentUrl)
-	_, visited := pn.pagesVisited[currentUrl]
+	_, visited := pn.PagesVisited[currentUrl]
 	if visited {
 		// its so that we can grab unique links and append to children of the current page
 		fmt.Printf("NOTIF: Page already visited\n\n")
@@ -116,12 +117,12 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 		return err
 	}
 
-	pn.pagesVisited[currentUrl] = currentUrl
+	pn.PagesVisited[currentUrl] = currentUrl
 
 	fmt.Println("NOTIF: Page set to visited.")
 
 	args := []interface{}{linkFilter}
-	linksInterface, err := (*pn.wd).ExecuteScript(`return function (linkFilter){
+	linksInterface, err := (*pn.WD).ExecuteScript(`return function (linkFilter){
     console.log(linkFilter)
     const links = document.querySelectorAll(linkFilter)
     return Array.from(links).map(link=>link.href)
@@ -168,14 +169,14 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 			continue
 		}
 		// enqueue links that have not been visited yet and that are the same as the hostname
-		_, visited := pn.pagesVisited[href]
+		_, visited := pn.PagesVisited[href]
 		// I KEEP ADDING THE SAME ELEMENTS IN THE QUEUE I DONT UNDERSTAND!!!!
-		if !visited && childHostname == pn.entry.hostname {
-			pn.queue.Enqueue(href)
+		if !visited && childHostname == pn.Entry.Hostname {
+			pn.Queue.Enqueue(href)
 		}
 	}
 	fmt.Printf("NOTIF: Link Count in current url: %d\n", len(pageLinks))
-	fmt.Printf("NOTIF: Queue Length: %d\n", len(pn.queue.array))
+	fmt.Printf("NOTIF: Queue Length: %d\n", len(pn.Queue.array))
 	indexedWebpage, err := pn.Index()
 	if err != nil {
 		// then skip this page
@@ -184,7 +185,7 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 	}
 
 	fmt.Printf("NOTIF: Page %s Indexed\n", currentUrl)
-	pn.entry.IndexedWebpages = append(pn.entry.IndexedWebpages, indexedWebpage)
+	pn.Entry.IndexedWebpages = append(pn.Entry.IndexedWebpages, indexedWebpage)
 
 	/*
 	 no child to traverse to then return to caller, the caller function will
@@ -192,24 +193,24 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 	*/
 
 	// to stop the crawler entirely after multiple retries from navigation
-	for _, next := range pn.queue.array {
+	for _, next := range pn.Queue.array {
 
 		// the `next` is the one to be dequeued after calling navigatePages()
 		err := pn.navigatePages(next)
 		/*
 			if error occured from traversing or any error has occured
-			increment counter, the retryCount is the maximum tries for an error occur again,
+			increment counter, the RetryCount is the maximum tries for an error occur again,
 			if it is too mauch tnen might be better to just throw an error instead of continuing the crawl
 		*/
 		if err != nil {
 			fmt.Println(err.Error())
-			pn.retryCount++
+			pn.RetryCount++
 			continue
 		}
 	}
 	return nil
 }
-func (pt PageNavigator) Index() (IndexedWebpage, error) {
+func (pt PageNavigator) Index() (types.IndexedWebpage, error) {
 
 	/*
 		Iterating through the elementSelector, where each selector, creates
@@ -233,7 +234,7 @@ func (pt PageNavigator) Index() (IndexedWebpage, error) {
 			wg.Add(1)
 			go func(selector string) {
 				defer wg.Done()
-				textContents, err := extractTextContent(pt.wd, selector)
+				textContents, err := extractTextContent(pt.WD, selector)
 				if err != nil {
 					htmlTextElementChan <- ""
 					log.Print("ERROR: unable to extract text contents")
@@ -260,29 +261,29 @@ func (pt PageNavigator) Index() (IndexedWebpage, error) {
 	}
 
 	pageContents := joinTextContents(textChanSlice)
-	title, err := (*pt.wd).Title()
+	title, err := (*pt.WD).Title()
 	if err != nil {
 		log.Printf("ERROR: No title for this page")
 	}
 
-	url, err := (*pt.wd).CurrentURL()
+	url, err := (*pt.WD).CurrentURL()
 	if err != nil {
 		log.Printf("ERROR: No url for this page")
 	}
 
-	newIndexedPage := IndexedWebpage{
+	newIndexedPage := types.IndexedWebpage{
 		Contents: pageContents,
-		Header: Header{
-			Url:   url,
+		Header: types.Header{
+			URL:   url,
 			Title: title,
 		},
 	}
 	return newIndexedPage, nil
 }
 
-func extractTextContent(wd *selenium.WebDriver, selector string) ([]string, error) {
+func extractTextContent(WD *selenium.WebDriver, selector string) ([]string, error) {
 	elementTextContents := make([]string, 0, 10)
-	elements, err := (*wd).FindElements(selenium.ByCSSSelector, selector)
+	elements, err := (*WD).FindElements(selenium.ByCSSSelector, selector)
 	if err != nil {
 		log.Printf("ERROR: Elements does not satisfy css selector: %s", selector)
 		return nil, err

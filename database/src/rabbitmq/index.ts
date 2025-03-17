@@ -4,9 +4,9 @@ import { Database } from "sqlite3";
 import { Message, Webpage } from "../utils/types";
 import segmentSerializer from "../serializer/segment_serializer";
 import {
-  CRAWLER_DB_INDEXING_QUEUE,
+  CRAWLER_DB_INDEXING_NOTIF_QUEUE,
   DB_EXPRESS_CHECK_CBQ,
-  DB_EXPRESS_INDEXING_CBQ,
+  DB_EXPRESS_INDEXING_NOTIF_CBQ,
   DB_SENGINE_REQUEST_CBQ,
   EXPRESS_DB_CHECK_QUEUE,
   SENGINE_DB_REQUEST_QUEUE,
@@ -33,13 +33,13 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
     message queue, the `indexWebpages` handler saves these crawled webpages into
     the database.
   */
-  await databaseChannel.assertQueue(CRAWLER_DB_INDEXING_QUEUE, {
+  await databaseChannel.assertQueue(CRAWLER_DB_INDEXING_NOTIF_QUEUE, {
     exclusive: false,
     durable: false,
   });
 
   // Errors and successful crawls will be demultiplexed here
-  databaseChannel.consume(CRAWLER_DB_INDEXING_QUEUE, async (data) => {
+  databaseChannel.consume(CRAWLER_DB_INDEXING_NOTIF_QUEUE, async (data) => {
     if (data === null) throw new Error("No data was pushed.");
     const decoder = new TextDecoder();
     const decodedData = decoder.decode(data.content as ArrayBuffer);
@@ -48,13 +48,12 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
       databaseChannel.ack(data);
       await databaseOperations.indexWebpages(db, deserializeData);
       databaseChannel.sendToQueue(
-        DB_EXPRESS_INDEXING_CBQ,
+        DB_EXPRESS_INDEXING_NOTIF_CBQ,
         Buffer.from(
           JSON.stringify({
             isSuccess: deserializeData.CrawlStatus,
             Message: deserializeData.Message,
             Url: deserializeData.Url,
-            WebpageCount: deserializeData.Webpages.length,
           }),
         ),
       );
@@ -68,10 +67,8 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
         Buffer.from(
           JSON.stringify({
             isSuccess: false,
-            Message:
-              "Something went wrong with the database service after receiving crawl results, please retry the application.",
+            Message: error.message,
             Url: deserializeData.Url,
-            WebpageCount: 0,
           }),
         ),
       );

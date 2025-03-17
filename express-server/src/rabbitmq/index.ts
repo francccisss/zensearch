@@ -3,7 +3,7 @@ import { EventEmitter } from "stream";
 import CircularBuffer from "../segments/circular_buffer";
 import {
   DB_EXPRESS_CHECK_CBQ,
-  DB_EXPRESS_INDEXING_CBQ,
+  CRAWLER_EXPRESS_CBQ,
   EXPRESS_CRAWLER_QUEUE,
   EXPRESS_DB_CHECK_QUEUE,
   EXPRESS_SENGINE_QUERY_QUEUE,
@@ -55,7 +55,7 @@ class RabbitMQClient {
         durable: false,
       });
 
-      this.crawlChannel.assertQueue(DB_EXPRESS_INDEXING_CBQ, {
+      this.crawlChannel.assertQueue(CRAWLER_EXPRESS_CBQ, {
         exclusive: false,
         durable: false,
       });
@@ -93,10 +93,7 @@ class RabbitMQClient {
       throw new Error("ERROR: Crawl Channel is null.");
 
     try {
-      // Consumes database service's output that was sent by the crawler service.
-      // Crawler service directs database service to send a message to the message queue
-      // DB_EXPRESS_INDEXING_CBQ routing key after it finishes storing the indexed websites
-      this.crawlChannel.consume(DB_EXPRESS_INDEXING_CBQ, async (msg) => {
+      this.crawlChannel.consume(CRAWLER_EXPRESS_CBQ, async (msg) => {
         if (msg === null) throw new Error("No Response");
         console.log("LOG: Message received from crawling");
         if (this.crawlChannel == null) {
@@ -184,7 +181,7 @@ class RabbitMQClient {
         durable: false,
       });
       const success = chan.sendToQueue(EXPRESS_CRAWLER_QUEUE, websites, {
-        replyTo: DB_EXPRESS_INDEXING_CBQ,
+        replyTo: CRAWLER_EXPRESS_CBQ,
         correlationId: job.id,
       });
       if (!success) {

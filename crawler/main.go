@@ -42,23 +42,50 @@ func main() {
 
 	defer conn.Close()
 
-	crawlChannel, err := conn.Channel()
+	dbChannel, err := conn.Channel()
 	if err != nil {
 		log.Printf("Unable to create a crawl channel.")
 	}
-
-	crawlChannel.QueueDeclare(rabbitmq.CRAWLER_DB_INDEXING_QUEUE, false, false, false, false, nil)
-	delivery, err := crawlChannel.Consume("", rabbitmq.CRAWLER_DB_INDEXING_QUEUE, false, false, false, false, nil)
-
-	defer crawlChannel.Close()
+	defer dbChannel.Close()
+	expressChannel, err := conn.Channel()
 	if err != nil {
-		log.Panicf("Unable to assert crawl message queue.")
+		log.Printf("Unable to create a crawl channel.")
 	}
-	log.Println("Crawl Channel Created")
+	defer expressChannel.Close()
+
+	dbChannel.QueueDeclare(rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE, false, false, false, false, nil)
+
+	expressChannel.QueueDeclare(rabbitmq.EXPRESS_CRAWLER_QUEUE, false, false, false, false, nil)
 
 	go func() {
-		for msg := range delivery {
-			go handleConnections(msg, crawlChannel)
+		expressMsg, err := expressChannel.Consume("", rabbitmq.EXPRESS_CRAWLER_QUEUE, false, false, false, false, nil)
+		if err != nil {
+			log.Panicf("Unable to listen to express server")
+		}
+		for msg := range expressMsg {
+			go handleIncomingUrls(msg, expressChannel)
+		}
+
+	}()
+
+	type DBResponse struct {
+		isSuccess bool
+		Message   string
+		Url       string
+	}
+
+	go func() {
+		dbMsg, err := dbChannel.Consume("", rabbitmq.DB_EXPRESS_INDEXING_NOTIF_CBQ, false, false, false, false, nil)
+		if err != nil {
+			log.Panicf("Unable to listen to db server")
+		}
+		for msg := range dbMsg {
+			response := &DBResponse{}
+			err := json.Unmarshal(msg.Body, response)
+			if err != nil {
+				fmt.Printf("ERROR: %s\n", err.Error())
+				continue
+			}
 		}
 	}()
 
@@ -69,7 +96,7 @@ func main() {
 
 }
 
-func handleConnections(msg amqp.Delivery, chann *amqp.Channel) {
+func handleIncomingUrls(msg amqp.Delivery, chann *amqp.Channel) {
 	defer chann.Ack(msg.DeliveryTag, false)
 	webpageIndex := parseIncomingData(msg.Body)
 	fmt.Printf("Docs: %+v\n", webpageIndex.Docs)
