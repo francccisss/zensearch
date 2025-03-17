@@ -38,11 +38,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
     durable: false,
   });
 
-  // Aside from database service to handle errors for indexing,
-  // the crawler also needs to send the same mssage format straight
-  // to the express server to notify that the crawl for the current url
-  // threw an error.
-
+  // Errors and successful crawls will be demultiplexed here
   databaseChannel.consume(CRAWLER_DB_INDEXING_QUEUE, async (data) => {
     if (data === null) throw new Error("No data was pushed.");
     const decoder = new TextDecoder();
@@ -64,7 +60,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
       );
     } catch (err) {
       const error = err as Error;
-      console.error("ERROR: Decoder was unable to deserialized indexed data.");
+      console.error("ERROR: %s", error.message);
       console.error(error.message);
       databaseChannel.nack(data, false, false);
       databaseChannel.sendToQueue(
@@ -73,7 +69,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
           JSON.stringify({
             isSuccess: false,
             Message:
-              "Something went wrong with the database service, please retry the application.",
+              "Something went wrong with the database service after receiving crawl results, please retry the application.",
             Url: deserializeData.Url,
             WebpageCount: 0,
           }),
