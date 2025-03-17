@@ -3,8 +3,14 @@ import databaseOperations from "../database_operations";
 import { Database } from "sqlite3";
 import { Message, Webpage } from "../utils/types";
 import segmentSerializer from "../serializer/segment_serializer";
-import { CompressData, DecompressData } from "../compression";
-import zlib from "zlib";
+import {
+  CRAWLER_DB_INDEXING_QUEUE,
+  DB_ES_CHECK_CBQ,
+  DB_ES_SUCCESS_INDEXING_CBQ,
+  DB_SENGINE_REQUEST_CBQ,
+  ES_DB_CHECK_QUEUE,
+  SENGINE_DB_REQUEST_QUEUE,
+} from "./routing_keys";
 
 /*
   channel handler can take in multiple channels from a single tcp conneciton
@@ -13,20 +19,8 @@ import zlib from "zlib";
 */
 
 async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
-  // CRAWLER ROUTING KEYS
-  const DB_INDEXING_CRAWLER = "db_indexing_crawler";
-
-  // SEARCH ENGINE ROUTING KEYS
-  // routing key used by search engine service to query database for webpages.
-  const DB_QUERY_SENGINE = "db_query_sengine";
-  // routing key to reply back to the search engine service's callback queue.
-  const DB_CBQ_SENGINE = "db_cbq_sengine";
-
   // EXPRESS SERVER ROUTING KEYS
   // routing key used by express server to check existing webpages.
-  const DB_CHECK_EXPRESS = "db_check_express";
-  const DB_CBQ_EXPRESS = "db_cbq_express";
-  const DB_CBQ_POLL_EXPRESS = "crawl_poll_queue";
 
   /*
    TODO Document code please :)
@@ -39,7 +33,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
     message queue, the `indexWebpages` handler saves these crawled webpages into
     the database.
   */
-  await databaseChannel.assertQueue(DB_INDEXING_CRAWLER, {
+  await databaseChannel.assertQueue(CRAWLER_DB_INDEXING_QUEUE, {
     exclusive: false,
     durable: false,
   });
@@ -49,7 +43,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
   // to the express server to notify that the crawl for the current url
   // threw an error.
 
-  databaseChannel.consume(DB_INDEXING_CRAWLER, async (data) => {
+  databaseChannel.consume(CRAWLER_DB_INDEXING_QUEUE, async (data) => {
     if (data === null) throw new Error("No data was pushed.");
     const decoder = new TextDecoder();
     const decodedData = decoder.decode(data.content as ArrayBuffer);
@@ -58,7 +52,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
       databaseChannel.ack(data);
       await databaseOperations.indexWebpages(db, deserializeData);
       databaseChannel.sendToQueue(
-        data.properties.replyTo,
+        DB_ES_SUCCESS_INDEXING_CBQ,
         Buffer.from(
           JSON.stringify({
             isSuccess: deserializeData.CrawlStatus,
@@ -89,18 +83,18 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
   });
 
   // SEARCH ENGINE AND EXPRESS JS CONSUMERS
-  await databaseChannel.assertQueue(DB_QUERY_SENGINE, {
+  await databaseChannel.assertQueue(SENGINE_DB_REQUEST_QUEUE, {
     exclusive: false,
     durable: false,
   });
 
-  await databaseChannel.assertQueue(DB_CHECK_EXPRESS, {
+  await databaseChannel.assertQueue(ES_DB_CHECK_QUEUE, {
     exclusive: false,
     durable: false,
   });
 
   /*
-    The `db_check_express`consumes the messages from the express server
+    The `ES_DB_CHECK_QUEUE` routing key used to consumes the messages from the express server
     for new crawl tasks, its responsibility is to check send
     the array of crawl tasks from the client to the database service
     and query the database to see if the list of crawl tasks exists
@@ -110,7 +104,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
     the remaining items as uncrawled to be processed by the crawler service.
    */
 
-  databaseChannel.consume(DB_CHECK_EXPRESS, async (data) => {
+  databaseChannel.consume(ES_DB_CHECK_QUEUE, async (data) => {
     if (data == null) throw new Error("No data was pushed.");
     try {
       console.log(
@@ -131,7 +125,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
 
       databaseChannel.ack(data);
       const is_sent = databaseChannel.sendToQueue(
-        DB_CBQ_EXPRESS,
+        DB_ES_CHECK_CBQ,
         Buffer.from(encodedDocs),
       );
       if (!is_sent) {
@@ -152,7 +146,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
     a callback queue is implemented once we consume and query webpages so that we can send
     it back right after all those process are done.
   */
-  databaseChannel.consume(DB_QUERY_SENGINE, async (data) => {
+  databaseChannel.consume(SENGINE_DB_REQUEST_QUEUE, async (data) => {
     if (data === null) throw new Error("No data was pushed.");
     try {
       const dataQuery: Webpage[] = await databaseOperations.queryWebpages(db);
@@ -165,7 +159,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
         MSS,
         async (newSegment: Buffer) => {
           databaseChannel.sendToQueue(
-            DB_CBQ_SENGINE, // respond back to this queue from search engine
+            DB_SENGINE_REQUEST_CBQ, // respond back to this queue from search engine
             newSegment,
             {
               correlationId: data.properties.correlationId,

@@ -8,4 +8,4 @@ const PUBLISH_QUEUE = "search_poll_queue"
 const SEARCH_QUEUE = "search_queue"
 
 const DB_QUERY_QUEUE = "db_query_sengine"
-const DB_RESPONSE_QUEUE = "db_cbq_sengine"
+const DB_RESPONSE_QUEUE = "db_cb_sengine"

@@ -1,7 +1,6 @@
 import sqlite3 from "sqlite3";
 import path from "path";
-import amqp, { Channel, Connection } from "amqplib";
-import databaseOperations from "./database_operations";
+import amqp, { Connection } from "amqplib";
 import channelOperations from "./rabbitmq/channel_operations";
 import { readFile } from "fs";
 
@@ -65,7 +64,7 @@ function init_database(): sqlite3.Database {
 
 async function exec_scripts(db: sqlite3.Database, scriptPath: string) {
   console.log("Execute sqlite script");
-  await readFile(scriptPath, "utf-8", (err, data) => {
+  readFile(scriptPath, "utf-8", (err, data) => {
     const stmts = data
       .split(";")
       .map((stmt) => stmt.trim())

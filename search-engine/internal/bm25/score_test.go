@@ -27,7 +27,7 @@ import (
  an argument to each BM25ranking methods
 */
 
-var TEST_QRY = []string{"semaphore", "is", "really", "good"}
+var TEST_QRY = []string{"Using", "golang", "makes", "it", "so", "simple", "to", "implement", "concurrency"}
 
 func TestProcessParallelism(t *testing.T) {
 
@@ -42,7 +42,8 @@ func TestProcessParallelism(t *testing.T) {
 
 	fmt.Printf("TEST: Comparing runtime\n\n")
 	results := [][]string{}
-	results = append(results, testResponsetime(TEST_QRY, webpages, CalculateBMRatings), testResponsetime(TEST_QRY, webpages, Bm25TestConcurrency), testResponsetime(TEST_QRY, webpages, Bm25TestSequential))
+	results = append(results, testResponsetime(TEST_QRY, webpages, CalculateBMRatings),
+		testResponsetime(TEST_QRY, webpages, Bm25TestConcurrency), testResponsetime(TEST_QRY, webpages, Bm25TestSequential))
 
 	for _, result := range results {
 		fmt.Printf("results=%+v\n", result)
@@ -53,7 +54,9 @@ func TestProcessParallelism(t *testing.T) {
 
 }
 
-func testResponsetime(termTokens []string, webpages *[]types.WebpageTFIDF, method func(term string, webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF) []string {
+func testResponsetime(termTokens []string,
+	webpages *[]types.WebpageTFIDF,
+	method func(term string, webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF) []string {
 	timings := []string{}
 	terms := ""
 	for _, tt := range termTokens {
