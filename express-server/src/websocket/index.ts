@@ -1,14 +1,7 @@
 import { WebSocketServer, WebSocket, RawData, Data } from "ws";
-import http, { Server, ServerOptions } from "http";
-import os from "os";
 import rabbitmq from "../rabbitmq";
 import { Channel, ConsumeMessage } from "amqplib";
-import {
-  CRAWL_QUEUE,
-  SEARCH_QUEUE,
-  SEARCH_QUEUE_CB,
-} from "../rabbitmq/routing_keys";
-import { finalization } from "process";
+import { ES_CRAWLER_QUEUE } from "../rabbitmq/routing_keys";
 
 const EVENTS = {
   message: "message",
@@ -55,7 +48,7 @@ class WebsocketService {
             JSON.stringify({ Docs: decodeBuffer.unindexed_list! }),
           );
           const success = await rabbitmq.client.crawl(serializeList, {
-            queue: CRAWL_QUEUE,
+            queue: ES_CRAWLER_QUEUE,
             id: decodeBuffer.meta.job_id,
           });
           if (!success) {
