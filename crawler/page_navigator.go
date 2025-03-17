@@ -14,13 +14,14 @@ import (
 )
 
 type PageNavigator struct {
-	Entry           *types.WebpageEntry
 	WD              *selenium.WebDriver
 	PagesVisited    map[string]string
 	Queue           Queue
 	DisallowedPaths []string
 	RetryCount      int
 	RequestTime
+	IndexedWebpages []types.IndexedWebpage
+	Hostname        string
 }
 
 type RequestTime struct {
@@ -91,7 +92,7 @@ func (pn *PageNavigator) requestDelay(multiplier int) {
 func (pn *PageNavigator) navigatePages(currentUrl string) error {
 
 	if pn.RetryCount >= maxRetries {
-		return fmt.Errorf("Exceeded maximum retry count for this website, the crawler might be blocked while crawling Url: %s\nreturning...", pn.Entry.Hostname)
+		return fmt.Errorf("Exceeded maximum retry count for this website, the crawler might be blocked while crawling Url: %s\nreturning...", pn.Hostname)
 	}
 
 	if len(pn.Queue.array) == 0 {
@@ -171,7 +172,7 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 		// enqueue links that have not been visited yet and that are the same as the hostname
 		_, visited := pn.PagesVisited[href]
 		// I KEEP ADDING THE SAME ELEMENTS IN THE QUEUE I DONT UNDERSTAND!!!!
-		if !visited && childHostname == pn.Entry.Hostname {
+		if !visited && childHostname == pn.Hostname {
 			pn.Queue.Enqueue(href)
 		}
 	}
@@ -185,7 +186,7 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 	}
 
 	fmt.Printf("NOTIF: Page %s Indexed\n", currentUrl)
-	pn.Entry.IndexedWebpages = append(pn.Entry.IndexedWebpages, indexedWebpage)
+	pn.IndexedWebpages = append(pn.IndexedWebpages, indexedWebpage)
 
 	/*
 	 no child to traverse to then return to caller, the caller function will
