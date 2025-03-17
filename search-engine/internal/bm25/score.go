@@ -14,7 +14,7 @@ const CHUNK_SIZE = 40
 
 // takes exponential time
 func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF {
-	fmt.Println("\n\nTEST: DP/TP/MS Pattern")
+	fmt.Println("TEST: DP/TP/MS Pattern")
 	tokenizedTerms := Tokenizer(query)
 
 	// wpLen := len(*webpages)
@@ -47,7 +47,6 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 		docLen := utilities.AvgDocLen(webpages)
 
 		// creates task parallelism
-		fmt.Println("TEST: creating task parallelism")
 		for _, term := range tokenizedTerms {
 			mwg.Add(1)
 
@@ -65,7 +64,9 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 
 				// creates data parallelism
 				if len(tokenizedTerms) == 1 {
-					fmt.Printf("TEST: aggregate chunks for term=%s\n", term)
+					// dont separate into chunks
+					fmt.Println("DONT")
+					_ = TF(term, docLen, webpages, int(start), int(end))
 					mwg.Done()
 					return
 				}
@@ -87,15 +88,11 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 			}()
 		}
 		mwg.Wait()
-		fmt.Println("TEST: Finished calculating webpages TF rating using task parallelism")
 		wg.Done()
 	}()
-
-	fmt.Println("TEST: waiting for TF and IDF calculations")
 	wg.Wait()
 	// for each token calculate BM25Rating for each webpages
 	// by summing the rating from the previous tokens
-	fmt.Println("TEST: calculating bm25 rating")
 	for IDF := range IDFChan {
 		for j := range *webpages {
 			bm25rating := BM25(IDF, (*webpages)[j].TfRating)
@@ -133,7 +130,6 @@ func Tokenizer(query string) []string {
 
 	// add the remaining character after reaching null byte
 	tmpSlice = append(tmpSlice, strings.Trim(charHolder, " "))
-	fmt.Printf("Length of Token: %d\n", len(tmpSlice))
 	return tmpSlice
 }
 
