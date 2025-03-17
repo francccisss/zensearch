@@ -1,12 +1,14 @@
 import amqp, { Connection, Channel, ConsumeMessage } from "amqplib";
-import {
-  CRAWL_QUEUE,
-  CRAWL_QUEUE_CB,
-  SEARCH_QUEUE,
-  SEARCH_QUEUE_CB,
-} from "./routing_keys";
 import { EventEmitter } from "stream";
 import CircularBuffer from "../segments/circular_buffer";
+import {
+  CRAWLER_ES_CBQ,
+  DB_ES_CHECK_CBQ,
+  ES_CRAWLER_QUEUE,
+  ES_DB_CHECK_QUEUE,
+  ES_SEARCH_QUEUE,
+  SEARCH_ES_CB,
+} from "./routing_keys";
 
 // TODO ADD LOGS TO RECEIVED AND PROCESSED SEGMENTS
 class RabbitMQClient {
@@ -48,12 +50,12 @@ class RabbitMQClient {
       this.searchChannel = await this.connection.createChannel();
       this.crawlChannel = await this.connection.createChannel();
 
-      this.searchChannel.assertQueue(SEARCH_QUEUE, {
+      this.searchChannel.assertQueue(ES_SEARCH_QUEUE, {
         exclusive: false,
         durable: false,
       });
 
-      this.crawlChannel.assertQueue(CRAWL_QUEUE_CB, {
+      this.crawlChannel.assertQueue(CRAWLER_ES_CBQ, {
         exclusive: false,
         durable: false,
       });
@@ -75,8 +77,8 @@ class RabbitMQClient {
     if (this.searchChannel == null) {
       throw new Error("ERROR: Search Channel is null");
     }
-    return await this.searchChannel.sendToQueue(SEARCH_QUEUE, Buffer.from(q), {
-      replyTo: SEARCH_QUEUE_CB,
+    return this.searchChannel.sendToQueue(ES_SEARCH_QUEUE, Buffer.from(q), {
+      replyTo: SEARCH_ES_CB,
     });
   }
 
@@ -99,13 +101,13 @@ class RabbitMQClient {
       // -> [db_indexing_crawler]Database[CRAWL_QUEUE_CB] -> [CRAWL_QUEUE_CB]ws this listener -> client.
       // Crawler service directs database service to send a message to the message queue with CRAWL_QUEUE_CB
       // routing key after it finishes storing the indexed websites
-      this.crawlChannel.consume(CRAWL_QUEUE_CB, async (msg) => {
+      this.crawlChannel.consume(CRAWLER_ES_CBQ, async (msg) => {
         if (msg === null) throw new Error("No Response");
         console.log("LOG: Message received from crawling");
         if (this.crawlChannel == null) {
           throw new Error("ERROR: Crawl Channel is null.");
         }
-        await cb(this.crawlChannel, msg, "crawling");
+        cb(this.crawlChannel, msg, "crawling");
         console.log(msg.content.toString());
       });
     } catch (err) {
@@ -124,12 +126,12 @@ class RabbitMQClient {
       if (this.searchChannel == null) {
         throw new Error("ERROR: Search channel does not exist.");
       }
-      this.searchChannel.assertQueue(SEARCH_QUEUE_CB, {
-        exclusive: false,
-        durable: false,
-      });
+      //this.searchChannel.assertQueue(SEARCH_ES_CB, {
+      //  exclusive: false,
+      //  durable: false,
+      //});
       this.searchChannel.consume(
-        SEARCH_QUEUE_CB,
+        SEARCH_ES_CB,
         (data: ConsumeMessage | null) => {
           if (data === null) {
             this.searchChannel!.close();
@@ -181,14 +183,13 @@ class RabbitMQClient {
     if (this.connection === null)
       throw new Error("ERROR: TCP Connection lost.");
     const chan = await this.connection.createChannel();
-    const message = "Start Crawl";
     try {
-      await chan.assertQueue(CRAWL_QUEUE, {
+      await chan.assertQueue(ES_CRAWLER_QUEUE, {
         exclusive: false,
         durable: false,
       });
-      const success = await chan.sendToQueue(CRAWL_QUEUE, websites, {
-        replyTo: CRAWL_QUEUE_CB,
+      const success = chan.sendToQueue(ES_CRAWLER_QUEUE, websites, {
+        replyTo: CRAWLER_ES_CBQ,
         correlationId: job.id,
       });
       if (!success) {
@@ -216,22 +217,19 @@ class RabbitMQClient {
       throw new Error("Unable to create a channel for crawl queue.");
     const channel = await this.connection.createChannel();
 
-    const dbCheckQueue = "db_check_express";
-    const dbCheckResponseQueue = "db_cbq_express";
-    await channel.assertQueue(dbCheckQueue, {
+    await channel.assertQueue(ES_DB_CHECK_QUEUE, {
       durable: false,
       exclusive: false,
     });
-    await channel.assertQueue(dbCheckResponseQueue, {
+    await channel.assertQueue(DB_ES_CHECK_CBQ, {
       durable: false,
       exclusive: false,
     });
 
-    await channel.sendToQueue(dbCheckQueue, Buffer.from(encoded_list));
+    channel.sendToQueue(ES_DB_CHECK_QUEUE, Buffer.from(encoded_list));
     let undindexed: Array<string> = [];
-    let dataBuffer: Buffer = Buffer.from("");
     let isError = false;
-    await channel.consume(dbCheckResponseQueue, async (data) => {
+    await channel.consume(DB_ES_CHECK_CBQ, async (data) => {
       if (data === null) {
         throw new Error("ERROR: Data received is null.");
       }

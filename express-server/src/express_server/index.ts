@@ -1,17 +1,10 @@
 import express, { Request, Response, NextFunction } from "express";
-import amqp, { Connection, Channel, ConsumeMessage } from "amqplib";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import {
-  CRAWL_QUEUE_CB,
-  CRAWL_QUEUE,
-  SEARCH_QUEUE_CB,
-} from "../rabbitmq/routing_keys";
 import rabbitmq from "../rabbitmq";
-import { Data } from "ws";
 import { create } from "express-handlebars";
 import segmentSerializer from "../segments/segment_serializer";
-import CircBuffer from "../segments/circular_buffer";
+import { ES_CRAWLER_QUEUE } from "../rabbitmq/routing_keys";
 
 const cors = require("cors");
 const body_parser = require("body-parser");
@@ -71,7 +64,7 @@ app.use(
     next();
   },
 );
-app.get("/", (req: Request, res: Response) => {
+app.get("/", (_, res: Response) => {
   res.sendFile(path.join(...public_route, "index.html"));
 });
 
@@ -135,7 +128,7 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
 
     res.cookie("job_id", job_id);
     res.cookie("job_count", results.undindexed.length);
-    res.cookie("job_queue", CRAWL_QUEUE_CB);
+    res.cookie("job_queue", ES_CRAWLER_QUEUE);
     res.cookie("message_type", "crawling");
     res.setHeader("Connection", "Upgrade");
     res.setHeader("Upgrade", "Websocket");
@@ -195,7 +188,7 @@ app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error, _: Request, res: Response, __: NextFunction) => {
   console.error(err.stack);
   res.status(500).json({ message: err.message });
 });
