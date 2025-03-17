@@ -5,10 +5,10 @@ import { Message, Webpage } from "../utils/types";
 import segmentSerializer from "../serializer/segment_serializer";
 import {
   CRAWLER_DB_INDEXING_QUEUE,
-  DB_ES_CHECK_CBQ,
-  DB_ES_SUCCESS_INDEXING_CBQ,
+  DB_EXPRESS_CHECK_CBQ,
+  DB_EXPRESS_INDEXING_CBQ,
   DB_SENGINE_REQUEST_CBQ,
-  ES_DB_CHECK_QUEUE,
+  EXPRESS_DB_CHECK_QUEUE,
   SENGINE_DB_REQUEST_QUEUE,
 } from "./routing_keys";
 
@@ -52,7 +52,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
       databaseChannel.ack(data);
       await databaseOperations.indexWebpages(db, deserializeData);
       databaseChannel.sendToQueue(
-        DB_ES_SUCCESS_INDEXING_CBQ,
+        DB_EXPRESS_INDEXING_CBQ,
         Buffer.from(
           JSON.stringify({
             isSuccess: deserializeData.CrawlStatus,
@@ -88,7 +88,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
     durable: false,
   });
 
-  await databaseChannel.assertQueue(ES_DB_CHECK_QUEUE, {
+  await databaseChannel.assertQueue(EXPRESS_DB_CHECK_QUEUE, {
     exclusive: false,
     durable: false,
   });
@@ -104,7 +104,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
     the remaining items as uncrawled to be processed by the crawler service.
    */
 
-  databaseChannel.consume(ES_DB_CHECK_QUEUE, async (data) => {
+  databaseChannel.consume(EXPRESS_DB_CHECK_QUEUE, async (data) => {
     if (data == null) throw new Error("No data was pushed.");
     try {
       console.log(
@@ -125,7 +125,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
 
       databaseChannel.ack(data);
       const is_sent = databaseChannel.sendToQueue(
-        DB_ES_CHECK_CBQ,
+        DB_EXPRESS_CHECK_CBQ,
         Buffer.from(encodedDocs),
       );
       if (!is_sent) {
