@@ -143,7 +143,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
     Consumes messages sent by the search engine services to query the database for
     the webpages to be ranked and sent to the client.
 
-    a callback queue is implemented once we consume and query webpages so that we can send
+    a callback queue is assigned once we consume and query webpages so that we can send
     it back right after all those process are done.
   */
   databaseChannel.consume(SENGINE_DB_REQUEST_QUEUE, async (data) => {

@@ -50,7 +50,7 @@ class RabbitMQClient {
       this.searchChannel = await this.connection.createChannel();
       this.crawlChannel = await this.connection.createChannel();
 
-      this.searchChannel.assertQueue(EXPRESS_SENGINE_QUERY_QUEUE, {
+      this.searchChannel.assertQueue(SENGINE_EXPRESS_QUERY_CBQ, {
         exclusive: false,
         durable: false,
       });
