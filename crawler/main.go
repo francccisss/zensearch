@@ -24,6 +24,14 @@ type site struct {
 	Webpage_url string
 }
 
+type DBResponse struct {
+	IsSuccess bool
+	Message   string
+	Url       string
+}
+
+// TODO create type to send to express server
+
 func main() {
 
 	err := rabbitmq.EstablishConnection(7)
@@ -54,8 +62,10 @@ func main() {
 	defer expressChannel.Close()
 
 	dbChannel.QueueDeclare(rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE, false, false, false, false, nil)
+	rabbitmq.SetNewChannel("dbChannel", dbChannel)
 
 	expressChannel.QueueDeclare(rabbitmq.EXPRESS_CRAWLER_QUEUE, false, false, false, false, nil)
+	rabbitmq.SetNewChannel("expressChannel", expressChannel)
 
 	go func() {
 		expressMsg, err := expressChannel.Consume("", rabbitmq.EXPRESS_CRAWLER_QUEUE, false, false, false, false, nil)
@@ -68,14 +78,8 @@ func main() {
 
 	}()
 
-	type DBResponse struct {
-		isSuccess bool
-		Message   string
-		Url       string
-	}
-
 	go func() {
-		dbMsg, err := dbChannel.Consume("", rabbitmq.DB_EXPRESS_INDEXING_NOTIF_CBQ, false, false, false, false, nil)
+		dbMsg, err := dbChannel.Consume("", rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ, false, false, false, false, nil)
 		if err != nil {
 			log.Panicf("Unable to listen to db server")
 		}

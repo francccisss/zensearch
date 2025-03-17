@@ -14,7 +14,7 @@ const CRAWLER_DB_INDEXING_NOTIF_QUEUE = "crawler_db_notif_indexing_queue";
 
 // a callback queue for notifying crawler that storing indexed webpages
 // was successful or failure
-const DB_EXPRESS_INDEXING_NOTIF_CBQ = "db_express_notif_indexing_cbq";
+const DB_CRAWLER_INDEXING_NOTIF_CBQ = "db_crawler_indexing_notif_cbq";
 
 // SEARCH ENGINE ROUTING KEYS
 // routing key used by search engine service to request database for webpages.
@@ -30,7 +30,7 @@ const DB_EXPRESS_CHECK_CBQ = "db_express_check_cbq";
 
 export {
   CRAWLER_DB_INDEXING_NOTIF_QUEUE,
-  DB_EXPRESS_INDEXING_NOTIF_CBQ,
+  DB_CRAWLER_INDEXING_NOTIF_CBQ,
   SENGINE_DB_REQUEST_QUEUE,
   DB_SENGINE_REQUEST_CBQ,
   EXPRESS_DB_CHECK_QUEUE,

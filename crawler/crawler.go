@@ -1,13 +1,16 @@
 package main
 
 import (
+	"crawler/internal/rabbitmq"
 	"crawler/internal/types"
 	webdriver "crawler/internal/webdriver"
 	utilities "crawler/utilities"
+	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
 
+	"github.com/rabbitmq/amqp091-go"
 	"github.com/tebeka/selenium"
 )
 
@@ -39,8 +42,8 @@ type Crawler struct {
 var indexedList map[string]types.IndexedWebpage
 
 const (
-	crawlFail    = 1
-	crawlSuccess = 0
+	CRAWL_FAIL    = 1
+	CRAWL_SUCCESS = 0
 )
 
 type ThreadToken struct{}
@@ -66,7 +69,7 @@ func NewSpawner(threadpool int, URLs []string) *Spawner {
 	}
 }
 
-func (s *Spawner) SpawnCrawlers() types.Results {
+func (s *Spawner) SpawnCrawlers() types.CrawlResults {
 	// Holds results of each crawled url
 	crawlResultsChan := make(chan types.CrawlResult, len(s.URLs))
 
@@ -115,17 +118,17 @@ func (s *Spawner) SpawnCrawlers() types.Results {
 	wg.Wait()
 	close(crawlResultsChan)
 	for crawler := range crawlResultsChan {
-		log.Printf("Crawled URL: %s\n", crawler.URL)
+		log.Printf("Crawled URLSeed: %s\n", crawler.URLSeed)
 		log.Printf("Crawl Message: %s\n", crawler.Message)
 	}
 
 	log.Println("NOTIF: All Process have finished.")
 
-	return types.Results{
-		Message:     "Crawled and indexed webpages",
-		ThreadsUsed: s.ThreadPool,
-		URLCount:    len(s.URLs),
-		CrawlResult: crawlResultsChan,
+	return types.CrawlResults{
+		Message:          "Crawled and indexed webpages",
+		ThreadsUsed:      s.ThreadPool,
+		URLSeedCount:     len(s.URLs),
+		CrawlResultsChan: crawlResultsChan,
 	}
 }
 
@@ -179,36 +182,80 @@ func (c Crawler) Crawl() (types.CrawlResult, error) {
 	err = pageNavigator.navigatePages(c.URL)
 
 	// clean up memory resource since it will linger in memory in the heap
-	// once this function is removed from the stack.
+	// once this function is removed from the data segment.
+	// TODO need to store these in the database
 	defer clear(pageNavigator.PagesVisited)
+	defer clear(pageNavigator.IndexedWebpages)
 
 	/*
 	   TODO Improve error handling code, it looks ugly.
 	*/
-	var result types.CrawlResult
 
+	var cResult types.CrawlResult
 	message := "Successfully Crawled & Indexed website"
 	if err != nil {
 		// Error for when crawler is not able to crawl and index the remaining webpages.
 		message = "Something went wrong while crawling the webpage"
 		fmt.Printf("ERROR: Crawler returned with errors from navigating %s\n", c.URL)
 		fmt.Println(err.Error())
-		result = types.CrawlResult{
-			URL:         c.URL,
-			CrawlStatus: crawlFail,
+		cResult = types.CrawlResult{
+			URLSeed:     c.URL,
+			CrawlStatus: CRAWL_FAIL,
 			Message:     message,
 			TotalPages:  len(pageNavigator.IndexedWebpages),
 		}
-
-		return result, nil
+		iResult := types.IndexedResult{
+			CrawlResult: cResult,
+			Webpages:    []types.IndexedWebpage{},
+		}
+		SendResults(iResult)
+		return cResult, nil
 	}
 
 	fmt.Printf("NOTIF: Crawler returned with no errors from navigating %s\n", c.URL)
-	result = types.CrawlResult{
-		URL:         c.URL,
-		CrawlStatus: crawlSuccess,
+	cResult = types.CrawlResult{
+		URLSeed:     c.URL,
+		CrawlStatus: CRAWL_SUCCESS,
 		Message:     message,
 		TotalPages:  len(pageNavigator.IndexedWebpages),
 	}
-	return result, nil
+
+	iResult := types.IndexedResult{
+		CrawlResult: cResult,
+		Webpages:    pageNavigator.IndexedWebpages}
+	SendResults(iResult)
+	return cResult, nil
+}
+
+func SendResults(result types.Result) error {
+
+	chann, err := rabbitmq.GetChannel("dbChannel")
+	if err != nil {
+		return err
+	}
+
+	b, err := json.Marshal(result)
+	if err != nil {
+		fmt.Println("ERROR: unable to marshal indexed results")
+		return err
+	}
+
+	returnChan := make(chan amqp091.Return)
+	err = chann.Publish("",
+		rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE,
+		true, true,
+		amqp091.Publishing{
+			ContentType: "application/json",
+			Type:        "store-indexed-webpages",
+			Body:        b,
+			ReplyTo:     rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ,
+		})
+	chann.NotifyReturn(returnChan)
+
+	select {
+	case <-returnChan:
+		fmt.Printf("ERROR: Unable to deliver message to designated queue %s\n", rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE)
+	}
+
+	return nil
 }

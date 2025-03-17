@@ -12,18 +12,9 @@ type IndexedWebpage struct {
 	Contents string
 }
 
-type CrawlResult struct {
-	URL         string
-	Message     string
-	CrawlStatus int
-	TotalPages  int
-}
-
 type IndexedResult struct {
+	CrawlResult
 	Webpages []IndexedWebpage
-	Header
-	Message     string
-	CrawlStatus int
 }
 
 type ErrorMessage struct {
@@ -32,10 +23,24 @@ type ErrorMessage struct {
 	CrawlStatus int
 }
 
-type Results struct {
-	URLCount    int
-	URLsFailed  []string
+type CrawlResult struct {
+	URLSeed     string // Main entry point where the crawler starts from
 	Message     string
-	ThreadsUsed int
-	CrawlResult <-chan CrawlResult
+	CrawlStatus int
+	TotalPages  int
 }
+
+// type for returning the result of all spawned crawler
+type CrawlResults struct {
+	URLSeedCount     int // The user defined distinct urls to be crawled
+	Message          string
+	ThreadsUsed      int
+	CrawlResultsChan chan CrawlResult
+}
+
+type Result interface {
+	sendResults()
+}
+
+func (cr CrawlResult) sendResults()   {}
+func (ir IndexedResult) sendResults() {}

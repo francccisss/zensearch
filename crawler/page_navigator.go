@@ -30,9 +30,9 @@ type RequestTime struct {
 }
 
 const (
-	maxRetries = 7
+	MAX_RETRIES = 7
 	// removes links to web objects that does not return an html page.
-	linkFilter = `a:not([href$=".zip"]):not([href$=".svg"]):not([href$=".scss"]):not([href$=".css"]):not([href$=".pdf"]):not([href$=".exe"]):not([href$=".jpg"]):not([href$=".png"]):not([href$=".tar.gz"]):not([href$=".rar"]):not([href$=".7z"]):not([href$=".mp3"]):not([href$=".mp4"]):not([href$=".mkv"]):not([href$=".tar"]):not([href$=".xz"]):not([href$=".msi"])`
+	LINK_FILTERS = `a:not([href$=".zip"]):not([href$=".svg"]):not([href$=".scss"]):not([href$=".css"]):not([href$=".pdf"]):not([href$=".exe"]):not([href$=".jpg"]):not([href$=".png"]):not([href$=".tar.gz"]):not([href$=".rar"]):not([href$=".7z"]):not([href$=".mp3"]):not([href$=".mp4"]):not([href$=".mkv"]):not([href$=".tar"]):not([href$=".xz"]):not([href$=".msi"])`
 )
 
 func (pn *PageNavigator) navigatePageWithRetries(retries int, currentUrl string) error {
@@ -91,7 +91,7 @@ func (pn *PageNavigator) requestDelay(multiplier int) {
 
 func (pn *PageNavigator) navigatePages(currentUrl string) error {
 
-	if pn.RetryCount >= maxRetries {
+	if pn.RetryCount >= MAX_RETRIES {
 		return fmt.Errorf("Exceeded maximum retry count for this website, the crawler might be blocked while crawling Url: %s\nreturning...", pn.Hostname)
 	}
 
@@ -112,7 +112,7 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 		return nil
 	}
 	pn.requestDelay(2)
-	err := pn.navigatePageWithRetries(maxRetries, currentUrl)
+	err := pn.navigatePageWithRetries(MAX_RETRIES, currentUrl)
 	if err != nil {
 		fmt.Println(err.Error())
 		return err
@@ -122,7 +122,7 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 
 	fmt.Println("NOTIF: Page set to visited.")
 
-	args := []interface{}{linkFilter}
+	args := []interface{}{LINK_FILTERS}
 	linksInterface, err := (*pn.WD).ExecuteScript(`return function (linkFilter){
     console.log(linkFilter)
     const links = document.querySelectorAll(linkFilter)
