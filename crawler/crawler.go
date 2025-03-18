@@ -257,7 +257,8 @@ func SendResults(result types.Result) error {
 	case r := <-returnChan:
 		fmt.Printf("ERROR: Unable to deliver message to designated queue %s\n", rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE)
 		return fmt.Errorf("ERROR: code=%d message=%s\n", r.ReplyCode, r.ReplyText)
-	case <-time.After(2 * time.Second):
+	case <-time.After(1 * time.Second):
+		fmt.Println("NOTIF: No return error from messge broker")
 		return nil
 	}
 

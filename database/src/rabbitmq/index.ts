@@ -1,6 +1,6 @@
 import amqp from "amqplib";
 import databaseOperations from "../database";
-import { Database } from "sqlite3";
+import { Database, ERROR } from "sqlite3";
 import { IndexedWebpages, Webpage } from "../utils/types";
 import segmentSerializer from "../serializer/segment_serializer";
 import {
@@ -24,7 +24,6 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
 
   /*
    TODO Document code please :)
-   TODO Change names to make it more comprehensible please :D
    TODO Use PRE-Compression eg:
     saving new indexed webpage should be compressed and decompressed on
     request
@@ -47,6 +46,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
     const deserializeData: IndexedWebpages = JSON.parse(decodedData);
     try {
       databaseChannel.ack(data);
+      //throw new Error("Test Error");
       //await databaseOperations.indexWebpages(db, deserializeData);
       console.log("Storing data");
       databaseChannel.sendToQueue(
@@ -62,14 +62,15 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
     } catch (err) {
       const error = err as Error;
       console.error("ERROR: %s", error.message);
-      console.error("ERROR: %s", deserializeData.Message);
+      console.error("ERROR: %s", error);
       console.log("Sending back response to crawler");
+      console.log(deserializeData);
       databaseChannel.sendToQueue(
         DB_CRAWLER_INDEXING_NOTIF_CBQ,
         Buffer.from(
           JSON.stringify({
             IsSuccess: false,
-            Message: error.message,
+            Message: "Unable to store indexed webpages to sqlite",
             URLSeed: deserializeData.URLSeed,
           }),
         ),
