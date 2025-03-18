@@ -55,7 +55,8 @@ async function sendCrawlList() {
     invalidList = checkURLList(inputValues);
     if (invalidList.length !== 0) {
       throw new Error(
-        `Some of the items in this list are invalid URLs make sure to include a valid/supported protocol schema eg: "http","https" and TLD eg: ".com", ".dev"
+        `Some of the items in this list are invalid URLs make sure to include a valid/supported
+        protocol schema eg: "http","https" and TLD eg: ".com", ".dev"
         ".lol" etc.`,
       );
     }

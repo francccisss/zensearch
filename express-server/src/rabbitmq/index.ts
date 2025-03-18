@@ -9,6 +9,7 @@ import {
   EXPRESS_SENGINE_QUERY_QUEUE,
   SENGINE_EXPRESS_QUERY_CBQ,
 } from "./routing_keys";
+import { CrawlMessageStatus } from "../types";
 
 // TODO ADD LOGS TO RECEIVED AND PROCESSED SEGMENTS
 class RabbitMQClient {
@@ -99,8 +100,11 @@ class RabbitMQClient {
         if (this.crawlChannel == null) {
           throw new Error("ERROR: Crawl Channel is null.");
         }
-        cb(this.crawlChannel, msg, "crawling");
-        console.log(msg.content.toString());
+        const deserializedMessage = new TextDecoder().decode(msg.content);
+        const crawlMessage: CrawlMessageStatus =
+          JSON.parse(deserializedMessage);
+        console.log(crawlMessage);
+        //cb(this.crawlChannel, msg, "crawling");
       });
     } catch (err) {
       const error = err as Error;
