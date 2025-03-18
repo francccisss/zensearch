@@ -199,7 +199,7 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 
 	err = SendResults(result)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("Unable to send indexed result to database service\nreturning...")
 	}
 	fmt.Println("NOTIF: stored indexed webpage")
 	// pn.IndexedWebpages = append(pn.IndexedWebpages, indexedWebpage)

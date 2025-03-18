@@ -5,7 +5,10 @@ import (
 	"crawler/internal/types"
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"testing"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -14,7 +17,11 @@ import (
 var err = rabbitmq.EstablishConnection(7)
 
 func TestCrawlerIndexing(t *testing.T) {
-	sm := make(chan struct{})
+	sm := make(chan struct{}, 1)
+
+	osSignalChan := make(chan os.Signal, 1)
+
+	signal.Notify(osSignalChan, syscall.SIGINT, syscall.SIGTERM)
 
 	if err != nil {
 		fmt.Println(err.Error())
@@ -47,24 +54,36 @@ func TestCrawlerIndexing(t *testing.T) {
 	response := make(chan DBResponse, 10)
 	go DBTestChannelListener(dbChannel, response)
 	go func() {
-		for r := range response {
-			fmt.Println(r)
+		for {
+			select {
+			case r := <-response:
+				fmt.Println(r)
+			case signal := <-osSignalChan:
+				if signal == syscall.SIGTERM {
+					fmt.Println("Close gracefully")
+					return
+				}
+			}
 		}
 	}()
-	// seeds := []string{"https://gobyexample.com/"}
+
 	seeds := []string{"https://fzaid.vercel.app/"}
+
+	// seeds := []string{"https://gobyexample.com/"}
+	// seeds := []string{"https://gobyexample.com/", "https://fzaid.vercel.app/"}
 	fmt.Printf("Crawling seeds: %+v\n", seeds)
 	spawner := NewSpawner(10, seeds)
 	crawlResults := spawner.SpawnCrawlers()
 	fmt.Printf("TEST: crawl_results=%+v", crawlResults)
 
-	fmt.Printf("\n\n-----------------RESULTS------------------\n")
+	fmt.Printf("\n\n------RESULTS------\n")
 	for result := range crawlResults.CrawlResultsChan {
 		fmt.Printf("| SEED: %s |\n", result.URLSeed)
 		fmt.Printf("TEST: crawl_status=%d\n", result.CrawlStatus)
 		fmt.Printf("TEST: message=%s\n", result.Message)
 
 	}
+	sm <- struct{}{}
 	fmt.Println("TEST: test end")
 }
 
@@ -88,17 +107,28 @@ func MockDatabase(sm <-chan struct{}) {
 	crawlerMsg, err := mockDBChann.Consume("", rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE, false, false, false, false, nil)
 
 	database := []types.IndexedWebpage{}
-	for msg := range crawlerMsg {
-		webpage := &types.IndexedWebpage{}
-		err := json.Unmarshal(msg.Body, webpage)
-		if err != nil {
-			mockDBChann.Nack(msg.DeliveryTag, false, false)
-			panic(err)
+	for {
+		// for msg := range crawlerMsg {
+		select {
+		case <-sm:
+			fmt.Println("\n\n------CLOSING MOCKDB------")
+			for _, page := range database {
+				fmt.Printf("TEST DBMOCK: title: %+s\n", page.Header.Title)
+				fmt.Printf("TEST DBMOCK: content_length: %d\n", len(page.Contents))
+			}
+			return
+		case msg := <-crawlerMsg:
+			webpage := &types.IndexedWebpage{}
+			err := json.Unmarshal(msg.Body, webpage)
+			if err != nil {
+				mockDBChann.Nack(msg.DeliveryTag, false, false)
+				panic(err)
+			}
+			mockDBChann.Ack(msg.DeliveryTag, false)
+			fmt.Println("TEST DBMOCK: Appended new webpage to database")
+			database = append(database, *webpage)
+			fmt.Printf("TEST DBMOCK: webpages_count=%d\n", len(database))
 		}
-		mockDBChann.Ack(msg.DeliveryTag, false)
-		fmt.Println("TEST DBMOCK: Appended new webpage to database")
-		database = append(database, *webpage)
-		fmt.Printf("TEST DBMOCK: webpages_count=%d\n", len(database))
 
 	}
 }
