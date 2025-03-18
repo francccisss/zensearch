@@ -28,6 +28,7 @@ func TestDBtoCrawlerNotif(t *testing.T) {
 	if err != nil {
 		fmt.Printf("Unable to create a crawl channel.\n")
 	}
+	dbChannel.QueueDeclare(rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ, false, false, false, false, nil)
 	rabbitmq.SetNewChannel("dbChannel", dbChannel)
 	defer dbChannel.Close()
 

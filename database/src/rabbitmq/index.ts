@@ -46,7 +46,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
     const deserializeData: IndexedWebpages = JSON.parse(decodedData);
     try {
       databaseChannel.ack(data);
-      //throw new Error("Test Error");
+      throw new Error("Test Error");
       //await databaseOperations.indexWebpages(db, deserializeData);
       console.log("Storing data");
       databaseChannel.sendToQueue(
