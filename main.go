@@ -44,6 +44,7 @@ var seleniumContConfig = DockerContainerConfig{
 	ContainerPorts: ContainerPorts{{"4444", "4444"}, {"7900", "7900"}},
 	Name:           "zensearch-cli-selenium",
 	ShmSize:        3 * 1024 * 1024 * 1024,
+	Env:            []string{"SE_NODE_MAX_SESSIONS=5"},
 }
 var dockerContainerConf = []DockerContainerConfig{rabbitmqContConfig, seleniumContConfig}
 

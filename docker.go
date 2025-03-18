@@ -22,6 +22,7 @@ type DockerContainerConfig struct {
 	HostPorts
 	ContainerPorts
 	ShmSize int64
+	Env     []string
 }
 
 type ClientContainer struct {
@@ -31,6 +32,7 @@ type ClientContainer struct {
 	ContainerName string
 	ContainerID   string
 	ShmSize       int64
+	Env           []string
 }
 
 type HostPorts []string
@@ -44,7 +46,7 @@ type ContainerPorts [][]string
 
 // TODO write context purpose of dtx
 
-func NewContainer(name string, hports HostPorts, cports ContainerPorts, shmsize int64) ClientContainer {
+func NewContainer(name string, hports HostPorts, cports ContainerPorts, shmsize int64, contEnv []string) ClientContainer {
 	fmt.Printf("Docker: connecting client to docker daemon...\n")
 	var cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -56,6 +58,7 @@ func NewContainer(name string, hports HostPorts, cports ContainerPorts, shmsize 
 		HostPorts:      hports,
 		ContainerPorts: cports,
 		ShmSize:        shmsize,
+		Env:            contEnv,
 	}
 }
 
@@ -179,6 +182,7 @@ func (cc *ClientContainer) create(dctx context.Context, imageName string, tag st
 		AttachStdout: true,
 		AttachStderr: true,
 		ExposedPorts: containerPorts,
+		Env:          cc.Env,
 	},
 		&container.HostConfig{
 			ShmSize: cc.ShmSize,

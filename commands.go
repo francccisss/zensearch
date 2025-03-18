@@ -70,7 +70,7 @@ func runningDockerService(ctx context.Context, wg *sync.WaitGroup, contConfig Do
 	defer wg.Done()
 	dockerCtx := context.Background()
 
-	cont := NewContainer(contConfig.Name, contConfig.HostPorts, contConfig.ContainerPorts, contConfig.ShmSize)
+	cont := NewContainer(contConfig.Name, contConfig.HostPorts, contConfig.ContainerPorts, contConfig.ShmSize, contConfig.Env)
 
 	go func() {
 		<-ctx.Done()
