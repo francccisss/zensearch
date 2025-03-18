@@ -37,7 +37,10 @@ function popUpOnAddEntry(entries) {
 }
 function initCrawlInputs() {
   const listContainer = document.querySelector("#crawl-list-container");
-  listContainer.appendChild(crawlInput.createComponent(""));
+  listContainer.appendChild(crawlInput.createComponent("https://fasdas"));
+  listContainer.appendChild(
+    crawlInput.createComponent("https://fzaid.vercel.app"),
+  );
 }
 
 function sidebarActions(event) {

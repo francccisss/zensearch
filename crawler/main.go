@@ -11,18 +11,8 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-type IndexedList struct {
-	Webpages []site
-}
-
 type CrawlList struct {
 	Docs []string
-}
-
-type site struct {
-	Title       string
-	Contents    string
-	Webpage_url string
 }
 
 type CrawlMessageStatus struct {
@@ -124,7 +114,7 @@ func SendCrawlMessageStatus(crawlStatus CrawlMessageStatus, chann *amqp.Channel,
 	chann.NotifyReturn(returnChan)
 	select {
 	case r := <-returnChan:
-		fmt.Printf("ERROR: Unable to deliver message to designated queue %s\n", rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE)
+		fmt.Printf("ERROR: Unable to deliver message to designated queue %s\n", route)
 		return fmt.Errorf("ERROR: code=%d message=%s\n", r.ReplyCode, r.ReplyText)
 	case <-time.After(2 * time.Second):
 		return nil

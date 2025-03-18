@@ -49,7 +49,7 @@ pubsub.subscribe("crawlReceiver", (msg) => {
   const decodedBuffer = decoder.decode(uint8);
   const parseDecodedBuffer = JSON.parse(decodedBuffer);
 
-  crawledData.set(parseDecodedBuffer.Url, parseDecodedBuffer);
+  crawledData.set(parseDecodedBuffer.URLSeed, parseDecodedBuffer);
   // sends an ack back to the server that the crawl message status was received by client
   clientws.ackMessage();
   pubsub.publish("crawlNotify", parseDecodedBuffer);
@@ -63,11 +63,13 @@ pubsub.subscribe("crawlStart", ui.transitionToWaitingList);
 
 // Notifies user when a crawler is done
 pubsub.subscribe("crawlNotify", (currentCrawledObj) => {
+  const list = JSON.parse(localStorage.getItem("list"));
+  console.log(currentCrawledObj);
   const waitItems = Array.from(document.querySelectorAll(".wait-item"));
-  const updateItems = waitItems.map((waitItem) => {
+  waitItems.map((waitItem) => {
     const itemText = waitItem.children[0].textContent;
-    if (itemText.includes(currentCrawledObj.Url)) {
-      if (currentCrawledObj.isSuccess) {
+    if (itemText.includes(currentCrawledObj.URLSeed)) {
+      if (currentCrawledObj.IsSuccess == true) {
         waitItem.dataset.state = "done";
         console.log(currentCrawledObj.Message);
       } else {
@@ -76,11 +78,9 @@ pubsub.subscribe("crawlNotify", (currentCrawledObj) => {
         errorContainer.textContent = currentCrawledObj.Message + ": ";
         errorContainer.style.color = "#ed5e5e";
         waitItem.parentElement.insertBefore(errorContainer, waitItem);
-        console.log(currentCrawledObj.Message);
       }
 
       // UPDATING LIST
-      const list = JSON.parse(localStorage.getItem("list"));
       const updatedList = list.map((item) => {
         if (itemText === item.url) {
           return { url: item.url, state: waitItem.dataset.state };
@@ -93,9 +93,10 @@ pubsub.subscribe("crawlNotify", (currentCrawledObj) => {
   });
 });
 
-pubsub.subscribe("crawlDone", (currentCrawledObj) => {
+pubsub.subscribe("crawlDone", () => {
+  console.log("TEST: DONE CRAWLING");
   const newListBtn = document.getElementById("new-list-btn");
   newListBtn.style.display = "block";
   cookiesUtil.clearAllCookies();
-  localStorage.clear();
+  localStorage.setItem("list", "[]");
 });

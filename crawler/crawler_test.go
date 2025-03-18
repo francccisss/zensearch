@@ -4,6 +4,7 @@ import (
 	"crawler/internal/rabbitmq"
 	"crawler/internal/types"
 	"fmt"
+	"sync"
 	"testing"
 )
 
@@ -62,6 +63,22 @@ func TestDBtoCrawlerNotif(t *testing.T) {
 }
 
 func TestSendMessageToExpress(t *testing.T) {
+	URLSeeds := []struct {
+		seed    string
+		msg     string
+		success bool
+	}{
+		{
+			seed:    "https://fasdas",
+			msg:     "Something went wrong, unable to crawl URLSeed",
+			success: false,
+		},
+		{
+			seed:    "https://fzaid.vercel.app",
+			msg:     "Something went wrong, unable to crawl URLSeed",
+			success: false,
+		},
+	}
 	if err != nil {
 		fmt.Println(err.Error())
 		t.Fatal(err)
@@ -86,16 +103,27 @@ func TestSendMessageToExpress(t *testing.T) {
 	expressChannel.QueueDeclare(rabbitmq.EXPRESS_CRAWLER_QUEUE, false, false, false, false, nil)
 	expressChannel.QueueDeclare(rabbitmq.CRAWLER_EXPRESS_CBQ, false, false, false, false, nil)
 
-	messageStatus := CrawlMessageStatus{
-		IsSuccess: true,
-		Message:   "Successfully crawled URLSeed", // need response directly from database
-		URLSeed:   "fzaid.vercel.app",
+	var wg sync.WaitGroup
+	for _, url := range URLSeeds {
+		wg.Add(1)
+		go func() {
+
+			defer wg.Done()
+			messageStatus := CrawlMessageStatus{
+				IsSuccess: url.success,
+				Message:   url.msg, // need response directly from database
+				// if testing make sure URLSeed matches the crawled url on the client
+				URLSeed: url.seed,
+			}
+			fmt.Println("TEST: Sending Message to Express")
+			err = SendCrawlMessageStatus(messageStatus, expressChannel, rabbitmq.CRAWLER_EXPRESS_CBQ)
+			if err != nil {
+				fmt.Printf("ERROR: Unable to send message status through %s\n", rabbitmq.CRAWLER_EXPRESS_CBQ)
+				fmt.Printf("ERROR: %s", err)
+				panic(err)
+			}
+		}()
 	}
-	fmt.Println("TEST: Sending Message to Express")
-	err = SendCrawlMessageStatus(messageStatus, expressChannel, rabbitmq.CRAWLER_EXPRESS_CBQ)
-	if err != nil {
-		fmt.Printf("ERROR: Unable to send message status through %s\n", rabbitmq.CRAWLER_EXPRESS_CBQ)
-		fmt.Printf("ERROR: %s", err)
-		t.FailNow()
-	}
+	wg.Wait()
+	fmt.Println("TEST: Done")
 }

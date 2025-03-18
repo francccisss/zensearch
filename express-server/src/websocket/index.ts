@@ -38,6 +38,10 @@ class WebsocketService {
           return;
         }
 
+        // After server check the user defined crawl list, client
+        // will trigger a remote procedure to the websocket server by calling
+        // `rabbitmq.client.crawl` along with the list to be crawled by the crawler
+
         // this is confusing because data could be anything
         // the first pass is used when data is just a pure string
         // which is used by the `sendCrawlResultsToClient` handler

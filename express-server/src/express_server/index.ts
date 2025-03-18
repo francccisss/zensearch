@@ -91,11 +91,15 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
 
     // TODO need to return some error after some amount of time if there is not ack received
     // results are the array of websites that have NOT been indexed yet
-    const results = await rabbitmq.client.crawlListCheck(encoded_docs);
-    if (results === null) {
-      throw new Error("Unable to check user's crawl list.");
-    }
-    if (results.undindexed.length === 0) {
+
+    //const results = await rabbitmq.client.crawlListCheck(encoded_docs);
+    //if (results === null) {
+    //  throw new Error(
+    //    "Unable to check user's crawl list, there might be something wrong with the database service.",
+    //  );
+    //}
+    let results = { unindexed: Docs };
+    if (results.unindexed.length === 0) {
       return res.status(200).json({
         is_crawling: false,
         message:
@@ -114,12 +118,12 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
 
       This returns the unindexed list to the user
     */
-    if (results.undindexed.length !== Docs.length) {
+    if (results.unindexed.length !== Docs.length) {
       return res.status(200).json({
         is_crawling: false,
         message: "Some of the items in this list has already been indexed.",
         crawl_list: Docs.filter(
-          (website) => results.undindexed.includes(website) ?? website,
+          (website) => results.unindexed.includes(website) ?? website,
         ),
       });
     }
@@ -127,7 +131,7 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     // proceed to Crawler Service
 
     res.cookie("job_id", job_id);
-    res.cookie("job_count", results.undindexed.length);
+    res.cookie("job_count", results.unindexed.length);
     res.cookie("job_queue", EXPRESS_CRAWLER_QUEUE);
     res.cookie("message_type", "crawling");
     res.setHeader("Connection", "Upgrade");
@@ -135,12 +139,9 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     res.json({
       is_crawling: true,
       message: "Crawling",
-      crawl_list: results.undindexed,
+      crawl_list: results.unindexed,
     });
   } catch (err) {
-    const error = err as Error;
-    console.log("ERROR :Something went wrong with Crawl queue");
-    console.error(error.message);
     next(err);
   }
 });
@@ -189,7 +190,7 @@ app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
 });
 
 app.use((err: Error, _: Request, res: Response, __: NextFunction) => {
-  console.error(err.stack);
+  console.error("ERROR STACK: %s", err.stack);
   res.status(500).json({ message: err.message });
 });
 
