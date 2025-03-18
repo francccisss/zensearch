@@ -19,8 +19,13 @@ async function checkListAndUpgrade(webUrls) {
     });
     // specific for network errors
     if (sendWebUrls.ok === false) {
-      throw new Error(sendWebUrls.statusText);
+      let r = await sendWebUrls.json();
+      if (Object.keys(r).length == 0) {
+        throw new error(sendWebUrls.text());
+      }
+      throw new error(r.message);
     }
+
     responseObj = await sendWebUrls.json();
     // For handling crawl list to be returned if
     // it has already been indexed, before upgrading

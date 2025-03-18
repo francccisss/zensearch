@@ -94,9 +94,9 @@ class RabbitMQClient {
       throw new Error("ERROR: Crawl Channel is null.");
 
     try {
-      this.crawlChannel.consume(CRAWLER_EXPRESS_CBQ, async (msg) => {
+      this.crawlChannel.consume("", async (msg) => {
         if (msg === null) throw new Error("No Response");
-        console.log("LOG: Message received from crawling");
+        console.log("LOG: Message received from crawler");
         if (this.crawlChannel == null) {
           throw new Error("ERROR: Crawl Channel is null.");
         }
@@ -104,7 +104,8 @@ class RabbitMQClient {
         const crawlMessage: CrawlMessageStatus =
           JSON.parse(deserializedMessage);
         console.log(crawlMessage);
-        //cb(this.crawlChannel, msg, "crawling");
+        //this.crawlChannel.ack(msg, true);
+        cb(this.crawlChannel, msg, "crawling");
       });
     } catch (err) {
       const error = err as Error;
@@ -224,7 +225,7 @@ class RabbitMQClient {
 
     channel.sendToQueue(EXPRESS_DB_CHECK_QUEUE, Buffer.from(encoded_list));
     let undindexed: Array<string> = [];
-    let isError = false;
+    let isError = true;
     await channel.consume(DB_EXPRESS_CHECK_CBQ, async (data) => {
       if (data === null) {
         throw new Error("ERROR: Data received is null.");
@@ -240,6 +241,11 @@ class RabbitMQClient {
         channel.nack(data, false, false);
       }
     });
+
+    isError ??
+      console.error(
+        "ERROR: Something went wrong while tring to listen to DB serveice",
+      );
 
     channel.close();
     return isError ? null : { undindexed };
