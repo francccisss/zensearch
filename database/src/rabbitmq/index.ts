@@ -12,6 +12,8 @@ import {
   SENGINE_DB_REQUEST_QUEUE,
 } from "./routing_keys";
 
+// i know im doing tests here i dont know how to do it in yabasciprt
+let testArrays: Array<IndexedWebpages> = [];
 /*
   channel handler can take in multiple channels from a single tcp conneciton
   to the rabbitmq message broker, these channels are multiplexed to handle
@@ -46,7 +48,6 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
     const deserializeData: IndexedWebpages = JSON.parse(decodedData);
     try {
       databaseChannel.ack(data);
-      throw new Error("Test Error");
       //await databaseOperations.indexWebpages(db, deserializeData);
       console.log("Storing data");
       databaseChannel.sendToQueue(
