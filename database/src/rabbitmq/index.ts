@@ -1,5 +1,5 @@
 import amqp from "amqplib";
-import databaseOperations from "../database_operations";
+import databaseOperations from "../database";
 import { Database } from "sqlite3";
 import { CRAWL_FAIL, IndexedWebpages, Webpage } from "../utils/types";
 import segmentSerializer from "../serializer/segment_serializer";
@@ -67,6 +67,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
       const error = err as Error;
       console.error("ERROR: %s", error.message);
       console.error("ERROR: %s", deserializeData.Message);
+      console.log("Sending back response to crawler");
       databaseChannel.sendToQueue(
         DB_CRAWLER_INDEXING_NOTIF_CBQ,
         Buffer.from(

@@ -61,23 +61,8 @@ func main() {
 	}
 	defer expressChannel.Close()
 
-	dbChannel.QueueDeclare(rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE, false, false, false, false, nil)
+	dbChannel.QueueDeclare(rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ, false, false, false, false, nil)
 	rabbitmq.SetNewChannel("dbChannel", dbChannel)
-
-	expressChannel.QueueDeclare(rabbitmq.EXPRESS_CRAWLER_QUEUE, false, false, false, false, nil)
-	rabbitmq.SetNewChannel("expressChannel", expressChannel)
-
-	go func() {
-		expressMsg, err := expressChannel.Consume("", rabbitmq.EXPRESS_CRAWLER_QUEUE, false, false, false, false, nil)
-		if err != nil {
-			log.Panicf("Unable to listen to express server")
-		}
-		for msg := range expressMsg {
-			go handleIncomingUrls(msg, expressChannel)
-		}
-
-	}()
-
 	go func() {
 		dbMsg, err := dbChannel.Consume("", rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ, false, false, false, false, nil)
 		if err != nil {
@@ -90,11 +75,22 @@ func main() {
 				fmt.Printf("ERROR: %s\n", err.Error())
 				continue
 			}
+
+			dbChannel.Ack(msg.DeliveryTag, true)
+			fmt.Printf("NOTIF: DBResponse=%+v\n", response)
+			fmt.Println("NOTIF: Notify express server")
 		}
 	}()
 
-	aliveMainThread := make(chan struct{})
-	<-aliveMainThread
+	expressChannel.QueueDeclare(rabbitmq.EXPRESS_CRAWLER_QUEUE, false, false, false, false, nil)
+	rabbitmq.SetNewChannel("expressChannel", expressChannel)
+	expressMsg, err := expressChannel.Consume("", rabbitmq.EXPRESS_CRAWLER_QUEUE, false, false, false, false, nil)
+	if err != nil {
+		log.Panicf("Unable to listen to express server")
+	}
+	for msg := range expressMsg {
+		go handleIncomingUrls(msg, expressChannel)
+	}
 
 	log.Println("NOTIF: Crawler Exit.")
 
