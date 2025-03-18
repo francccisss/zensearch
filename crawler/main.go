@@ -58,15 +58,11 @@ func main() {
 	}
 	defer expressChannel.Close()
 
-	dbChannel.QueueDeclare(rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE, false, false, false, false, nil)
-	dbChannel.QueueDeclare(rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ, false, false, false, false, nil)
-
 	rabbitmq.SetNewChannel("dbChannel", dbChannel)
 	response := make(chan DBResponse)
 	go DBChannelListener(dbChannel, response)
 
 	expressChannel.QueueDeclare(rabbitmq.EXPRESS_CRAWLER_QUEUE, false, false, false, false, nil)
-	expressChannel.QueueDeclare(rabbitmq.CRAWLER_EXPRESS_CBQ, false, false, false, false, nil)
 	rabbitmq.SetNewChannel("expressChannel", expressChannel)
 	expressMsg, err := expressChannel.Consume("", rabbitmq.EXPRESS_CRAWLER_QUEUE, false, false, false, false, nil)
 	if err != nil {
@@ -123,21 +119,25 @@ func SendCrawlMessageStatus(crawlStatus CrawlMessageStatus, chann *amqp.Channel,
 }
 
 func DBChannelListener(chann *amqp.Channel, resultChan chan DBResponse) {
+	fmt.Println("TEST: DB CHANNEL LISTENER")
+
+	chann.QueueDeclare(rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ, false, false, false, false, nil)
 	dbMsg, err := chann.Consume("", rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ, false, false, false, false, nil)
 	if err != nil {
 		panic("Unable to listen to db server")
 	}
 	fmt.Printf("NOTIF: listenting to %s\n", rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ)
-	for msg := range dbMsg {
+	for {
+		msg := <-dbMsg
 		response := &DBResponse{}
 		err := json.Unmarshal(msg.Body, response)
+		fmt.Println("TEST: Received DB Response")
 		if err != nil {
 			fmt.Printf("ERROR: %s\n", err.Error())
-			continue
 		}
+		chann.Ack(msg.DeliveryTag, true)
 		fmt.Printf("NOTIF: DBResponse=%+v\n", response)
 		fmt.Println("NOTIF: Notify express server")
-		chann.Ack(msg.DeliveryTag, true)
 		resultChan <- *response
 
 		expressChannel, err := rabbitmq.GetChannel("expressChannel")
@@ -161,7 +161,7 @@ func DBChannelListener(chann *amqp.Channel, resultChan chan DBResponse) {
 		case true:
 			messageStatus := CrawlMessageStatus{
 				IsSuccess: response.IsSuccess,
-				Message:   "Succesfully indexed and stored webpages from URLSeed",
+				Message:   "Succesfully indexed and stored webpages",
 				URLSeed:   response.URLSeed,
 			}
 			err := SendCrawlMessageStatus(messageStatus, expressChannel, rabbitmq.CRAWLER_EXPRESS_CBQ)
