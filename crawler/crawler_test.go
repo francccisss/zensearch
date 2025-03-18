@@ -3,16 +3,13 @@ package main
 import (
 	"crawler/internal/rabbitmq"
 	"crawler/internal/types"
-	"encoding/json"
 	"fmt"
 	"testing"
-
-	"github.com/rabbitmq/amqp091-go"
 )
 
-func TestCrawlerNotif(t *testing.T) {
+var err = rabbitmq.EstablishConnection(7)
 
-	err := rabbitmq.EstablishConnection(7)
+func TestDBtoCrawlerNotif(t *testing.T) {
 
 	if err != nil {
 		fmt.Println(err.Error())
@@ -35,14 +32,15 @@ func TestCrawlerNotif(t *testing.T) {
 	defer dbChannel.Close()
 
 	dbChannel.QueueDeclare(rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ, false, false, false, false, nil)
+	dbChannel.QueueDeclare(rabbitmq.CRAWLER_EXPRESS_CBQ, false, false, false, false, nil)
 
 	response := make(chan DBResponse)
-	go ChannelListener(dbChannel, response)
+	go DBChannelListener(dbChannel, response)
 	result := types.IndexedResult{
 		CrawlResult: types.CrawlResult{
 			URLSeed:     "fzaid.vercel.app",
-			Message:     "failed to crawl URLSeed",
-			CrawlStatus: CRAWL_FAIL,
+			Message:     "Successfully indexed and stored webpages",
+			CrawlStatus: CRAWL_SUCCESS,
 			TotalPages:  21,
 		},
 		Webpages: []types.IndexedWebpage{
@@ -63,31 +61,41 @@ func TestCrawlerNotif(t *testing.T) {
 	fmt.Println(r)
 }
 
-func ChannelListener(chann *amqp091.Channel, resultChan chan DBResponse) {
-	dbMsg, err := chann.Consume("", rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ, false, false, false, false, nil)
+func TestSendMessageToExpress(t *testing.T) {
 	if err != nil {
-		panic("Unable to listen to db server")
+		fmt.Println(err.Error())
+		t.Fatal(err)
 	}
-	fmt.Printf("NOTIF: listenting to %s\n", rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ)
-	for msg := range dbMsg {
-		response := &DBResponse{}
-		err := json.Unmarshal(msg.Body, response)
-		if err != nil {
-			fmt.Printf("ERROR: %s\n", err.Error())
-			continue
-		}
-		fmt.Printf("NOTIF: DBResponse=%+v\n", response)
-		fmt.Println("NOTIF: Notify express server")
-		resultChan <- *response
-		chann.Ack(msg.DeliveryTag, true)
-		switch response.IsSuccess {
-		case false:
-			// send fail message to express server
-			break
-		case true:
-			// send success message to express server
-			break
-		}
+	conn, err := rabbitmq.GetConnection("conn")
+	if err != nil {
+		fmt.Println("Connection does not exist")
+		t.Fatal(err)
+	}
+	fmt.Println("Crawler established TCP Connection with RabbitMQ")
+
+	defer conn.Close()
+
+	expressChannel, err := conn.Channel()
+	if err != nil {
+		fmt.Printf("Unable to create a crawl channel.\n")
 	}
 
+	rabbitmq.SetNewChannel("expressChannel", expressChannel)
+	defer expressChannel.Close()
+
+	expressChannel.QueueDeclare(rabbitmq.EXPRESS_CRAWLER_QUEUE, false, false, false, false, nil)
+	expressChannel.QueueDeclare(rabbitmq.CRAWLER_EXPRESS_CBQ, false, false, false, false, nil)
+
+	messageStatus := CrawlMessageStatus{
+		IsSuccess: true,
+		Message:   "Successfully crawled URLSeed", // need response directly from database
+		URLSeed:   "fzaid.vercel.app",
+	}
+	fmt.Println("TEST: Sending Message to Express")
+	err = SendCrawlMessageStatus(messageStatus, expressChannel, rabbitmq.CRAWLER_EXPRESS_CBQ)
+	if err != nil {
+		fmt.Printf("ERROR: Unable to send message status through %s\n", rabbitmq.CRAWLER_EXPRESS_CBQ)
+		fmt.Printf("ERROR: %s", err)
+		t.FailNow()
+	}
 }
