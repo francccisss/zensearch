@@ -1,5 +1,5 @@
 // Message
-export type Message = {
+export type IndexedWebpages = {
   Message: string;
   CrawlStatus: number;
   Webpages: Array<{
@@ -7,8 +7,11 @@ export type Message = {
     Contents: string;
   }>;
   Title: string;
-  Url: string;
+  URLSeed: string;
 };
+export const CRAWL_SUCCESS = 0;
+export const CRAWL_FAIL = 1;
+export type CrawlStatus = number;
 
 type header = {
   Title: string;

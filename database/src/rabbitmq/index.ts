@@ -1,7 +1,7 @@
 import amqp from "amqplib";
 import databaseOperations from "../database_operations";
 import { Database } from "sqlite3";
-import { Message, Webpage } from "../utils/types";
+import { CRAWL_FAIL, IndexedWebpages, Webpage } from "../utils/types";
 import segmentSerializer from "../serializer/segment_serializer";
 import {
   CRAWLER_DB_INDEXING_NOTIF_QUEUE,
@@ -40,35 +40,40 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
 
   // Errors and successful crawls will be demultiplexed here
   databaseChannel.consume(CRAWLER_DB_INDEXING_NOTIF_QUEUE, async (data) => {
+    // who is going to catch this error? aaaaaa
     if (data === null) throw new Error("No data was pushed.");
     const decoder = new TextDecoder();
     const decodedData = decoder.decode(data.content as ArrayBuffer);
-    const deserializeData: Message = JSON.parse(decodedData);
+    const deserializeData: IndexedWebpages = JSON.parse(decodedData);
     try {
       databaseChannel.ack(data);
-      await databaseOperations.indexWebpages(db, deserializeData);
+      //await databaseOperations.indexWebpages(db, deserializeData);
+      if (deserializeData.CrawlStatus == CRAWL_FAIL) {
+        throw new Error("Crawler returned status=CRAWL_FAIL");
+      }
+
+      console.log("Storing data");
       databaseChannel.sendToQueue(
         DB_CRAWLER_INDEXING_NOTIF_CBQ,
         Buffer.from(
           JSON.stringify({
             isSuccess: deserializeData.CrawlStatus,
             Message: deserializeData.Message,
-            Url: deserializeData.Url,
+            URLSeed: deserializeData.URLSeed,
           }),
         ),
       );
     } catch (err) {
       const error = err as Error;
       console.error("ERROR: %s", error.message);
-      console.error(error.message);
-      databaseChannel.nack(data, false, false);
+      console.error("ERROR: %s", deserializeData.Message);
       databaseChannel.sendToQueue(
-        data.properties.replyTo,
+        DB_CRAWLER_INDEXING_NOTIF_CBQ,
         Buffer.from(
           JSON.stringify({
-            isSuccess: false,
+            IsSuccess: false,
             Message: error.message,
-            Url: deserializeData.Url,
+            URLSeed: deserializeData.URLSeed,
           }),
         ),
       );
