@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/rabbitmq/amqp091-go"
 	"github.com/tebeka/selenium"
@@ -243,7 +244,7 @@ func SendResults(result types.Result) error {
 	returnChan := make(chan amqp091.Return)
 	err = chann.Publish("",
 		rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE,
-		true, true,
+		false, false,
 		amqp091.Publishing{
 			ContentType: "application/json",
 			Type:        "store-indexed-webpages",
@@ -253,9 +254,11 @@ func SendResults(result types.Result) error {
 	chann.NotifyReturn(returnChan)
 
 	select {
-	case <-returnChan:
+	case r := <-returnChan:
 		fmt.Printf("ERROR: Unable to deliver message to designated queue %s\n", rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE)
+		return fmt.Errorf("ERROR: code=%d message=%s\n", r.ReplyCode, r.ReplyText)
+	case <-time.After(2 * time.Second):
+		return nil
 	}
 
-	return nil
 }

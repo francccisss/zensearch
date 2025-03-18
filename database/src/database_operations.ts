@@ -1,7 +1,7 @@
 import { Database } from "sqlite3";
-import { Message, Webpage } from "./utils/types";
+import { IndexedWebpages, Webpage } from "./utils/types";
 
-async function indexWebpages(db: Database, data: Message) {
+async function indexWebpages(db: Database, data: IndexedWebpages) {
   if (db == null) {
     throw new Error("ERROR: Database is not connected.");
   }
@@ -9,7 +9,7 @@ async function indexWebpages(db: Database, data: Message) {
     db.run(
       "INSERT OR IGNORE INTO known_sites (url, last_added) VALUES ($url, $last_added);",
       {
-        $url: data.Url,
+        $url: data.URLSeed,
         $last_added: Date.now(),
       },
     );
@@ -21,7 +21,7 @@ async function indexWebpages(db: Database, data: Message) {
     );
     insertIndexedSitesStmt.run(
       {
-        $primary_url: data.Url,
+        $primary_url: data.URLSeed,
         $last_indexed: Date.now(),
       },
       function (err) {

@@ -28,16 +28,28 @@ func TestCrawlerNotif(t *testing.T) {
 	if err != nil {
 		fmt.Printf("Unable to create a crawl channel.\n")
 	}
+	rabbitmq.SetNewChannel("dbChannel", dbChannel)
 	defer dbChannel.Close()
 
 	result := types.IndexedResult{
 		CrawlResult: types.CrawlResult{
 			URLSeed:     "fzaid.vercel.app",
-			Message:     "Successfully crawled URLSeed",
-			CrawlStatus: CRAWL_SUCCESS,
+			Message:     "failed to crawl URLSeed",
+			CrawlStatus: CRAWL_FAIL,
 			TotalPages:  21,
 		},
-		Webpages: []types.IndexedWebpage{},
+		Webpages: []types.IndexedWebpage{
+			{
+				Header: types.Header{
+					Title: "menu",
+					URL:   "fzaid.vercel.app/menu",
+				},
+				Contents: "Doobeedobeedapdap",
+			},
+		},
 	}
 	err = SendResults(result)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
