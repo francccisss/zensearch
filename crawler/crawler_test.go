@@ -3,8 +3,11 @@ package main
 import (
 	"crawler/internal/rabbitmq"
 	"crawler/internal/types"
+	"encoding/json"
 	"fmt"
 	"testing"
+
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 var err = rabbitmq.EstablishConnection(7)
@@ -33,7 +36,7 @@ func TestDBtoCrawlerNotif(t *testing.T) {
 	defer dbChannel.Close()
 
 	response := make(chan DBResponse)
-	go DBChannelListener(dbChannel, response)
+	go DBMockChannelListener(dbChannel, response)
 	result := types.IndexedResult{
 		CrawlResult: types.CrawlResult{
 			URLSeed:     "fzaid.vercel.app",
@@ -126,3 +129,49 @@ func TestDBtoCrawlerNotif(t *testing.T) {
 // 	wg.Wait()
 // 	fmt.Println("TEST: Done")
 // }
+
+func DBMockChannelListener(chann *amqp.Channel, resultChan chan DBResponse) {
+	fmt.Println("TEST: DB CHANNEL LISTENER")
+
+	dbMsg, err := chann.Consume("", rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ, false, false, false, false, nil)
+	if err != nil {
+		panic("Unable to listen to db server")
+	}
+	fmt.Printf("NOTIF: listenting to %s\n", rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ)
+	for msg := range dbMsg {
+
+		response := &DBResponse{}
+		err := json.Unmarshal(msg.Body, response)
+		fmt.Println("TEST: Received DB Response")
+		if err != nil {
+			fmt.Printf("ERROR: %s\n", err.Error())
+			chann.Nack(msg.DeliveryTag, false, true)
+			continue
+		}
+		chann.Ack(msg.DeliveryTag, false)
+		fmt.Printf("NOTIF: DBResponse=%+v\n", response)
+		resultChan <- *response
+
+		fmt.Println("NOTIF: Notify express server")
+		switch response.IsSuccess {
+		case false:
+			// send fail message to express server when error
+			// storing webpages on database service
+			messageStatus := CrawlMessageStatus{
+				IsSuccess: response.IsSuccess,
+				Message:   response.Message, // need response directly from database
+				URLSeed:   response.URLSeed,
+			}
+			fmt.Println(messageStatus)
+			break
+		case true:
+			messageStatus := CrawlMessageStatus{
+				IsSuccess: response.IsSuccess,
+				Message:   "Succesfully indexed and stored webpages",
+				URLSeed:   response.URLSeed,
+			}
+			fmt.Println(messageStatus)
+			break
+		}
+	}
+}
