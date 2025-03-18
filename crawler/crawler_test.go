@@ -12,13 +12,14 @@ import (
 
 var err = rabbitmq.EstablishConnection(7)
 
-func TestDBtoCrawlerNotif(t *testing.T) {
+func TestCrawlerIndexing(t *testing.T) {
 
 	if err != nil {
 		fmt.Println(err.Error())
 		t.Fatal(err)
 	}
 	conn, err := rabbitmq.GetConnection("conn")
+	go MockDatabase()
 	if err != nil {
 		fmt.Println("Connection does not exist")
 		t.Fatal(err)
@@ -30,13 +31,19 @@ func TestDBtoCrawlerNotif(t *testing.T) {
 	dbChannel, err := conn.Channel()
 	if err != nil {
 		fmt.Printf("Unable to create a crawl channel.\n")
+		t.Fatal(err)
 	}
-	dbChannel.QueueDeclare(rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ, false, false, false, false, nil)
+	_, err = dbChannel.QueueDeclare(rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ, false, false, false, false, nil)
+
+	if err != nil {
+		fmt.Printf("Unable to assert queue=%s\n", rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ)
+		t.Fatal(err)
+	}
 	rabbitmq.SetNewChannel("dbChannel", dbChannel)
 	defer dbChannel.Close()
 
 	response := make(chan DBResponse)
-	go DBMockChannelListener(dbChannel, response)
+	go DBTestChannelListener(dbChannel, response)
 	result := types.IndexedResult{
 		CrawlResult: types.CrawlResult{
 			URLSeed:     "fzaid.vercel.app",
@@ -64,73 +71,106 @@ func TestDBtoCrawlerNotif(t *testing.T) {
 
 }
 
-// func TestSendMessageToExpress(t *testing.T) {
-// 	URLSeeds := []struct {
-// 		seed    string
-// 		msg     string
-// 		success bool
-// 	}{
-// 		{
-// 			seed:    "https://fasdas",
-// 			msg:     "Something went wrong, unable to crawl URLSeed",
-// 			success: false,
-// 		},
-// 		{
-// 			seed:    "https://fzaid.vercel.app",
-// 			msg:     "Something went wrong, unable to crawl URLSeed",
-// 			success: false,
-// 		},
-// 	}
-// 	if err != nil {
-// 		fmt.Println(err.Error())
-// 		t.Fatal(err)
-// 	}
-// 	conn, err := rabbitmq.GetConnection("conn")
-// 	if err != nil {
-// 		fmt.Println("Connection does not exist")
-// 		t.Fatal(err)
-// 	}
-// 	fmt.Println("Crawler established TCP Connection with RabbitMQ")
-//
-// 	defer conn.Close()
-//
-// 	expressChannel, err := conn.Channel()
-// 	if err != nil {
-// 		fmt.Printf("Unable to create a crawl channel.\n")
-// 	}
-//
-// 	rabbitmq.SetNewChannel("expressChannel", expressChannel)
-// 	defer expressChannel.Close()
-//
-// 	expressChannel.QueueDeclare(rabbitmq.EXPRESS_CRAWLER_QUEUE, false, false, false, false, nil)
-// 	expressChannel.QueueDeclare(rabbitmq.CRAWLER_EXPRESS_CBQ, false, false, false, false, nil)
-//
-// 	var wg sync.WaitGroup
-// 	for _, url := range URLSeeds {
-// 		wg.Add(1)
-// 		go func() {
-//
-// 			defer wg.Done()
-// 			messageStatus := CrawlMessageStatus{
-// 				IsSuccess: url.success,
-// 				Message:   url.msg, // need response directly from database
-// 				// if testing make sure URLSeed matches the crawled url on the client
-// 				URLSeed: url.seed,
-// 			}
-// 			fmt.Println("TEST: Sending Message to Express")
-// 			err = SendCrawlMessageStatus(messageStatus, expressChannel, rabbitmq.CRAWLER_EXPRESS_CBQ)
-// 			if err != nil {
-// 				fmt.Printf("ERROR: Unable to send message status through %s\n", rabbitmq.CRAWLER_EXPRESS_CBQ)
-// 				fmt.Printf("ERROR: %s", err)
-// 				panic(err)
-// 			}
-// 		}()
-// 	}
-// 	wg.Wait()
-// 	fmt.Println("TEST: Done")
-// }
+func MockDatabase() {
+	conn, err := rabbitmq.GetConnection("conn")
+	if err != nil {
+		fmt.Println(err.Error())
+		panic(err)
+	}
+	mockDBChann, err := conn.Channel()
+	if err != nil {
+		fmt.Println("TEST: ERROR Unable to create a mock DB channel")
+		panic(err)
+	}
+	_, err = mockDBChann.QueueDeclare(rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE, false, false, false, false, nil)
 
-func DBMockChannelListener(chann *amqp.Channel, resultChan chan DBResponse) {
+	if err != nil {
+		fmt.Printf("Unable to assert queue=%s\n", rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE)
+		panic(err)
+	}
+	crawlerMsg, err := mockDBChann.Consume("", rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE, false, false, false, false, nil)
+
+	database := []types.IndexedWebpage{}
+	for msg := range crawlerMsg {
+		webpage := &types.IndexedWebpage{}
+		err := json.Unmarshal(msg.Body, webpage)
+		if err != nil {
+			mockDBChann.Nack(msg.DeliveryTag, false, false)
+			panic(err)
+		}
+		mockDBChann.Ack(msg.DeliveryTag, false)
+		fmt.Println("TEST: Appended new webpage to database")
+		database = append(database, *webpage)
+	}
+}
+
+func TestSendMessageToExpress(t *testing.T) {
+	URLSeeds := []struct {
+		seed    string
+		msg     string
+		success bool
+	}{
+		{
+			seed:    "https://fasdas",
+			msg:     "Something went wrong, unable to crawl URLSeed",
+			success: false,
+		},
+		{
+			seed:    "https://fzaid.vercel.app",
+			msg:     "Something went wrong, unable to crawl URLSeed",
+			success: false,
+		},
+	}
+	if err != nil {
+		fmt.Println(err.Error())
+		t.Fatal(err)
+	}
+	conn, err := rabbitmq.GetConnection("conn")
+	if err != nil {
+		fmt.Println("Connection does not exist")
+		t.Fatal(err)
+	}
+	fmt.Println("Crawler established TCP Connection with RabbitMQ")
+
+	defer conn.Close()
+
+	expressChannel, err := conn.Channel()
+	if err != nil {
+		fmt.Printf("Unable to create a crawl channel.\n")
+	}
+
+	rabbitmq.SetNewChannel("expressChannel", expressChannel)
+	defer expressChannel.Close()
+
+	expressChannel.QueueDeclare(rabbitmq.EXPRESS_CRAWLER_QUEUE, false, false, false, false, nil)
+	expressChannel.QueueDeclare(rabbitmq.CRAWLER_EXPRESS_CBQ, false, false, false, false, nil)
+
+	var wg sync.WaitGroup
+	for _, url := range URLSeeds {
+		wg.Add(1)
+		go func() {
+
+			defer wg.Done()
+			messageStatus := CrawlMessageStatus{
+				IsSuccess: url.success,
+				Message:   url.msg, // need response directly from database
+				// if testing make sure URLSeed matches the crawled url on the client
+				URLSeed: url.seed,
+			}
+			fmt.Println("TEST: Sending Message to Express")
+			err = SendCrawlMessageStatus(messageStatus, expressChannel, rabbitmq.CRAWLER_EXPRESS_CBQ)
+			if err != nil {
+				fmt.Printf("ERROR: Unable to send message status through %s\n", rabbitmq.CRAWLER_EXPRESS_CBQ)
+				fmt.Printf("ERROR: %s", err)
+				panic(err)
+			}
+		}()
+	}
+	wg.Wait()
+	fmt.Println("TEST: Done")
+}
+
+func DBTestChannelListener(chann *amqp.Channel, resultChan chan DBResponse) {
 	fmt.Println("TEST: DB CHANNEL LISTENER")
 
 	dbMsg, err := chann.Consume("", rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ, false, false, false, false, nil)
