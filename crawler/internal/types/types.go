@@ -14,14 +14,13 @@ type IndexedWebpage struct {
 
 type IndexedResult struct {
 	CrawlResult
-	Webpages []IndexedWebpage
+	Webpage IndexedWebpage
 }
 
 type CrawlResult struct {
 	URLSeed     string // Main entry point where the crawler starts from
 	Message     string
 	CrawlStatus int
-	TotalPages  int
 }
 
 // type for returning the result of all spawned crawler

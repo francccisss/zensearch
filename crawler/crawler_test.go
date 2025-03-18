@@ -5,6 +5,7 @@ import (
 	"crawler/internal/types"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"testing"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -13,13 +14,14 @@ import (
 var err = rabbitmq.EstablishConnection(7)
 
 func TestCrawlerIndexing(t *testing.T) {
+	sm := make(chan struct{})
 
 	if err != nil {
 		fmt.Println(err.Error())
 		t.Fatal(err)
 	}
 	conn, err := rabbitmq.GetConnection("conn")
-	go MockDatabase()
+	go MockDatabase(sm)
 	if err != nil {
 		fmt.Println("Connection does not exist")
 		t.Fatal(err)
@@ -42,36 +44,31 @@ func TestCrawlerIndexing(t *testing.T) {
 	rabbitmq.SetNewChannel("dbChannel", dbChannel)
 	defer dbChannel.Close()
 
-	response := make(chan DBResponse)
+	response := make(chan DBResponse, 10)
 	go DBTestChannelListener(dbChannel, response)
-	result := types.IndexedResult{
-		CrawlResult: types.CrawlResult{
-			URLSeed:     "fzaid.vercel.app",
-			Message:     "Successfully indexed and stored webpages",
-			CrawlStatus: CRAWL_SUCCESS,
-			TotalPages:  21,
-		},
-		Webpages: []types.IndexedWebpage{
-			{
-				Header: types.Header{
-					Title: "menu",
-					URL:   "fzaid.vercel.app/menu",
-				},
-				Contents: "Doobeedobeedapdap",
-			},
-		},
-	}
-	err = SendResults(result)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Println("TEST: Waiting for response")
-	r := <-response
-	fmt.Println(r)
+	go func() {
+		for r := range response {
+			fmt.Println(r)
+		}
+	}()
+	// seeds := []string{"https://gobyexample.com/"}
+	seeds := []string{"https://fzaid.vercel.app/"}
+	fmt.Printf("Crawling seeds: %+v\n", seeds)
+	spawner := NewSpawner(10, seeds)
+	crawlResults := spawner.SpawnCrawlers()
+	fmt.Printf("TEST: crawl_results=%+v", crawlResults)
 
+	fmt.Printf("\n\n-----------------RESULTS------------------\n")
+	for result := range crawlResults.CrawlResultsChan {
+		fmt.Printf("| SEED: %s |\n", result.URLSeed)
+		fmt.Printf("TEST: crawl_status=%d\n", result.CrawlStatus)
+		fmt.Printf("TEST: message=%s\n", result.Message)
+
+	}
+	fmt.Println("TEST: test end")
 }
 
-func MockDatabase() {
+func MockDatabase(sm <-chan struct{}) {
 	conn, err := rabbitmq.GetConnection("conn")
 	if err != nil {
 		fmt.Println(err.Error())
@@ -79,7 +76,7 @@ func MockDatabase() {
 	}
 	mockDBChann, err := conn.Channel()
 	if err != nil {
-		fmt.Println("TEST: ERROR Unable to create a mock DB channel")
+		fmt.Println("TEST DBMOCK: ERROR Unable to create a mock DB channel")
 		panic(err)
 	}
 	_, err = mockDBChann.QueueDeclare(rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE, false, false, false, false, nil)
@@ -99,8 +96,10 @@ func MockDatabase() {
 			panic(err)
 		}
 		mockDBChann.Ack(msg.DeliveryTag, false)
-		fmt.Println("TEST: Appended new webpage to database")
+		fmt.Println("TEST DBMOCK: Appended new webpage to database")
 		database = append(database, *webpage)
+		fmt.Printf("TEST DBMOCK: webpages_count=%d\n", len(database))
+
 	}
 }
 

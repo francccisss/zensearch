@@ -185,8 +185,24 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 		return err
 	}
 
-	fmt.Printf("NOTIF: Page %s Indexed\n", currentUrl)
-	pn.IndexedWebpages = append(pn.IndexedWebpages, indexedWebpage)
+	fmt.Printf("NOTIF: page %s indexed\n", currentUrl)
+	fmt.Println("NOTIF: storing indexed page")
+
+	result := types.IndexedResult{
+		CrawlResult: types.CrawlResult{
+			URLSeed:     currentUrl,
+			Message:     "Successfully indexed and stored webpages",
+			CrawlStatus: CRAWL_SUCCESS,
+		},
+		Webpage: indexedWebpage,
+	}
+
+	err = SendResults(result)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("NOTIF: stored indexed webpage")
+	// pn.IndexedWebpages = append(pn.IndexedWebpages, indexedWebpage)
 
 	/*
 	 no child to traverse to then return to caller, the caller function will

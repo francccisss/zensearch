@@ -79,9 +79,7 @@ func (s *Spawner) SpawnCrawlers() types.CrawlResults {
 
 	// create parent context and pass to Crawl method
 
-	var (
-		wg sync.WaitGroup
-	)
+	var wg sync.WaitGroup
 
 	wg.Add(1)
 	go func() {
@@ -118,13 +116,8 @@ func (s *Spawner) SpawnCrawlers() types.CrawlResults {
 	log.Printf("NOTIF: Wait for crawlers\n")
 	wg.Wait()
 	close(crawlResultsChan)
-	for crawler := range crawlResultsChan {
-		log.Printf("Crawled URLSeed: %s\n", crawler.URLSeed)
-		log.Printf("Crawl Message: %s\n", crawler.Message)
-	}
 
 	log.Println("NOTIF: All Process have finished.")
-
 	return types.CrawlResults{
 		Message:          "Crawled and indexed webpages",
 		ThreadsUsed:      s.ThreadPool,
@@ -203,13 +196,7 @@ func (c Crawler) Crawl() (types.CrawlResult, error) {
 			URLSeed:     c.URL,
 			CrawlStatus: CRAWL_FAIL,
 			Message:     message,
-			TotalPages:  len(pageNavigator.IndexedWebpages),
 		}
-		iResult := types.IndexedResult{
-			CrawlResult: cResult,
-			Webpages:    []types.IndexedWebpage{},
-		}
-		SendResults(iResult)
 		return cResult, nil
 	}
 
@@ -218,13 +205,7 @@ func (c Crawler) Crawl() (types.CrawlResult, error) {
 		URLSeed:     c.URL,
 		CrawlStatus: CRAWL_SUCCESS,
 		Message:     message,
-		TotalPages:  len(pageNavigator.IndexedWebpages),
 	}
-
-	iResult := types.IndexedResult{
-		CrawlResult: cResult,
-		Webpages:    pageNavigator.IndexedWebpages}
-	SendResults(iResult)
 	return cResult, nil
 }
 
