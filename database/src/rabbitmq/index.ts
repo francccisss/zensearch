@@ -1,7 +1,7 @@
 import amqp from "amqplib";
 import databaseOperations from "../database";
 import { Database } from "sqlite3";
-import { CRAWL_FAIL, IndexedWebpages, Webpage } from "../utils/types";
+import { IndexedWebpages, Webpage } from "../utils/types";
 import segmentSerializer from "../serializer/segment_serializer";
 import {
   CRAWLER_DB_INDEXING_NOTIF_QUEUE,
@@ -48,17 +48,13 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
     try {
       databaseChannel.ack(data);
       //await databaseOperations.indexWebpages(db, deserializeData);
-      if (deserializeData.CrawlStatus == CRAWL_FAIL) {
-        throw new Error("Crawler returned status=CRAWL_FAIL");
-      }
-
       console.log("Storing data");
       databaseChannel.sendToQueue(
         DB_CRAWLER_INDEXING_NOTIF_CBQ,
         Buffer.from(
           JSON.stringify({
-            isSuccess: deserializeData.CrawlStatus,
-            Message: deserializeData.Message,
+            isSuccess: true,
+            Message: "Successfully stored webpages",
             URLSeed: deserializeData.URLSeed,
           }),
         ),

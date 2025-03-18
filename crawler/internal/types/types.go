@@ -17,12 +17,6 @@ type IndexedResult struct {
 	Webpages []IndexedWebpage
 }
 
-type ErrorMessage struct {
-	Message     string
-	URL         string
-	CrawlStatus int
-}
-
 type CrawlResult struct {
 	URLSeed     string // Main entry point where the crawler starts from
 	Message     string

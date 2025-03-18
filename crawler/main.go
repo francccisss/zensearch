@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -24,10 +25,16 @@ type site struct {
 	Webpage_url string
 }
 
+type CrawlMessageStatus struct {
+	IsSuccess bool
+	Message   string
+	URLSeed   string
+}
+
 type DBResponse struct {
 	IsSuccess bool
 	Message   string
-	Url       string
+	URLSeed   string
 }
 
 // TODO create type to send to express server
@@ -61,39 +68,25 @@ func main() {
 	}
 	defer expressChannel.Close()
 
+	dbChannel.QueueDeclare(rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE, false, false, false, false, nil)
 	dbChannel.QueueDeclare(rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ, false, false, false, false, nil)
-	rabbitmq.SetNewChannel("dbChannel", dbChannel)
-	go func() {
-		dbMsg, err := dbChannel.Consume("", rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ, false, false, false, false, nil)
-		if err != nil {
-			log.Panicf("Unable to listen to db server")
-		}
-		for msg := range dbMsg {
-			response := &DBResponse{}
-			err := json.Unmarshal(msg.Body, response)
-			if err != nil {
-				fmt.Printf("ERROR: %s\n", err.Error())
-				continue
-			}
 
-			dbChannel.Ack(msg.DeliveryTag, true)
-			fmt.Printf("NOTIF: DBResponse=%+v\n", response)
-			fmt.Println("NOTIF: Notify express server")
-		}
-	}()
+	rabbitmq.SetNewChannel("dbChannel", dbChannel)
+	response := make(chan DBResponse)
+	go DBChannelListener(dbChannel, response)
 
 	expressChannel.QueueDeclare(rabbitmq.EXPRESS_CRAWLER_QUEUE, false, false, false, false, nil)
+	expressChannel.QueueDeclare(rabbitmq.CRAWLER_EXPRESS_CBQ, false, false, false, false, nil)
 	rabbitmq.SetNewChannel("expressChannel", expressChannel)
 	expressMsg, err := expressChannel.Consume("", rabbitmq.EXPRESS_CRAWLER_QUEUE, false, false, false, false, nil)
 	if err != nil {
 		log.Panicf("Unable to listen to express server")
 	}
 	for msg := range expressMsg {
+		// add context??
 		go handleIncomingUrls(msg, expressChannel)
 	}
-
 	log.Println("NOTIF: Crawler Exit.")
-
 }
 
 func handleIncomingUrls(msg amqp.Delivery, chann *amqp.Channel) {
@@ -108,4 +101,87 @@ func parseIncomingData(data []byte) CrawlList {
 	var webpages CrawlList
 	json.Unmarshal(data, &webpages)
 	return webpages
+}
+
+// Send message back to express to notify that either crawl failed or was success
+func SendCrawlMessageStatus(crawlStatus CrawlMessageStatus, chann *amqp.Channel, route string) error {
+	b, err := json.Marshal(crawlStatus)
+	if err != nil {
+		fmt.Println("ERROR: unable to marshal message status")
+		return err
+	}
+
+	returnChan := make(chan amqp.Return)
+	// TODO set to true
+	err = chann.Publish("",
+		route,
+		false, false,
+		amqp.Publishing{
+			ContentType: "application/json",
+			Type:        "store-indexed-webpages",
+			Body:        b,
+		})
+	chann.NotifyReturn(returnChan)
+	select {
+	case r := <-returnChan:
+		fmt.Printf("ERROR: Unable to deliver message to designated queue %s\n", rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE)
+		return fmt.Errorf("ERROR: code=%d message=%s\n", r.ReplyCode, r.ReplyText)
+	case <-time.After(2 * time.Second):
+		return nil
+	}
+
+}
+
+func DBChannelListener(chann *amqp.Channel, resultChan chan DBResponse) {
+	dbMsg, err := chann.Consume("", rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ, false, false, false, false, nil)
+	if err != nil {
+		panic("Unable to listen to db server")
+	}
+	fmt.Printf("NOTIF: listenting to %s\n", rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ)
+	for msg := range dbMsg {
+		response := &DBResponse{}
+		err := json.Unmarshal(msg.Body, response)
+		if err != nil {
+			fmt.Printf("ERROR: %s\n", err.Error())
+			continue
+		}
+		fmt.Printf("NOTIF: DBResponse=%+v\n", response)
+		fmt.Println("NOTIF: Notify express server")
+		chann.Ack(msg.DeliveryTag, true)
+		resultChan <- *response
+
+		expressChannel, err := rabbitmq.GetChannel("expressChannel")
+
+		switch response.IsSuccess {
+		case false:
+			// send fail message to express server when error
+			// storing webpages on database service
+			messageStatus := CrawlMessageStatus{
+				IsSuccess: response.IsSuccess,
+				Message:   response.Message, // need response directly from database
+				URLSeed:   response.URLSeed,
+			}
+			err := SendCrawlMessageStatus(messageStatus, expressChannel, rabbitmq.CRAWLER_EXPRESS_CBQ)
+			if err != nil {
+				fmt.Printf("ERROR: Unable to send message status through %s\n", rabbitmq.CRAWLER_EXPRESS_CBQ)
+				fmt.Printf("ERROR: %s", err)
+				break
+			}
+			break
+		case true:
+			messageStatus := CrawlMessageStatus{
+				IsSuccess: response.IsSuccess,
+				Message:   "Succesfully indexed and stored webpages from URLSeed",
+				URLSeed:   response.URLSeed,
+			}
+			err := SendCrawlMessageStatus(messageStatus, expressChannel, rabbitmq.CRAWLER_EXPRESS_CBQ)
+			if err != nil {
+				fmt.Printf("ERROR: Unable to send message status through %s\n", rabbitmq.CRAWLER_EXPRESS_CBQ)
+				fmt.Printf("ERROR: %s", err)
+				break
+			}
+			// send success message to express server
+			break
+		}
+	}
 }
