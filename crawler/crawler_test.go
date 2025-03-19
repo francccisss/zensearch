@@ -58,11 +58,9 @@ func TestCrawlerIndexing(t *testing.T) {
 			select {
 			case r := <-response:
 				fmt.Println(r)
-			case signal := <-osSignalChan:
-				if signal == syscall.SIGTERM {
-					fmt.Println("Close gracefully")
-					return
-				}
+			case <-osSignalChan:
+				fmt.Println("Close gracefully")
+				return
 			}
 		}
 	}()

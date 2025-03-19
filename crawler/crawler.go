@@ -165,7 +165,7 @@ func (c Crawler) Crawl() (types.CrawlResult, error) {
 		c.URL += "/"
 	}
 
-	err = pageNavigator.navigatePages(c.URL)
+	err = pageNavigator.ProcessSeed(c.URL)
 
 	// clean up memory resource since it will linger in memory in the heap
 	// once this function is removed from the data segment.
@@ -222,7 +222,6 @@ func SendResults(result types.Result) error {
 			ReplyTo:     rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ,
 		})
 	chann.NotifyReturn(returnChan)
-
 	select {
 	case r := <-returnChan:
 		fmt.Printf("ERROR: Unable to deliver message to designated queue %s\n", rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE)
