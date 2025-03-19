@@ -148,19 +148,11 @@ func (c Crawler) Crawl() (types.CrawlResult, error) {
 		WD:           c.WD,
 		PagesVisited: map[string]string{},
 		Queue: Queue{
-			array: []string{c.URL},
+			array: []string{c.URL}, // inialize Queue with URLSeed
 		},
 		DisallowedPaths: disallowedPaths,
 		IndexedWebpages: make([]types.IndexedWebpage, 0, 50),
 		Hostname:        hostname,
-	}
-
-	maxRetries := 7
-	err = pageNavigator.navigatePageWithRetries(maxRetries, c.URL)
-	if err != nil {
-		fmt.Printf("ERROR: Unable to navigate to source url %s\n", c.URL)
-		fmt.Println(err.Error())
-		return types.CrawlResult{}, fmt.Errorf("ERROR: Unable to navigate to the website entry point.\n")
 	}
 
 	/*
@@ -177,13 +169,10 @@ func (c Crawler) Crawl() (types.CrawlResult, error) {
 
 	// clean up memory resource since it will linger in memory in the heap
 	// once this function is removed from the data segment.
-	// TODO need to store these in the database
-	defer clear(pageNavigator.PagesVisited)
-	defer clear(pageNavigator.IndexedWebpages)
 
-	/*
-	   TODO Improve error handling code, it looks ugly.
-	*/
+	// TODO need to store these in the database
+	// defer clear(pageNavigator.PagesVisited)
+	// defer clear(pageNavigator.IndexedWebpages)
 
 	var cResult types.CrawlResult
 	message := "Successfully Crawled & Indexed website"
