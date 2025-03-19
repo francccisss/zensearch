@@ -91,10 +91,12 @@ func (pn *PageNavigator) requestDelay(multiplier int) {
 
 func (pn *PageNavigator) navigatePages(currentUrl string) error {
 
+	// VISITING STAGE
 	if pn.RetryCount >= MAX_RETRIES {
 		return fmt.Errorf("Exceeded maximum retry count for this website, the crawler might be blocked while crawling Url: %s\nreturning...", pn.Hostname)
 	}
 
+	// this will only be true if links are exhausted from queue, not from when starting the crawl
 	if len(pn.Queue.array) == 0 {
 		fmt.Printf("NOTIF: Queue is empty.\n")
 		return nil
@@ -122,6 +124,7 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 
 	fmt.Println("NOTIF: Page set to visited.")
 
+	// FETCHING STAGE (fetching anchor elements)
 	args := []interface{}{LINK_FILTERS}
 	linksInterface, err := (*pn.WD).ExecuteScript(`return function (linkFilter){
     console.log(linkFilter)
@@ -178,6 +181,9 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 	}
 	fmt.Printf("NOTIF: Link Count in current url: %d\n", len(pageLinks))
 	fmt.Printf("NOTIF: Queue Length: %d\n", len(pn.Queue.array))
+
+	// INDEXING PHASE
+
 	indexedWebpage, err := pn.Index()
 	if err != nil {
 		// then skip this page
@@ -186,8 +192,9 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 	}
 
 	fmt.Printf("NOTIF: page %s indexed\n", currentUrl)
-	fmt.Println("NOTIF: storing indexed page")
 
+	// SAVING PHASE
+	fmt.Println("NOTIF: storing indexed page")
 	result := types.IndexedResult{
 		CrawlResult: types.CrawlResult{
 			URLSeed:     currentUrl,
