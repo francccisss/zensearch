@@ -134,8 +134,7 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 
 	// no children/error
 	if err != nil {
-		log.Println("ERROR: Unable to find elements of type `a` something went wrong with the webdriver")
-		return err
+		fmt.Println("ERROR: Unable to execute script fro extracting anchor tags, using fallback=empty array")
 	}
 
 	/*
@@ -143,10 +142,9 @@ func (pn *PageNavigator) navigatePages(currentUrl string) error {
 	   of filtered achor elements
 	*/
 
-	links, ok := linksInterface.([]interface{})
-	if !ok {
-		log.Println("ERROR: Failed to convert linksInterface to []interface{}")
-		return fmt.Errorf("type assertion to []interface{} failed\n")
+	var links []interface{}
+	if linksInterface != nil {
+		links = linksInterface.([]interface{})
 	}
 	pageLinks := make([]string, len(links))
 	for i, link := range links {
