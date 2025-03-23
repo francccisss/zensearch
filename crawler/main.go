@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -95,32 +94,27 @@ func parseIncomingData(data []byte) CrawlList {
 }
 
 // Send message back to express to notify that either crawl failed or was success
-func SendCrawlMessageStatus(crawlStatus CrawlMessageStatus, chann *amqp.Channel, route string) error {
+func SendCrawlMessageStatus(crawlStatus CrawlMessageStatus) error {
+
+	expressChannel, err := rabbitmq.GetChannel("expressChannel")
 	b, err := json.Marshal(crawlStatus)
 	if err != nil {
 		fmt.Println("ERROR: unable to marshal message status")
 		return err
 	}
-
-	returnChan := make(chan amqp.Return)
-	// TODO set to true
-	err = chann.Publish("",
-		route,
+	err = expressChannel.Publish("",
+		rabbitmq.CRAWLER_EXPRESS_CBQ,
 		false, false,
 		amqp.Publishing{
 			ContentType: "application/json",
 			Type:        "store-indexed-webpages",
 			Body:        b,
 		})
-	chann.NotifyReturn(returnChan)
-	select {
-	case r := <-returnChan:
-		fmt.Printf("ERROR: Unable to deliver message to designated queue %s\n", route)
-		return fmt.Errorf("ERROR: code=%d message=%s\n", r.ReplyCode, r.ReplyText)
-	case <-time.After(2 * time.Second):
-		return nil
+	if err != nil {
+		fmt.Println("ERROR: Unable send crawl message status to express ")
+		return err
 	}
-
+	return nil
 }
 
 func DBChannelListener(chann *amqp.Channel, resultChan chan DBResponse) {
@@ -145,8 +139,6 @@ func DBChannelListener(chann *amqp.Channel, resultChan chan DBResponse) {
 		fmt.Printf("NOTIF: DBResponse=%+v\n", response)
 		resultChan <- *response
 
-		expressChannel, err := rabbitmq.GetChannel("expressChannel")
-
 		fmt.Println("NOTIF: Notify express server")
 		switch response.IsSuccess {
 		case false:
@@ -157,7 +149,7 @@ func DBChannelListener(chann *amqp.Channel, resultChan chan DBResponse) {
 				Message:   response.Message, // need response directly from database
 				URLSeed:   response.URLSeed,
 			}
-			err := SendCrawlMessageStatus(messageStatus, expressChannel, rabbitmq.CRAWLER_EXPRESS_CBQ)
+			err := SendCrawlMessageStatus(messageStatus)
 			if err != nil {
 				fmt.Printf("ERROR: Unable to send message status through %s\n", rabbitmq.CRAWLER_EXPRESS_CBQ)
 				fmt.Printf("ERROR: %s", err)
@@ -170,7 +162,7 @@ func DBChannelListener(chann *amqp.Channel, resultChan chan DBResponse) {
 				Message:   "Succesfully indexed and stored webpages",
 				URLSeed:   response.URLSeed,
 			}
-			err := SendCrawlMessageStatus(messageStatus, expressChannel, rabbitmq.CRAWLER_EXPRESS_CBQ)
+			err := SendCrawlMessageStatus(messageStatus)
 			if err != nil {
 				fmt.Printf("ERROR: Unable to send message status through %s\n", rabbitmq.CRAWLER_EXPRESS_CBQ)
 				fmt.Printf("ERROR: %s", err)

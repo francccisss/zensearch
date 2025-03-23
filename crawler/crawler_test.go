@@ -66,16 +66,7 @@ func TestCrawlerIndexing(t *testing.T) {
 	// seeds := []string{"https://gobyexample.com/", "https://fzaid.vercel.app/"}
 	fmt.Printf("Crawling seeds: %+v\n", seeds)
 	spawner := NewSpawner(10, seeds)
-	crawlResults := spawner.SpawnCrawlers()
-	fmt.Printf("TEST: crawl_results=%+v", crawlResults)
-
-	fmt.Printf("\n\n------RESULTS------\n")
-	for result := range crawlResults.CrawlResultsChan {
-		fmt.Printf("| SEED: %s |\n", result.URLSeed)
-		fmt.Printf("TEST: crawl_status=%d\n", result.CrawlStatus)
-		fmt.Printf("TEST: message=%s\n", result.Message)
-
-	}
+	spawner.SpawnCrawlers()
 	sm <- struct{}{}
 	fmt.Println("TEST: test end")
 }
@@ -180,7 +171,7 @@ func TestSendMessageToExpress(t *testing.T) {
 				URLSeed: url.seed,
 			}
 			fmt.Println("TEST: Sending Message to Express")
-			err = SendCrawlMessageStatus(messageStatus, expressChannel, rabbitmq.CRAWLER_EXPRESS_CBQ)
+			err = SendCrawlMessageStatus(messageStatus)
 			if err != nil {
 				fmt.Printf("ERROR: Unable to send message status through %s\n", rabbitmq.CRAWLER_EXPRESS_CBQ)
 				fmt.Printf("ERROR: %s", err)

@@ -1,10 +1,8 @@
 package main
 
 import (
-	"crawler/internal/rabbitmq"
 	"crawler/internal/types"
 	"crawler/utilities"
-	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -12,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rabbitmq/amqp091-go"
 	"github.com/tebeka/selenium"
 )
 
@@ -159,7 +156,6 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) error {
 		}
 		// enqueue links that have not been visited yet and that are the same as the hostname
 		_, visited := pn.PagesVisited[href]
-		// I KEEP ADDING THE SAME ELEMENTS IN THE QUEUE I DONT UNDERSTAND!!!!
 		if !visited && childHostname == pn.Hostname {
 			pn.Urls = append(pn.Urls, href)
 		}
@@ -170,7 +166,7 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) error {
 		Domain: pn.Hostname,
 		Urls:   pn.Urls,
 	}
-	err = storeURLs(ex)
+	err = StoreURLs(ex)
 	if err != nil {
 		fmt.Printf("ERROR: Unable to store extracted Urls.\n")
 		return err
@@ -198,18 +194,12 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) error {
 		Webpage: indexedWebpage,
 	}
 
-	err = SendResults(result)
+	err = SendIndexedWebpage(result)
 	if err != nil {
 		return fmt.Errorf("Unable to send indexed result to database service\nreturning...")
 	}
 	fmt.Println("NOTIF: stored indexed webpage")
 
-	/*
-	 no child to traverse to then return to caller, the caller function will
-	 then go to its next child in the children array.
-	*/
-
-	// to stop the crawler entirely after multiple retries from navigation
 	return nil
 }
 
@@ -303,26 +293,4 @@ func extractTextContent(WD *selenium.WebDriver, selector string) ([]string, erro
 
 func joinTextContents(tc []string) string {
 	return strings.Join(tc, " ")
-}
-
-func storeURLs(exUrls ExtractedUrls) error {
-
-	const CRAWLER_DB_STOREURLS_QUEUE = "crawler_db_storeurls_queue"
-	chann, err := rabbitmq.GetChannel("dbChannel")
-	if err != nil {
-		return err
-	}
-
-	b, err := json.Marshal(exUrls)
-	if err != nil {
-		return err
-	}
-	err = chann.Publish("", CRAWLER_DB_STOREURLS_QUEUE, false, false, amqp091.Publishing{
-		ContentType: "application/json",
-		Body:        b,
-	})
-	if err != nil {
-		return err
-	}
-	return nil
 }
