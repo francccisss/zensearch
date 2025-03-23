@@ -17,9 +17,9 @@ function createSegments(
   let pointerPosition = MSS;
 
   for (let i = 0; i < segmentCount; i++) {
-    let slicedArray = webpages.slice(currentIndex, pointerPosition);
+    let subarraydArray = webpages.subarray(currentIndex, pointerPosition);
 
-    currentIndex += slicedArray.byteLength;
+    currentIndex += subarraydArray.byteLength;
     // Add to offset MSS to point to the next segment in the array
     // manipulate pointerPosition to adjust to lower values using Math.min()
 
@@ -27,8 +27,8 @@ function createSegments(
     // if so add from current position + MSS
     // else get remaining of the currentDataLength
     pointerPosition += Math.min(MSS, Math.abs(currentIndex - dataLength));
-    const payload = Buffer.alloc(slicedArray.length);
-    payload.set(slicedArray);
+    const payload = Buffer.alloc(subarraydArray.length);
+    payload.set(subarraydArray);
     const segment = newSegment(i, segmentCount, Buffer.from(payload));
 
     if (handler !== undefined) {
@@ -92,14 +92,14 @@ function decodeSegments(segment: Buffer): {
   payload: Uint8Array;
 } {
   return {
-    header: getSegmentHeader(segment.slice(0, 8)),
+    header: getSegmentHeader(segment.subarray(0, 8)),
     payload: getSegmentPayload(segment),
   };
 }
 
 function getSegmentHeader(bytes: Buffer): SegmentHeader {
-  const seqNumBuff = bytes.slice(0, 4);
-  const totalSegmentsBuff = bytes.slice(4, 8);
+  const seqNumBuff = bytes.subarray(0, 4);
+  const totalSegmentsBuff = bytes.subarray(4, 8);
   return {
     SequenceNumber: seqNumBuff.readUint32LE(),
     TotalSegments: totalSegmentsBuff.readUint32LE(),
@@ -107,6 +107,6 @@ function getSegmentHeader(bytes: Buffer): SegmentHeader {
 }
 
 function getSegmentPayload(bytes: Buffer): Buffer {
-  return bytes.slice(8);
+  return bytes.subarray(8);
 }
 export default { createSegments, listenIncomingSegments };

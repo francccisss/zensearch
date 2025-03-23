@@ -31,3 +31,20 @@ export type Segment = {
   };
   Data: Buffer;
 };
+
+export type URLs = {
+  Domain: string;
+  Nodes: Array<Node>;
+};
+
+export type Node = {
+  ID: string;
+  Url: string;
+  QueueID: string;
+};
+
+export type Queue = {
+  QueueID: string;
+  Domain: string;
+  Nodes: Array<Node>;
+};

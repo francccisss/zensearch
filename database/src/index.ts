@@ -9,6 +9,10 @@ const websitesDB = init_database(wc);
 const frontierQueueDB = init_database(fq);
 const cumulativeAckCount = 1000;
 exec_scripts(websitesDB, path.join(__dirname, "./db_utils/websites.init.sql"));
+exec_scripts(
+  frontierQueueDB,
+  path.join(__dirname, "./db_utils/frontier_queue.sql"),
+);
 
 (async () => {
   console.log("Starting database server");
@@ -30,9 +34,13 @@ function init_database(src: string): sqlite3.Database {
   const db = new sqlite.Database(
     path.join(__dirname, src),
     sqlite.OPEN_READWRITE,
-    (err) => {
-      if (err) {
-        console.error("Unable to connect to website_collection.db");
+    (err: Error | null) => {
+      if (err != null) {
+        console.error(err);
+        console.error(err.message);
+        console.error(
+          "Unable to connect to website_collection.db make sure it exists first",
+        );
         process.exit(1);
       }
       console.log("Connected to sqlite3 database.");
