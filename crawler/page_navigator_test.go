@@ -44,8 +44,10 @@ func TestStoringURLQueue(t *testing.T) {
 	rabbitmq.SetNewChannel("dbChannel", dbChannel)
 	defer dbChannel.Close()
 
+	s := make(chan struct{})
 	seeds := []string{"https://fzaid.vercel.app"}
 	spawner := NewSpawner(10, seeds)
-	crawlResults := spawner.SpawnCrawlers()
-	fmt.Printf("TEST: crawl_results=%+v", crawlResults)
+	spawner.SpawnCrawlers()
+	<-s
+	fmt.Println("TEST: end test")
 }

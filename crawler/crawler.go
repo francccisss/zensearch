@@ -75,7 +75,7 @@ func NewSpawner(threadpool int, URLs []string) *Spawner {
 	}
 }
 
-func (s *Spawner) SpawnCrawlers() types.CrawlResults {
+func (s *Spawner) SpawnCrawlers() {
 	// Holds results of each crawled url
 	crawlResultsChan := make(chan types.CrawlResult, len(s.URLs))
 
@@ -105,14 +105,26 @@ func (s *Spawner) SpawnCrawlers() types.CrawlResults {
 					log.Printf("NOTIF: Thread token release due to error.\n")
 					return
 				}
-
-				result, err := crawler.Crawl()
+				err = crawler.Crawl()
 				if err != nil {
-					log.Print(err.Error())
+					fmt.Println(err.Error())
+					errMessageStatus := CrawlMessageStatus{
+						IsSuccess: false,
+						URLSeed:   entryPoint,
+						Message:   err.Error(),
+					}
+					SendCrawlMessageStatus(errMessageStatus)
 					return
 				}
+
 				(*crawler.WD).Quit()
-				crawlResultsChan <- result
+
+				messageStatus := CrawlMessageStatus{
+					IsSuccess: true,
+					Message:   "Succesfully indexed and stored webpages",
+					URLSeed:   entryPoint,
+				}
+				SendCrawlMessageStatus(messageStatus)
 				log.Printf("NOTIF: Thread Token release\n")
 			}()
 		}
@@ -123,22 +135,16 @@ func (s *Spawner) SpawnCrawlers() types.CrawlResults {
 	close(crawlResultsChan)
 
 	log.Println("NOTIF: All Process have finished.")
-	return types.CrawlResults{
-		Message:          "Crawled and indexed webpages",
-		ThreadsUsed:      s.ThreadPool,
-		URLSeedCount:     len(s.URLs),
-		CrawlResultsChan: crawlResultsChan,
-	}
 }
 
-func (c Crawler) Crawl() (types.CrawlResult, error) {
+func (c Crawler) Crawl() error {
 	defer log.Printf("NOTIF: Finished Crawling\n")
 	defer (*c.WD).Close()
 
 	log.Printf("NOTIF: Start Crawling %s\n", c.URL)
 
 	// ROBOTS.TXT HANDLING
-	hostname, _, err := utilities.GetHostname(c.URL)
+	hostname, _, _ := utilities.GetHostname(c.URL)
 	disallowedPaths, err := utilities.ExtractRobotsTxt(c.URL)
 	if err != nil {
 		fmt.Println("ERROR: Unable to extract robots.txt")
@@ -174,36 +180,33 @@ func (c Crawler) Crawl() (types.CrawlResult, error) {
 		Urls:   pageNavigator.Urls,
 	}
 
-	err = storeURLs(ex)
+	err = StoreURLs(ex)
 
-	var cResult types.CrawlResult
 	if err != nil {
 		// Error for when crawler is not able to crawl and index the remaining webpages.
-		fmt.Printf("ERROR: Crawler returned with errors from navigating %s\n", c.URL)
+		fmt.Printf("ERROR: unable to store Urls to database service %s\n", c.URL)
 		fmt.Println(err.Error())
-		cResult = types.CrawlResult{
-			URLSeed:     c.URL,
-			CrawlStatus: CRAWL_FAIL,
-			Message:     "Something went wrong while crawling the webpage",
-		}
-		return cResult, nil
+		return err
 	}
 
 	for {
 		retries := 0
 		dequeuedUrl, err := DequeueUrl()
+
 		if err != nil {
-			fmt.Println(err.Error())
-			continue
+			fmt.Println("ERROR: unable to dequeue url")
+			return err
 		}
+
 		url := <-dequeuedUrl
 
 		dq := &DequeuedUrl{}
 		err = json.Unmarshal(url.Body, dq)
 
 		if err != nil {
+			fmt.Println("ERROR: unable to unmarshal dequeued url")
 			fmt.Println(err.Error())
-			break
+			return err
 		}
 
 		if dq.RemainingInQueue == 0 {
@@ -217,23 +220,19 @@ func (c Crawler) Crawl() (types.CrawlResult, error) {
 			for retries < MAX_RETRIES {
 				err = pageNavigator.ProcessUrl(dq.Url)
 				if err != nil {
+					fmt.Printf("ERROR: unable to naviagate to %s retrying\n", dq.Url)
 					retries++
 				}
 			}
+			fmt.Printf("ERROR: unable to naviagate to %s after %d, skipping url\n", dq.Url, retries)
 		}
 	}
 
 	fmt.Printf("NOTIF: Crawler returned with no errors from navigating %s\n", c.URL)
-	cResult = types.CrawlResult{
-		URLSeed:     c.URL,
-		CrawlStatus: CRAWL_SUCCESS,
-		Message:     "Successfully Crawled & Indexed website",
-	}
-	return cResult, nil
+	return nil
 }
 
-// TODO Only send results once queue is empty
-func SendResults(result types.Result) error {
+func SendIndexedWebpage(result types.Result) error {
 
 	chann, err := rabbitmq.GetChannel("dbChannel")
 	if err != nil {
@@ -281,4 +280,27 @@ func DequeueUrl() (<-chan amqp091.Delivery, error) {
 		return nil, err
 	}
 	return msg, nil
+}
+
+func StoreURLs(exUrls ExtractedUrls) error {
+	fmt.Println("storing")
+
+	const CRAWLER_DB_STOREURLS_QUEUE = "crawler_db_storeurls_queue"
+	chann, err := rabbitmq.GetChannel("dbChannel")
+	if err != nil {
+		return err
+	}
+
+	b, err := json.Marshal(exUrls)
+	if err != nil {
+		return err
+	}
+	err = chann.Publish("", CRAWLER_DB_STOREURLS_QUEUE, false, false, amqp091.Publishing{
+		ContentType: "application/json",
+		Body:        b,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
