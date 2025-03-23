@@ -189,25 +189,17 @@ func (c Crawler) Crawl() error {
 		return err
 	}
 
-	for {
+	dqUrlChan := make(chan DequeuedUrl)
+	go ListenDequeuedUrls(dqUrlChan)
+
+	err = DequeueUrl(hostname)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+	for dq := range dqUrlChan {
+		fmt.Println("Dequeued URL")
 		retries := 0
-		dequeuedUrl, err := DequeueUrl()
-
-		if err != nil {
-			fmt.Println("ERROR: unable to dequeue url")
-			return err
-		}
-
-		url := <-dequeuedUrl
-
-		dq := &DequeuedUrl{}
-		err = json.Unmarshal(url.Body, dq)
-
-		if err != nil {
-			fmt.Println("ERROR: unable to unmarshal dequeued url")
-			fmt.Println(err.Error())
-			return err
-		}
 
 		if dq.RemainingInQueue == 0 {
 			fmt.Println("No more urls in queue, cleaning up")
@@ -225,6 +217,12 @@ func (c Crawler) Crawl() error {
 				}
 			}
 			fmt.Printf("ERROR: unable to naviagate to %s after %d, skipping url\n", dq.Url, retries)
+		}
+
+		err := DequeueUrl(hostname)
+		if err != nil {
+			fmt.Println(err)
+			return err
 		}
 	}
 
@@ -267,26 +265,68 @@ func SendIndexedWebpage(result types.Result) error {
 
 }
 
-func DequeueUrl() (<-chan amqp091.Delivery, error) {
-	const CRAWLER_DB_DEQUEUE_URL_QUEUE = "crawler_db_dequeue_url_queue"
+const CRAWLER_DB_DEQUEUE_URL_QUEUE = "crawler_db_dequeue_url_queue"
+const DB_CRAWLER_DEQUEUE_URL_CBQ = "db_crawler_dequeue_url_cbq"
 
-	chann, err := rabbitmq.GetChannel("dbChannel")
+func DequeueUrl(domain string) error {
+
+	fmt.Println("Dequeue notif sent")
+	chann, err := rabbitmq.GetChannel("frontierChannel")
 	if err != nil {
-		return nil, err
+		fmt.Println(err)
+		return err
 	}
 
-	msg, err := chann.Consume("", CRAWLER_DB_DEQUEUE_URL_QUEUE, false, false, false, false, nil)
+	err = chann.Publish("",
+		CRAWLER_DB_DEQUEUE_URL_QUEUE,
+		false, false,
+		amqp091.Publishing{
+			Body:    []byte(domain),
+			ReplyTo: DB_CRAWLER_DEQUEUE_URL_CBQ,
+		})
+
 	if err != nil {
-		return nil, err
+		fmt.Println(err)
+		return err
 	}
-	return msg, nil
+
+	return nil
+}
+
+func ListenDequeuedUrls(dqChan chan DequeuedUrl) {
+	fmt.Println("Listening to dequeued urls")
+
+	chann, err := rabbitmq.GetChannel("frontierChannel")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	msg, err := chann.Consume("", DB_CRAWLER_DEQUEUE_URL_CBQ, false, false, false, false, nil)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	for chanMsg := range msg {
+		dq := &DequeuedUrl{}
+		fmt.Println("Received Dequeued URL")
+		err = json.Unmarshal(chanMsg.Body, dq)
+		if err != nil {
+			fmt.Println("ERROR: unable to unmarshal dequeued url")
+			fmt.Println(err.Error())
+			return
+		}
+		chann.Ack(chanMsg.DeliveryTag, false)
+		dqChan <- *dq
+	}
 }
 
 func StoreURLs(exUrls ExtractedUrls) error {
 	fmt.Println("storing")
 
 	const CRAWLER_DB_STOREURLS_QUEUE = "crawler_db_storeurls_queue"
-	chann, err := rabbitmq.GetChannel("dbChannel")
+	chann, err := rabbitmq.GetChannel("frontierChannel")
 	if err != nil {
 		return err
 	}

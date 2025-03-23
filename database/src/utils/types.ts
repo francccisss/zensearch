@@ -34,7 +34,7 @@ export type Segment = {
 
 export type URLs = {
   Domain: string;
-  Nodes: Array<Node>;
+  Nodes: Array<string>;
 };
 
 export type Node = {
@@ -43,7 +43,7 @@ export type Node = {
   QueueID: string;
 };
 
-export type Queue = {
+export type FrontierQueue = {
   QueueID: string;
   Domain: string;
 };

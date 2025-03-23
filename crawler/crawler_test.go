@@ -5,17 +5,15 @@ import (
 	"crawler/internal/types"
 	"encoding/json"
 	"fmt"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"sync"
 	"testing"
-
-	amqp "github.com/rabbitmq/amqp091-go"
 )
-
-var err = rabbitmq.EstablishConnection(7)
 
 func TestCrawlerIndexing(t *testing.T) {
 	sm := make(chan struct{}, 1)
 
+	var err = rabbitmq.EstablishConnection(7)
 	// signal.Notify(osSignalChan, syscall.SIGINT, syscall.SIGTERM)
 
 	if err != nil {
@@ -33,8 +31,14 @@ func TestCrawlerIndexing(t *testing.T) {
 	defer conn.Close()
 
 	dbChannel, err := conn.Channel()
+
 	if err != nil {
-		fmt.Printf("Unable to create a crawl channel.\n")
+		fmt.Printf("Unable to create a db channel.\n")
+		t.Fatal(err)
+	}
+	frontierChannel, err := conn.Channel()
+	if err != nil {
+		fmt.Printf("Unable to create a frontier channel.\n")
 		t.Fatal(err)
 	}
 	_, err = dbChannel.QueueDeclare(rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ, false, false, false, false, nil)
@@ -43,8 +47,17 @@ func TestCrawlerIndexing(t *testing.T) {
 		fmt.Printf("Unable to assert queue=%s\n", rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ)
 		t.Fatal(err)
 	}
+	_, err = frontierChannel.QueueDeclare("db_crawler_dequeue_url_cbq", false, false, false, false, nil)
+
+	if err != nil {
+		fmt.Printf("Unable to assert queue=%s\n", "db_crawler_dequeue_url_cbq")
+		t.Fatal(err)
+	}
+
 	rabbitmq.SetNewChannel("dbChannel", dbChannel)
 	defer dbChannel.Close()
+	rabbitmq.SetNewChannel("frontierChannel", frontierChannel)
+	defer frontierChannel.Close()
 
 	response := make(chan DBResponse, 10)
 	go DBTestChannelListener(dbChannel, response)
@@ -88,7 +101,7 @@ func MockDatabase(sm <-chan struct{}) {
 		fmt.Printf("Unable to assert queue=%s\n", rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE)
 		panic(err)
 	}
-	crawlerMsg, err := mockDBChann.Consume("", rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE, false, false, false, false, nil)
+	crawlerMsg, err := mockDBChann.Consume(rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE, "", false, false, false, false, nil)
 
 	database := []types.IndexedWebpage{}
 	for {
@@ -118,6 +131,8 @@ func MockDatabase(sm <-chan struct{}) {
 }
 
 func TestSendMessageToExpress(t *testing.T) {
+
+	var err = rabbitmq.EstablishConnection(7)
 	URLSeeds := []struct {
 		seed    string
 		msg     string
@@ -183,10 +198,95 @@ func TestSendMessageToExpress(t *testing.T) {
 	fmt.Println("TEST: Done")
 }
 
+func TestDequeueUrls(t *testing.T) {
+
+	var err = rabbitmq.EstablishConnection(7)
+
+	if err != nil {
+		fmt.Println(err.Error())
+		t.Fatal(err)
+	}
+	conn, err := rabbitmq.GetConnection("conn")
+	if err != nil {
+		fmt.Println("Connection does not exist")
+		t.Fatal(err)
+	}
+	fmt.Println("Crawler established TCP Connection with RabbitMQ")
+
+	defer conn.Close()
+
+	dbChannel, err := conn.Channel()
+
+	if err != nil {
+		fmt.Printf("Unable to create a db channel.\n")
+		t.Fatal(err)
+	}
+	frontierChannel, err := conn.Channel()
+	dbChannel.QueueDeclare(rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ, false, false, false, false, nil)
+
+	const CRAWLER_DB_DEQUEUE_URL_QUEUE = "crawler_db_dequeue_url_queue"
+	const DB_CRAWLER_DEQUEUE_URL_CBQ = "db_crawler_dequeue_url_cbq"
+	frontierChannel.QueueDeclare(DB_CRAWLER_DEQUEUE_URL_CBQ, false, false, false, false, nil)
+	frontierChannel.QueueDeclare(CRAWLER_DB_DEQUEUE_URL_QUEUE, false, false, false, false, nil)
+
+	rabbitmq.SetNewChannel("dbChannel", dbChannel)
+	defer dbChannel.Close()
+	rabbitmq.SetNewChannel("frontierChannel", frontierChannel)
+	defer frontierChannel.Close()
+
+	dqChan := make(chan DequeuedUrl)
+
+	exUrls := ExtractedUrls{Domain: "fzaid.vercel.app", Urls: []string{"fzid.vercel.app/home"}}
+	err = StoreURLs(exUrls)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	err = DequeueUrl("fzaid.vercel.app")
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	// go ListenDequeuedUrls(dqChan)
+
+	go func() {
+
+		msg, err := frontierChannel.Consume(DB_CRAWLER_DEQUEUE_URL_CBQ, "", false, false, false, false, nil)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		for chanMsg := range msg {
+
+			dq := &DequeuedUrl{}
+			fmt.Println("Received Dequeued URL")
+			err = json.Unmarshal(chanMsg.Body, dq)
+			if err != nil {
+				fmt.Println("ERROR: unable to unmarshal dequeued url")
+				fmt.Println(err.Error())
+				return
+			}
+			frontierChannel.Ack(chanMsg.DeliveryTag, false)
+			dqChan <- *dq
+		}
+	}()
+	for dq := range dqChan {
+		fmt.Println(dq)
+		if dq.RemainingInQueue == 0 {
+			break
+		}
+		err = DequeueUrl("fzaid.vercel.app")
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
+	}
+	fmt.Println("TEST: Test done")
+
+}
 func DBTestChannelListener(chann *amqp.Channel, resultChan chan DBResponse) {
 	fmt.Println("TEST: DB CHANNEL LISTENER")
 
-	dbMsg, err := chann.Consume("", rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ, false, false, false, false, nil)
+	dbMsg, err := chann.Consume(rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ, "", false, false, false, false, nil)
 	if err != nil {
 		panic("Unable to listen to db server")
 	}
