@@ -5,10 +5,7 @@ import (
 	"crawler/internal/types"
 	"encoding/json"
 	"fmt"
-	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 	"testing"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -19,16 +16,14 @@ var err = rabbitmq.EstablishConnection(7)
 func TestCrawlerIndexing(t *testing.T) {
 	sm := make(chan struct{}, 1)
 
-	osSignalChan := make(chan os.Signal, 1)
-
-	signal.Notify(osSignalChan, syscall.SIGINT, syscall.SIGTERM)
+	// signal.Notify(osSignalChan, syscall.SIGINT, syscall.SIGTERM)
 
 	if err != nil {
 		fmt.Println(err.Error())
 		t.Fatal(err)
 	}
 	conn, err := rabbitmq.GetConnection("conn")
-	go MockDatabase(sm)
+	// go MockDatabase(sm)
 	if err != nil {
 		fmt.Println("Connection does not exist")
 		t.Fatal(err)
@@ -53,17 +48,17 @@ func TestCrawlerIndexing(t *testing.T) {
 
 	response := make(chan DBResponse, 10)
 	go DBTestChannelListener(dbChannel, response)
-	go func() {
-		for {
-			select {
-			case r := <-response:
-				fmt.Println(r)
-			case <-osSignalChan:
-				fmt.Println("Close gracefully")
-				return
-			}
-		}
-	}()
+	// go func() {
+	// 	for {
+	// 		select {
+	// 		case r := <-response:
+	// 			fmt.Println(r)
+	// 		case <-osSignalChan:
+	// 			fmt.Println("Close gracefully")
+	// 			return
+	// 		}
+	// 	}
+	// }()
 
 	seeds := []string{"https://fzaid.vercel.app/"}
 

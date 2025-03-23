@@ -89,26 +89,26 @@ func (s *Spawner) SpawnCrawlers() types.CrawlResults {
 			threadSlot <- ThreadToken{}
 			log.Printf("NOTIF: Thread token insert\n")
 			go func() {
+
+				defer func() {
+					<-threadSlot
+					wg.Done()
+				}()
 				crawler, err := NewCrawler(entryPoint)
 				if err != nil {
 					log.Print(err.Error())
 					log.Printf("NOTIF: Thread token release due to error.\n")
-					<-threadSlot
 					return
 				}
-				defer func() {
-					<-threadSlot
-					log.Printf("NOTIF: Thread Token release\n")
-				}()
-				defer wg.Done()
+
 				result, err := crawler.Crawl()
 				if err != nil {
 					log.Print(err.Error())
-					log.Printf("NOTIF: Thread token release due to error.\n")
 					return
 				}
-				defer (*crawler.WD).Quit()
+				(*crawler.WD).Quit()
 				crawlResultsChan <- result
+				log.Printf("NOTIF: Thread Token release\n")
 			}()
 		}
 	}()
