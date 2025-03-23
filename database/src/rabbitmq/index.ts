@@ -4,9 +4,8 @@ import { Database } from "sqlite3";
 import { IndexedWebpages, URLs, Webpage } from "../utils/types";
 import segmentSerializer from "../serializer/segment_serializer";
 import {
-  CRAWLER_DB_INDEXING_NOTIF_QUEUE,
+  CRAWLER_DB_INDEXING_QUEUE,
   DB_EXPRESS_CHECK_CBQ,
-  DB_CRAWLER_INDEXING_NOTIF_CBQ,
   DB_SENGINE_REQUEST_CBQ,
   EXPRESS_DB_CHECK_QUEUE,
   SENGINE_DB_REQUEST_QUEUE,
@@ -57,13 +56,13 @@ async function webpageHandler(db: Database, databaseChannel: amqp.Channel) {
     message queue, the `indexWebpages` handler saves these crawled webpages into
     the database.
   */
-  await databaseChannel.assertQueue(CRAWLER_DB_INDEXING_NOTIF_QUEUE, {
+  await databaseChannel.assertQueue(CRAWLER_DB_INDEXING_QUEUE, {
     exclusive: false,
     durable: false,
   });
 
   // Errors and successful crawls will be demultiplexed here
-  databaseChannel.consume(CRAWLER_DB_INDEXING_NOTIF_QUEUE, async (data) => {
+  databaseChannel.consume(CRAWLER_DB_INDEXING_QUEUE, async (data) => {
     // who is going to catch this error? aaaaaa
     if (data === null) throw new Error("No data was pushed.");
     const decoder = new TextDecoder();
@@ -74,7 +73,7 @@ async function webpageHandler(db: Database, databaseChannel: amqp.Channel) {
       //await sql.indexWebpages(db, deserializeData);
       console.log("Storing data");
       databaseChannel.sendToQueue(
-        DB_CRAWLER_INDEXING_NOTIF_CBQ,
+        data.properties.replyTo,
         Buffer.from(
           JSON.stringify({
             isSuccess: true,
@@ -90,7 +89,7 @@ async function webpageHandler(db: Database, databaseChannel: amqp.Channel) {
       console.log("Sending back response to crawler");
       console.log(deserializeData);
       databaseChannel.sendToQueue(
-        DB_CRAWLER_INDEXING_NOTIF_CBQ,
+        data.properties.replyTo,
         Buffer.from(
           JSON.stringify({
             IsSuccess: false,

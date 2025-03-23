@@ -108,23 +108,23 @@ func (s *Spawner) SpawnCrawlers() {
 				err = crawler.Crawl()
 				if err != nil {
 					fmt.Println(err.Error())
-					errMessageStatus := CrawlMessageStatus{
-						IsSuccess: false,
-						URLSeed:   entryPoint,
-						Message:   err.Error(),
-					}
-					SendCrawlMessageStatus(errMessageStatus)
+					// errMessageStatus := CrawlMessageStatus{
+					// 	IsSuccess: false,
+					// 	URLSeed:   entryPoint,
+					// 	Message:   err.Error(),
+					// }
+					// SendCrawlMessageStatus(errMessageStatus)
 					return
 				}
 
 				(*crawler.WD).Quit()
 
-				messageStatus := CrawlMessageStatus{
-					IsSuccess: true,
-					Message:   "Succesfully indexed and stored webpages",
-					URLSeed:   entryPoint,
-				}
-				SendCrawlMessageStatus(messageStatus)
+				// messageStatus := CrawlMessageStatus{
+				// 	IsSuccess: true,
+				// 	Message:   "Succesfully indexed and stored webpages",
+				// 	URLSeed:   entryPoint,
+				// }
+				// SendCrawlMessageStatus(messageStatus)
 				log.Printf("NOTIF: Thread Token release\n")
 			}()
 		}
@@ -245,18 +245,18 @@ func SendIndexedWebpage(result types.Result) error {
 
 	returnChan := make(chan amqp091.Return)
 	err = chann.Publish("",
-		rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE,
+		rabbitmq.CRAWLER_DB_INDEXING_QUEUE,
 		false, false,
 		amqp091.Publishing{
 			ContentType: "application/json",
 			Type:        "store-indexed-webpages",
 			Body:        b,
-			ReplyTo:     rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ,
+			ReplyTo:     rabbitmq.DB_CRAWLER_INDEXING_CBQ,
 		})
 	chann.NotifyReturn(returnChan)
 	select {
 	case r := <-returnChan:
-		fmt.Printf("ERROR: Unable to deliver message to designated queue %s\n", rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE)
+		fmt.Printf("ERROR: Unable to deliver message to designated queue %s\n", rabbitmq.CRAWLER_DB_INDEXING_QUEUE)
 		return fmt.Errorf("ERROR: code=%d message=%s\n", r.ReplyCode, r.ReplyText)
 	case <-time.After(1 * time.Second):
 		fmt.Println("NOTIF: No return error from messge broker")
@@ -264,9 +264,6 @@ func SendIndexedWebpage(result types.Result) error {
 	}
 
 }
-
-const CRAWLER_DB_DEQUEUE_URL_QUEUE = "crawler_db_dequeue_url_queue"
-const DB_CRAWLER_DEQUEUE_URL_CBQ = "db_crawler_dequeue_url_cbq"
 
 func DequeueUrl(domain string) error {
 
@@ -278,11 +275,11 @@ func DequeueUrl(domain string) error {
 	}
 
 	err = chann.Publish("",
-		CRAWLER_DB_DEQUEUE_URL_QUEUE,
+		rabbitmq.CRAWLER_DB_DEQUEUE_URL_QUEUE,
 		false, false,
 		amqp091.Publishing{
 			Body:    []byte(domain),
-			ReplyTo: DB_CRAWLER_DEQUEUE_URL_CBQ,
+			ReplyTo: rabbitmq.DB_CRAWLER_DEQUEUE_URL_CBQ,
 		})
 
 	if err != nil {
@@ -301,7 +298,7 @@ func ListenDequeuedUrls(dqChan chan DequeuedUrl) {
 		fmt.Println(err)
 		return
 	}
-	msg, err := chann.Consume("", DB_CRAWLER_DEQUEUE_URL_CBQ, false, false, false, false, nil)
+	msg, err := chann.Consume(rabbitmq.DB_CRAWLER_DEQUEUE_URL_CBQ, "", false, false, false, false, nil)
 
 	if err != nil {
 		fmt.Println(err)
