@@ -1,5 +1,5 @@
 import { Database } from "sqlite3";
-import { IndexedWebpages, URLs, Webpage } from "./utils/types";
+import { IndexedWebpages, URLs, Webpage, FrontierQueue } from "./utils/types";
 
 async function indexWebpages(db: Database, data: IndexedWebpages) {
   if (db == null) {
@@ -139,19 +139,28 @@ async function queryPromiseWrapper(
   });
 }
 
+const testDb: Map<string, Array<string>> = new Map();
 async function storeURLs(db: Database, Urls: URLs) {
-  console.log(Urls);
-  console.log("Storing URLS in Queue");
+  if (!testDb.has(Urls.Domain)) {
+    console.log("Creating queue for %s", Urls.Domain);
+    console.log("Stored URLS in FrontierQueue for %s", Urls.Domain);
+    testDb.set(Urls.Domain, Urls.Nodes);
+    return;
+  }
+  testDb.set(Urls.Domain, Urls.Nodes);
+  console.log("Stored URLS in FrontierQueue for %s", Urls.Domain);
 }
 
-async function clearURLs(db: Database, q: Queue) {
+async function clearURLs(db: Database, q: FrontierQueue) {
   console.log(q);
-  console.log("Storing URLS in Queue");
+  console.log("Storing URLS in FrontierQueue");
 }
 
-async function fetchURLs(db: Database, q: Queue) {
-  console.log(q);
-  console.log("Storing URLS in Queue");
+async function dequeueURL(
+  db: Database,
+  src: string,
+): Promise<{ length: number; url: string }> {
+  return { length: 0, url: "fzaid.vercel.app/home" };
 }
 export default {
   indexWebpages,
@@ -159,5 +168,5 @@ export default {
   queryWebpages,
   storeURLs,
   clearURLs,
-  fetchURLs,
+  dequeueURL,
 };

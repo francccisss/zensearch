@@ -19,10 +19,11 @@ exec_scripts(
   try {
     const connection = await rabbitmq.establishConnection(7);
     const databaseChannel = await connection.createChannel();
+    const frontierChannel = await connection.createChannel();
     console.log("Channel Created");
     databaseChannel.prefetch(cumulativeAckCount, false);
+    rabbitmq.frontierQueueHandler(frontierQueueDB, frontierChannel);
     rabbitmq.webpageHandler(websitesDB, databaseChannel);
-    rabbitmq.frontierQueueHandler(frontierQueueDB, databaseChannel);
   } catch (err) {
     const error = err as Error;
     console.error(error.message);

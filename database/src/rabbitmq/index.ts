@@ -1,7 +1,7 @@
 import amqp from "amqplib";
 import sql from "../database";
 import { Database } from "sqlite3";
-import { IndexedWebpages, Queue, URLs, Webpage } from "../utils/types";
+import { IndexedWebpages, URLs, Webpage } from "../utils/types";
 import segmentSerializer from "../serializer/segment_serializer";
 import {
   CRAWLER_DB_INDEXING_NOTIF_QUEUE,
@@ -199,30 +199,58 @@ async function webpageHandler(db: Database, databaseChannel: amqp.Channel) {
 
 async function frontierQueueHandler(
   db: Database,
-  databaseChannel: amqp.Channel,
+  frontierChannel: amqp.Channel,
 ) {
-  const CRAWLER_DB_FETCHURL_QUEUE = "crawler_db_fetchurl_queue";
-  const CRAWLER_DB_FETCHURL_CBQ = "crawler_db_fetchurl_cbq";
+  const CRAWLER_DB_DEQUEUE_URL_QUEUE = "crawler_db_dequeue_url_queue";
 
-  const CRAWLER_DB_STOREURL_QUEUE = "crawler_db_storeurl_queue";
-  const CRAWLER_DB_CLEARURL_QUEUE = "crawler_db_clearurl_queue";
+  const CRAWLER_DB_STOREURLS_QUEUE = "crawler_db_storeurls_queue";
+  const CRAWLER_DB_CLEARURLS_QUEUE = "crawler_db_clearurls_queue";
 
-  await databaseChannel.assertQueue(CRAWLER_DB_FETCHURL_QUEUE, {
+  await frontierChannel.assertQueue(CRAWLER_DB_DEQUEUE_URL_QUEUE, {
     exclusive: false,
     durable: false,
   });
-  await databaseChannel.assertQueue(CRAWLER_DB_STOREURL_QUEUE, {
-    exclusive: false,
-    durable: false,
-  });
-
-  await databaseChannel.assertQueue(CRAWLER_DB_CLEARURL_QUEUE, {
+  await frontierChannel.assertQueue(CRAWLER_DB_STOREURLS_QUEUE, {
     exclusive: false,
     durable: false,
   });
 
-  databaseChannel.consume(
-    CRAWLER_DB_STOREURL_QUEUE,
+  await frontierChannel.assertQueue(CRAWLER_DB_CLEARURLS_QUEUE, {
+    exclusive: false,
+    durable: false,
+  });
+
+  frontierChannel.consume(
+    CRAWLER_DB_DEQUEUE_URL_QUEUE,
+    async (msg: amqp.ConsumeMessage | null) => {
+      try {
+        if (msg == null) {
+          throw new Error("Message is null");
+        }
+        const domain = msg.content.toString();
+        console.log("Fetching Urls for %s", domain);
+        const { length, url } = await database.dequeueURL(db, domain);
+
+        frontierChannel.ack(msg);
+        const dequeuedUrl: DequeuedUrl = { RemainingInQueue: length, Url: url };
+        const msgBuffer = Buffer.from(JSON.stringify(dequeuedUrl));
+
+        const sent = frontierChannel.sendToQueue(
+          msg.properties.replyTo,
+          msgBuffer,
+        );
+        if (!sent) {
+          throw new Error("WTFFFFF");
+        }
+        console.log("Sending Dequeued Url");
+      } catch (err) {
+        console.log(err);
+        // i dont know what to do with this yet
+      }
+    },
+  );
+  frontierChannel.consume(
+    CRAWLER_DB_STOREURLS_QUEUE,
     (msg: amqp.ConsumeMessage | null) => {
       try {
         if (msg == null) {
@@ -230,41 +258,31 @@ async function frontierQueueHandler(
         }
         const URLs: URLs = JSON.parse(msg.content.toString());
         database.storeURLs(db, URLs);
-        databaseChannel.ack(msg);
+        frontierChannel.ack(msg);
       } catch (err) {
         // i dont know what to do with this yet
+        console.log(err);
       }
     },
   );
 
-  databaseChannel.consume(
-    CRAWLER_DB_FETCHURL_QUEUE,
-    (msg: amqp.ConsumeMessage | null) => {
-      try {
-        if (msg == null) {
-          throw new Error("Message is null");
-        }
-        const queue: Queue = JSON.parse(msg.content.toString());
-        console.log("Fetching Urls for ");
-        database.fetchURLs(db, queue);
-        databaseChannel.ack(msg);
-      } catch (err) {
-        // i dont know what to do with this yet
-      }
-    },
-  );
-
-  databaseChannel.consume(
-    CRAWLER_DB_CLEARURL_QUEUE,
+  frontierChannel.consume(
+    CRAWLER_DB_CLEARURLS_QUEUE,
     (msg: amqp.ConsumeMessage | null) => {
       try {
         if (msg == null) {
           throw new Error("Message is null");
         }
         console.log("Clearing URLS in Queue");
-        databaseChannel.ack(msg);
-      } catch (err) {}
+        frontierChannel.ack(msg);
+      } catch (err) {
+        console.log(err);
+      }
     },
   );
 }
+type DequeuedUrl = {
+  Url: string;
+  RemainingInQueue: number;
+};
 export default { establishConnection, webpageHandler, frontierQueueHandler };
