@@ -1,5 +1,6 @@
 import { Database } from "sqlite3";
 import { IndexedWebpages, URLs, Webpage, FrontierQueue } from "./utils/types";
+import { randomUUID } from "crypto";
 
 async function indexWebpages(db: Database, data: IndexedWebpages) {
   if (db == null) {
@@ -141,6 +142,42 @@ async function queryPromiseWrapper(
 
 const testDb: Map<string, Array<string>> = new Map();
 async function storeURLs(db: Database, Urls: URLs) {
+  db.serialize(() => {
+    db.get(
+      "SELECT Domain FROM Queue WHERE Domain = $Domain;",
+      {
+        $Domain: Urls.Domain,
+      },
+      (err: Error, row: Array<FrontierQueue> | FrontierQueue) => {
+        if (err != null) {
+          console.error(err);
+          return;
+        }
+
+        if (row == undefined) {
+          db.run("INSERT INTO Queue (ID,Domain) VALUES ($ID, $Domain);", {
+            $ID: randomUUID(),
+            $Domain: Urls.Domain,
+          });
+        }
+      },
+    );
+
+    db.get(
+      "SELECT * FROM Queue WHERE Domain = $Domain;",
+      {
+        $Domain: Urls.Domain,
+      },
+      (err: Error, row: Array<FrontierQueue> | FrontierQueue) => {
+        if (err != null) {
+          console.error(err);
+          return;
+        }
+        console.log(row);
+      },
+    );
+  });
+
   if (!testDb.has(Urls.Domain)) {
     console.log("Creating queue for %s", Urls.Domain);
     console.log("Stored URLS in FrontierQueue for %s", Urls.Domain);
