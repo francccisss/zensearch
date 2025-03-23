@@ -46,5 +46,4 @@ export type Node = {
 export type Queue = {
   QueueID: string;
   Domain: string;
-  Nodes: Array<Node>;
 };

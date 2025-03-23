@@ -1,7 +1,7 @@
 import amqp from "amqplib";
 import sql from "../database";
 import { Database } from "sqlite3";
-import { IndexedWebpages, URLs, Webpage } from "../utils/types";
+import { IndexedWebpages, Queue, URLs, Webpage } from "../utils/types";
 import segmentSerializer from "../serializer/segment_serializer";
 import {
   CRAWLER_DB_INDEXING_NOTIF_QUEUE,
@@ -202,9 +202,15 @@ async function frontierQueueHandler(
   databaseChannel: amqp.Channel,
 ) {
   const CRAWLER_DB_FETCHURL_QUEUE = "crawler_db_fetchurl_queue";
+  const CRAWLER_DB_FETCHURL_CBQ = "crawler_db_fetchurl_cbq";
+
   const CRAWLER_DB_STOREURL_QUEUE = "crawler_db_storeurl_queue";
   const CRAWLER_DB_CLEARURL_QUEUE = "crawler_db_clearurl_queue";
 
+  await databaseChannel.assertQueue(CRAWLER_DB_FETCHURL_QUEUE, {
+    exclusive: false,
+    durable: false,
+  });
   await databaseChannel.assertQueue(CRAWLER_DB_STOREURL_QUEUE, {
     exclusive: false,
     durable: false,
@@ -232,6 +238,23 @@ async function frontierQueueHandler(
   );
 
   databaseChannel.consume(
+    CRAWLER_DB_FETCHURL_QUEUE,
+    (msg: amqp.ConsumeMessage | null) => {
+      try {
+        if (msg == null) {
+          throw new Error("Message is null");
+        }
+        const queue: Queue = JSON.parse(msg.content.toString());
+        console.log("Fetching Urls for ");
+        database.fetchURLs(db, queue);
+        databaseChannel.ack(msg);
+      } catch (err) {
+        // i dont know what to do with this yet
+      }
+    },
+  );
+
+  databaseChannel.consume(
     CRAWLER_DB_CLEARURL_QUEUE,
     (msg: amqp.ConsumeMessage | null) => {
       try {
@@ -239,6 +262,7 @@ async function frontierQueueHandler(
           throw new Error("Message is null");
         }
         console.log("Clearing URLS in Queue");
+        databaseChannel.ack(msg);
       } catch (err) {}
     },
   );

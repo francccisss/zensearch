@@ -1,5 +1,5 @@
 import { Database } from "sqlite3";
-import { IndexedWebpages, Node, URLs, Webpage } from "./utils/types";
+import { IndexedWebpages, URLs, Webpage } from "./utils/types";
 
 async function indexWebpages(db: Database, data: IndexedWebpages) {
   if (db == null) {
@@ -144,12 +144,20 @@ async function storeURLs(db: Database, Urls: URLs) {
   console.log("Storing URLS in Queue");
 }
 
-async function clearURLs() {}
+async function clearURLs(db: Database, q: Queue) {
+  console.log(q);
+  console.log("Storing URLS in Queue");
+}
 
+async function fetchURLs(db: Database, q: Queue) {
+  console.log(q);
+  console.log("Storing URLS in Queue");
+}
 export default {
   indexWebpages,
   checkExistingTasks,
   queryWebpages,
   storeURLs,
   clearURLs,
+  fetchURLs,
 };

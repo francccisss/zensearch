@@ -49,12 +49,12 @@ func main() {
 
 	dbChannel, err := conn.Channel()
 	if err != nil {
-		log.Printf("Unable to create a crawl channel.")
+		log.Printf("Unable to create a db channel.")
 	}
 	defer dbChannel.Close()
 	expressChannel, err := conn.Channel()
 	if err != nil {
-		log.Printf("Unable to create a crawl channel.")
+		log.Printf("Unable to create a express channel.")
 	}
 	defer expressChannel.Close()
 
@@ -68,6 +68,7 @@ func main() {
 	expressChannel.QueueDeclare(rabbitmq.EXPRESS_CRAWLER_QUEUE, false, false, false, false, nil)
 	expressChannel.QueueDeclare(rabbitmq.CRAWLER_EXPRESS_CBQ, false, false, false, false, nil)
 	rabbitmq.SetNewChannel("expressChannel", expressChannel)
+
 	expressMsg, err := expressChannel.Consume("", rabbitmq.EXPRESS_CRAWLER_QUEUE, false, false, false, false, nil)
 	if err != nil {
 		log.Panicf("Unable to listen to express server")
