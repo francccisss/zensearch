@@ -9,5 +9,5 @@ todo.md
 zensearch-bin
 crawler-bin
 search-engine-bin
-*.db
-website_collection.db
+# website_collection.db
+# frontier_queue.db

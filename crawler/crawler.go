@@ -40,6 +40,11 @@ type Crawler struct {
 	WD  *selenium.WebDriver
 }
 
+type DequeuedUrl struct {
+	RemainingInQueue int
+	Url              string
+}
+
 var indexedList map[string]types.IndexedWebpage
 
 const (
@@ -145,11 +150,9 @@ func (c Crawler) Crawl() (types.CrawlResult, error) {
 	// ROBOTS.TXT HANDLING
 
 	pageNavigator := PageNavigator{
-		WD:           c.WD,
-		PagesVisited: map[string]string{},
-		Queue: Queue{
-			array: []string{c.URL}, // inialize Queue with URLSeed
-		},
+		WD:              c.WD,
+		PagesVisited:    map[string]string{},
+		Urls:            []string{c.URL}, // inialize Queue with URLSeed
 		DisallowedPaths: disallowedPaths,
 		IndexedWebpages: make([]types.IndexedWebpage, 0, 50),
 		Hostname:        hostname,
@@ -165,39 +168,71 @@ func (c Crawler) Crawl() (types.CrawlResult, error) {
 		c.URL += "/"
 	}
 
-	err = pageNavigator.ProcessSeed(c.URL)
+	// sends the urls from current page to frontier queue
+	ex := ExtractedUrls{
+		Domain: hostname,
+		Urls:   pageNavigator.Urls,
+	}
 
-	// clean up memory resource since it will linger in memory in the heap
-	// once this function is removed from the data segment.
-
-	// TODO need to store these in the database
-	// defer clear(pageNavigator.PagesVisited)
-	// defer clear(pageNavigator.IndexedWebpages)
+	err = storeURLs(ex)
 
 	var cResult types.CrawlResult
-	message := "Successfully Crawled & Indexed website"
 	if err != nil {
 		// Error for when crawler is not able to crawl and index the remaining webpages.
-		message = "Something went wrong while crawling the webpage"
 		fmt.Printf("ERROR: Crawler returned with errors from navigating %s\n", c.URL)
 		fmt.Println(err.Error())
 		cResult = types.CrawlResult{
 			URLSeed:     c.URL,
 			CrawlStatus: CRAWL_FAIL,
-			Message:     message,
+			Message:     "Something went wrong while crawling the webpage",
 		}
 		return cResult, nil
+	}
+
+	for {
+		retries := 0
+		dequeuedUrl, err := DequeueUrl()
+		if err != nil {
+			fmt.Println(err.Error())
+			continue
+		}
+		url := <-dequeuedUrl
+
+		dq := &DequeuedUrl{}
+		err = json.Unmarshal(url.Body, dq)
+
+		if err != nil {
+			fmt.Println(err.Error())
+			break
+		}
+
+		if dq.RemainingInQueue == 0 {
+			fmt.Println("No more urls in queue, cleaning up")
+			break
+		}
+
+		err = pageNavigator.ProcessUrl(dq.Url)
+		if err != nil {
+			retries++
+			for retries < MAX_RETRIES {
+				err = pageNavigator.ProcessUrl(dq.Url)
+				if err != nil {
+					retries++
+				}
+			}
+		}
 	}
 
 	fmt.Printf("NOTIF: Crawler returned with no errors from navigating %s\n", c.URL)
 	cResult = types.CrawlResult{
 		URLSeed:     c.URL,
 		CrawlStatus: CRAWL_SUCCESS,
-		Message:     message,
+		Message:     "Successfully Crawled & Indexed website",
 	}
 	return cResult, nil
 }
 
+// TODO Only send results once queue is empty
 func SendResults(result types.Result) error {
 
 	chann, err := rabbitmq.GetChannel("dbChannel")
@@ -231,4 +266,19 @@ func SendResults(result types.Result) error {
 		return nil
 	}
 
+}
+
+func DequeueUrl() (<-chan amqp091.Delivery, error) {
+	const CRAWLER_DB_DEQUEUE_URL_QUEUE = "crawler_db_dequeue_url_queue"
+
+	chann, err := rabbitmq.GetChannel("dbChannel")
+	if err != nil {
+		return nil, err
+	}
+
+	msg, err := chann.Consume("", CRAWLER_DB_DEQUEUE_URL_QUEUE, false, false, false, false, nil)
+	if err != nil {
+		return nil, err
+	}
+	return msg, nil
 }

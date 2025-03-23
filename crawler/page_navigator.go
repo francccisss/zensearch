@@ -1,8 +1,10 @@
 package main
 
 import (
+	"crawler/internal/rabbitmq"
 	"crawler/internal/types"
 	"crawler/utilities"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -10,18 +12,24 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rabbitmq/amqp091-go"
 	"github.com/tebeka/selenium"
 )
 
 type PageNavigator struct {
 	WD              *selenium.WebDriver
 	PagesVisited    map[string]string
-	Queue           Queue
+	Urls            []string
 	DisallowedPaths []string
 	RetryCount      int
 	RequestTime
 	IndexedWebpages []types.IndexedWebpage
 	Hostname        string
+}
+
+type ExtractedUrls struct {
+	Domain string
+	Urls   []string
 }
 
 type RequestTime struct {
@@ -89,30 +97,9 @@ func (pn *PageNavigator) requestDelay(multiplier int) {
 	time.Sleep(time.Duration(pn.interval * 1000000))
 }
 
-func (pn *PageNavigator) ProcessSeed(currentUrl string) error {
-
-	// VISITING STAGE
-	if pn.RetryCount >= MAX_RETRIES {
-		return fmt.Errorf("Exceeded maximum retry count for this website, the crawler might be blocked while crawling Url: %s\nreturning...", pn.Hostname)
-	}
-
-	// this will only be true if links are exhausted from queue, not from when starting the crawl
-	if len(pn.Queue.array) == 0 {
-		fmt.Printf("NOTIF: Queue is empty.\n")
-		return nil
-	}
-	// Oh and while I was debugging, i forgot to call Dequeue and kept wondering
-	// why the first element is not being removed... almost an hour i guess before
-	// i figured it out.
-	pn.Queue.Dequeue()
+func (pn *PageNavigator) ProcessUrl(currentUrl string) error {
 
 	fmt.Printf("NOTIF: `%s` has popped from queue.\n", currentUrl)
-	_, visited := pn.PagesVisited[currentUrl]
-	if visited {
-		// its so that we can grab unique links and append to children of the current page
-		fmt.Printf("NOTIF: Page already visited\n\n")
-		return nil
-	}
 	pn.requestDelay(2)
 	err := pn.navigatePageWithRetries(MAX_RETRIES, currentUrl)
 	if err != nil {
@@ -174,11 +161,20 @@ func (pn *PageNavigator) ProcessSeed(currentUrl string) error {
 		_, visited := pn.PagesVisited[href]
 		// I KEEP ADDING THE SAME ELEMENTS IN THE QUEUE I DONT UNDERSTAND!!!!
 		if !visited && childHostname == pn.Hostname {
-			pn.Queue.Enqueue(href)
+			pn.Urls = append(pn.Urls, href)
 		}
 	}
 	fmt.Printf("NOTIF: Link Count in current url: %d\n", len(pageLinks))
-	fmt.Printf("NOTIF: Queue Length: %d\n", len(pn.Queue.array))
+	fmt.Printf("NOTIF: Queue Length: %d\n", len(pn.Urls))
+	ex := ExtractedUrls{
+		Domain: pn.Hostname,
+		Urls:   pn.Urls,
+	}
+	err = storeURLs(ex)
+	if err != nil {
+		fmt.Printf("ERROR: Unable to store extracted Urls.\n")
+		return err
+	}
 
 	// INDEXING PHASE
 
@@ -207,7 +203,6 @@ func (pn *PageNavigator) ProcessSeed(currentUrl string) error {
 		return fmt.Errorf("Unable to send indexed result to database service\nreturning...")
 	}
 	fmt.Println("NOTIF: stored indexed webpage")
-	// pn.IndexedWebpages = append(pn.IndexedWebpages, indexedWebpage)
 
 	/*
 	 no child to traverse to then return to caller, the caller function will
@@ -215,23 +210,9 @@ func (pn *PageNavigator) ProcessSeed(currentUrl string) error {
 	*/
 
 	// to stop the crawler entirely after multiple retries from navigation
-	for _, next := range pn.Queue.array {
-
-		// the `next` is the one to be dequeued after calling navigatePages()
-		err := pn.ProcessSeed(next)
-		/*
-			if error occured from traversing or any error has occured
-			increment counter, the RetryCount is the maximum tries for an error occur again,
-			if it is too mauch tnen might be better to just throw an error instead of continuing the crawl
-		*/
-		if err != nil {
-			fmt.Println(err.Error())
-			pn.RetryCount++
-			continue
-		}
-	}
 	return nil
 }
+
 func (pt PageNavigator) Index() (types.IndexedWebpage, error) {
 
 	/*
@@ -322,4 +303,26 @@ func extractTextContent(WD *selenium.WebDriver, selector string) ([]string, erro
 
 func joinTextContents(tc []string) string {
 	return strings.Join(tc, " ")
+}
+
+func storeURLs(exUrls ExtractedUrls) error {
+
+	const CRAWLER_DB_STOREURLS_QUEUE = "crawler_db_storeurls_queue"
+	chann, err := rabbitmq.GetChannel("dbChannel")
+	if err != nil {
+		return err
+	}
+
+	b, err := json.Marshal(exUrls)
+	if err != nil {
+		return err
+	}
+	err = chann.Publish("", CRAWLER_DB_STOREURLS_QUEUE, false, false, amqp091.Publishing{
+		ContentType: "application/json",
+		Body:        b,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
