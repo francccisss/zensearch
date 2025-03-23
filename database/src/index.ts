@@ -1,55 +1,34 @@
-import sqlite3 from "sqlite3";
 import path from "path";
-import amqp, { Connection } from "amqplib";
+import sqlite3 from "sqlite3";
 import rabbitmq from "./rabbitmq";
 import { readFile } from "fs";
 
-const db = init_database();
+const wc = "../website_collection.db";
+const fq = "../frontier_queue.db";
+const websitesDB = init_database(wc);
+const frontierQueueDB = init_database(fq);
 const cumulativeAckCount = 1000;
-exec_scripts(db, path.join(__dirname, "./db_utils/websites.init.sql"));
+exec_scripts(websitesDB, path.join(__dirname, "./db_utils/websites.init.sql"));
 
 (async () => {
   console.log("Starting database server");
   try {
-    const connection = await establishConnection(7);
+    const connection = await rabbitmq.establishConnection(7);
     const databaseChannel = await connection.createChannel();
     console.log("Channel Created");
     databaseChannel.prefetch(cumulativeAckCount, false);
-    await rabbitmq.channelHandler(db, databaseChannel);
+    rabbitmq.webpageHandler(websitesDB, databaseChannel);
+    rabbitmq.frontierQueueHandler(frontierQueueDB, databaseChannel);
   } catch (err) {
     const error = err as Error;
     console.error(error.message);
   }
 })();
 
-async function establishConnection(retries: number): Promise<Connection> {
-  if (retries > 0) {
-    retries--;
-    try {
-      const connection = await amqp.connect("amqp://localhost:5672");
-      console.log(
-        `Successfully connected to rabbitmq after ${retries} retries`,
-      );
-      return connection;
-    } catch (err) {
-      console.error("Retrying Database service connection");
-      await new Promise((resolve) => {
-        const timeoutID = setTimeout(() => {
-          resolve("Done blocking");
-          clearTimeout(timeoutID);
-        }, 2000);
-      });
-      return await establishConnection(retries);
-    }
-  }
-  throw new Error("Shutting down database server after several retries");
-}
-
-function init_database(): sqlite3.Database {
-  const dbFile = "../website_collection.db";
+function init_database(src: string): sqlite3.Database {
   const sqlite = sqlite3.verbose();
   const db = new sqlite.Database(
-    path.join(__dirname, dbFile),
+    path.join(__dirname, src),
     sqlite.OPEN_READWRITE,
     (err) => {
       if (err) {
@@ -64,14 +43,14 @@ function init_database(): sqlite3.Database {
 
 async function exec_scripts(db: sqlite3.Database, scriptPath: string) {
   console.log("Execute sqlite script");
-  readFile(scriptPath, "utf-8", (err, data) => {
+  readFile(scriptPath, "utf-8", (_, data) => {
     const stmts = data
       .split(";")
       .map((stmt) => stmt.trim())
       .filter((stmt) => stmt);
 
     stmts.forEach((statement) => {
-      db.run(statement, [], (err) => {
+      db.run(statement, [], (_) => {
         console.log("Executed statement: %s ", statement);
       });
     });

@@ -1,6 +1,6 @@
 import amqp from "amqplib";
-import databaseOperations from "../database";
-import { Database, ERROR } from "sqlite3";
+import sql from "../database";
+import { Database } from "sqlite3";
 import { IndexedWebpages, Webpage } from "../utils/types";
 import segmentSerializer from "../serializer/segment_serializer";
 import {
@@ -12,15 +12,37 @@ import {
   SENGINE_DB_REQUEST_QUEUE,
 } from "./routing_keys";
 
-// i know im doing tests here i dont know how to do it in yabasciprt
-let testArrays: Array<IndexedWebpages> = [];
+export async function establishConnection(
+  retries: number,
+): Promise<amqp.ChannelModel> {
+  if (retries > 0) {
+    retries--;
+    try {
+      const connection = await amqp.connect("amqp://localhost:5672");
+      console.log(
+        `Successfully connected to rabbitmq after ${retries} retries`,
+      );
+      return connection;
+    } catch (err) {
+      console.error("Retrying Database service connection");
+      await new Promise((resolve) => {
+        const timeoutID = setTimeout(() => {
+          resolve("Done blocking");
+          clearTimeout(timeoutID);
+        }, 2000);
+      });
+      return await establishConnection(retries);
+    }
+  }
+  throw new Error("Shutting down database server after several retries");
+}
 /*
   channel handler can take in multiple channels from a single tcp conneciton
   to the rabbitmq message broker, these channels are multiplexed to handle
   messages coming from different context eg: database and search
 */
 
-async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
+async function webpageHandler(db: Database, databaseChannel: amqp.Channel) {
   // EXPRESS SERVER ROUTING KEYS
   // routing key used by express server to check existing webpages.
 
@@ -48,7 +70,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
     const deserializeData: IndexedWebpages = JSON.parse(decodedData);
     try {
       databaseChannel.ack(data);
-      //await databaseOperations.indexWebpages(db, deserializeData);
+      //await sql.indexWebpages(db, deserializeData);
       console.log("Storing data");
       databaseChannel.sendToQueue(
         DB_CRAWLER_INDEXING_NOTIF_CBQ,
@@ -110,7 +132,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
       const crawlList: { Docs: Array<string> } = JSON.parse(
         data.content.toString(),
       );
-      const unindexedWebsites = await databaseOperations.checkExistingTasks(
+      const unindexedWebsites = await sql.checkExistingTasks(
         db,
         crawlList.Docs,
       );
@@ -146,7 +168,7 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
   databaseChannel.consume(SENGINE_DB_REQUEST_QUEUE, async (data) => {
     if (data === null) throw new Error("No data was pushed.");
     try {
-      const dataQuery: Webpage[] = await databaseOperations.queryWebpages(db);
+      const dataQuery: Webpage[] = await sql.queryWebpages(db);
       console.log({ searchEngineMessage: data.content.toString() });
 
       databaseChannel.ack(data);
@@ -174,4 +196,27 @@ async function channelHandler(db: Database, databaseChannel: amqp.Channel) {
   });
 }
 
-export default { channelHandler };
+async function frontierQueueHandler(
+  db: Database,
+  databaseChannel: amqp.Channel,
+) {
+  const CRAWLER_DB_STOREURL_QUEUE = "crawler_db_storeurl_queue";
+
+  await databaseChannel.assertQueue(CRAWLER_DB_STOREURL_QUEUE, {
+    exclusive: false,
+    durable: false,
+  });
+
+  databaseChannel.consume(
+    CRAWLER_DB_STOREURL_QUEUE,
+    (msg: amqp.ConsumeMessage | null) => {
+      try {
+        if (msg == null) {
+          throw new Error("Message is null");
+        }
+        console.log("Storing URLS in Queue");
+      } catch (err) {}
+    },
+  );
+}
+export default { establishConnection, webpageHandler, frontierQueueHandler };

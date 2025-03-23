@@ -1,0 +1,10 @@
+CREATE TABLE QueueTable{
+  QueueID TEXT PRIMARY KEY(Domain),
+  Domain TEXT NOT NULL,
+}
+CREATE TABLE NodeTable{
+  ID TEXT PRIMARY KEY(Url),
+  Url TEXT NOT NULL,
+  QueueID TEXT NOT NULL,
+  FOREIGN KEY(QueueID) REFERENCES QueueTable(QueueID)
+}
