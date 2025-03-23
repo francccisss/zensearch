@@ -21,7 +21,7 @@ func TestCrawlerIndexing(t *testing.T) {
 		t.Fatal(err)
 	}
 	conn, err := rabbitmq.GetConnection("conn")
-	// go MockDatabase(sm)
+	go MockDatabase(sm)
 	if err != nil {
 		fmt.Println("Connection does not exist")
 		t.Fatal(err)
@@ -41,10 +41,10 @@ func TestCrawlerIndexing(t *testing.T) {
 		fmt.Printf("Unable to create a frontier channel.\n")
 		t.Fatal(err)
 	}
-	_, err = dbChannel.QueueDeclare(rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ, false, false, false, false, nil)
+	_, err = dbChannel.QueueDeclare(rabbitmq.DB_CRAWLER_INDEXING_CBQ, false, false, false, false, nil)
 
 	if err != nil {
-		fmt.Printf("Unable to assert queue=%s\n", rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ)
+		fmt.Printf("Unable to assert queue=%s\n", rabbitmq.DB_CRAWLER_INDEXING_CBQ)
 		t.Fatal(err)
 	}
 	_, err = frontierChannel.QueueDeclare("db_crawler_dequeue_url_cbq", false, false, false, false, nil)
@@ -61,21 +61,17 @@ func TestCrawlerIndexing(t *testing.T) {
 
 	response := make(chan DBResponse, 10)
 	go DBTestChannelListener(dbChannel, response)
-	// go func() {
-	// 	for {
-	// 		select {
-	// 		case r := <-response:
-	// 			fmt.Println(r)
-	// 		case <-osSignalChan:
-	// 			fmt.Println("Close gracefully")
-	// 			return
-	// 		}
-	// 	}
-	// }()
+	go func() {
+		for {
+			select {
+			case r := <-response:
+				fmt.Println(r)
+			}
+		}
+	}()
 
 	seeds := []string{"https://fzaid.vercel.app/"}
 
-	// seeds := []string{"https://gobyexample.com/"}
 	// seeds := []string{"https://gobyexample.com/", "https://fzaid.vercel.app/"}
 	fmt.Printf("Crawling seeds: %+v\n", seeds)
 	spawner := NewSpawner(10, seeds)
@@ -95,13 +91,13 @@ func MockDatabase(sm <-chan struct{}) {
 		fmt.Println("TEST DBMOCK: ERROR Unable to create a mock DB channel")
 		panic(err)
 	}
-	_, err = mockDBChann.QueueDeclare(rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE, false, false, false, false, nil)
+	_, err = mockDBChann.QueueDeclare(rabbitmq.CRAWLER_DB_INDEXING_QUEUE, false, false, false, false, nil)
 
 	if err != nil {
-		fmt.Printf("Unable to assert queue=%s\n", rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE)
+		fmt.Printf("Unable to assert queue=%s\n", rabbitmq.CRAWLER_DB_INDEXING_QUEUE)
 		panic(err)
 	}
-	crawlerMsg, err := mockDBChann.Consume(rabbitmq.CRAWLER_DB_INDEXING_NOTIF_QUEUE, "", false, false, false, false, nil)
+	crawlerMsg, err := mockDBChann.Consume(rabbitmq.CRAWLER_DB_INDEXING_QUEUE, "", false, false, false, false, nil)
 
 	database := []types.IndexedWebpage{}
 	for {
@@ -222,75 +218,32 @@ func TestDequeueUrls(t *testing.T) {
 		t.Fatal(err)
 	}
 	frontierChannel, err := conn.Channel()
-	dbChannel.QueueDeclare(rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ, false, false, false, false, nil)
+	dbChannel.QueueDeclare(rabbitmq.DB_CRAWLER_INDEXING_CBQ, false, false, false, false, nil)
 
-	const CRAWLER_DB_DEQUEUE_URL_QUEUE = "crawler_db_dequeue_url_queue"
-	const DB_CRAWLER_DEQUEUE_URL_CBQ = "db_crawler_dequeue_url_cbq"
-	frontierChannel.QueueDeclare(DB_CRAWLER_DEQUEUE_URL_CBQ, false, false, false, false, nil)
-	frontierChannel.QueueDeclare(CRAWLER_DB_DEQUEUE_URL_QUEUE, false, false, false, false, nil)
+	frontierChannel.QueueDeclare(rabbitmq.DB_CRAWLER_DEQUEUE_URL_CBQ, false, false, false, false, nil)
+	frontierChannel.QueueDeclare(rabbitmq.CRAWLER_DB_DEQUEUE_URL_QUEUE, false, false, false, false, nil)
 
 	rabbitmq.SetNewChannel("dbChannel", dbChannel)
 	defer dbChannel.Close()
 	rabbitmq.SetNewChannel("frontierChannel", frontierChannel)
 	defer frontierChannel.Close()
 
-	dqChan := make(chan DequeuedUrl)
-
-	exUrls := ExtractedUrls{Domain: "fzaid.vercel.app", Urls: []string{"fzid.vercel.app/home"}}
-	err = StoreURLs(exUrls)
+	crawler, err := NewCrawler("https://fzaid.vercel.app")
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 
-	err = DequeueUrl("fzaid.vercel.app")
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-
-	// go ListenDequeuedUrls(dqChan)
-
-	go func() {
-
-		msg, err := frontierChannel.Consume(DB_CRAWLER_DEQUEUE_URL_CBQ, "", false, false, false, false, nil)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		for chanMsg := range msg {
-
-			dq := &DequeuedUrl{}
-			fmt.Println("Received Dequeued URL")
-			err = json.Unmarshal(chanMsg.Body, dq)
-			if err != nil {
-				fmt.Println("ERROR: unable to unmarshal dequeued url")
-				fmt.Println(err.Error())
-				return
-			}
-			frontierChannel.Ack(chanMsg.DeliveryTag, false)
-			dqChan <- *dq
-		}
-	}()
-	for dq := range dqChan {
-		fmt.Println(dq)
-		if dq.RemainingInQueue == 0 {
-			break
-		}
-		err = DequeueUrl("fzaid.vercel.app")
-		if err != nil {
-			t.Fatalf(err.Error())
-		}
-	}
+	crawler.Crawl()
 	fmt.Println("TEST: Test done")
-
 }
 func DBTestChannelListener(chann *amqp.Channel, resultChan chan DBResponse) {
 	fmt.Println("TEST: DB CHANNEL LISTENER")
 
-	dbMsg, err := chann.Consume(rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ, "", false, false, false, false, nil)
+	dbMsg, err := chann.Consume(rabbitmq.DB_CRAWLER_INDEXING_CBQ, "", false, false, false, false, nil)
 	if err != nil {
 		panic("Unable to listen to db server")
 	}
-	fmt.Printf("NOTIF: listenting to %s\n", rabbitmq.DB_CRAWLER_INDEXING_NOTIF_CBQ)
+	fmt.Printf("NOTIF: listenting to %s\n", rabbitmq.DB_CRAWLER_INDEXING_CBQ)
 	for msg := range dbMsg {
 
 		response := &DBResponse{}
