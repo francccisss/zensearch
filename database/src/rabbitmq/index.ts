@@ -1,6 +1,6 @@
 import amqp from "amqplib";
 import sql from "../database";
-import { Database } from "sqlite3";
+import Database from "better-sqlite3";
 import { IndexedWebpages, URLs, Webpage } from "../utils/types";
 import segmentSerializer from "../serializer/segment_serializer";
 import {
@@ -42,7 +42,10 @@ export async function establishConnection(
   messages coming from different context eg: database and search
 */
 
-async function webpageHandler(db: Database, databaseChannel: amqp.Channel) {
+async function webpageHandler(
+  db: Database.Database,
+  databaseChannel: amqp.Channel,
+) {
   // EXPRESS SERVER ROUTING KEYS
   // routing key used by express server to check existing webpages.
 
@@ -197,7 +200,7 @@ async function webpageHandler(db: Database, databaseChannel: amqp.Channel) {
 }
 
 async function frontierQueueHandler(
-  db: Database,
+  db: Database.Database,
   frontierChannel: amqp.Channel,
 ) {
   const CRAWLER_DB_DEQUEUE_URL_QUEUE = "crawler_db_dequeue_url_queue";
