@@ -4,17 +4,25 @@ import rabbitmq from "./rabbitmq";
 import { readFile } from "fs";
 import { exit } from "node:process";
 
-const wc = "../website_collection.db";
-const fq = "../frontier_queue.db";
-const websitesDB = init_database(wc);
-const frontierQueueDB = init_database(fq);
+const wc = path.join(__dirname, "../website_collection.db");
+const fq = path.join(__dirname, "../frontier_queue.db");
+const websitesDB = initDatabase(wc);
+const frontierQueueDB = initDatabase(fq);
 const cumulativeAckCount = 1000;
-exec_scripts(websitesDB, path.join(__dirname, "./db_utils/websites.init.sql"));
-exec_scripts(
+execScripts(websitesDB, path.join(__dirname, "./db_utils/websites.init.sql"));
+execScripts(
   frontierQueueDB,
   path.join(__dirname, "./db_utils/frontier_queue.sql"),
 );
 
+const tables = [
+  "known_sites",
+  "indexed_sites",
+  "webpages",
+  "visited_node", // Dont move this before node
+  "node",
+  "queue",
+];
 (async () => {
   console.log("Starting database server");
   try {
@@ -23,11 +31,6 @@ exec_scripts(
     const frontierChannel = await connection.createChannel();
     console.log("Channel Created");
     databaseChannel.prefetch(cumulativeAckCount, false);
-    if (websitesDB == null || frontierQueueDB == null) {
-      // TODO need to tell users which database initialization failed
-      console.error("ERROR: unable to initialize databases");
-      exit(1);
-    }
     rabbitmq.webpageHandler(websitesDB, databaseChannel);
     rabbitmq.frontierQueueHandler(frontierQueueDB, frontierChannel);
   } catch (err) {
@@ -36,18 +39,12 @@ exec_scripts(
   }
 })();
 
-function init_database(src: string): Database.Database | null {
-  try {
-    const db = new Database(src);
-    return db;
-  } catch (err: any) {
-    console.error("ERROR: Unable to initialize database %s", err.message);
-    console.error(err);
-    return null;
-  }
+function initDatabase(src: string): Database.Database {
+  const db = new Database(src);
+  return db;
 }
 
-async function exec_scripts(db: Database.Database | null, scriptPath: string) {
+async function execScripts(db: Database.Database | null, scriptPath: string) {
   console.log("Execute sqlite script");
   console.log(scriptPath);
   if (db === null) {
@@ -60,7 +57,22 @@ async function exec_scripts(db: Database.Database | null, scriptPath: string) {
       .map((stmt) => stmt.trim())
       .filter((stmt) => stmt);
     stmts.forEach((stmt) => {
-      db?.exec(stmt);
+      const firstLine = stmt.split("\n")[0];
+      for (let i = 0; i < tables.length; i++) {
+        const tableName = tables[i];
+        if (firstLine.includes(tableName)) {
+          console.log(tableName);
+          const checkTableStmt = db.prepare(
+            `SELECT name FROM sqlite_master WHERE type='table' AND name=? ;`,
+          );
+          const result = checkTableStmt.get([tableName]);
+          if (result == undefined) {
+            console.log("Notif: Creating table for %s", tableName);
+            db.exec(stmt);
+            break;
+          }
+        }
+      }
     });
   });
 }
