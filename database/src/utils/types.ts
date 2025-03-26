@@ -1,11 +1,11 @@
 // Message
-export type IndexedWebpages = {
+export type IndexedWebpage = {
   Message: string;
   CrawlStatus: number;
-  Webpages: Array<{
+  Webpage: {
     Header: header;
     Contents: string;
-  }>;
+  };
   Title: string;
   URLSeed: string;
 };
