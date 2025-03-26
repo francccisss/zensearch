@@ -1,7 +1,7 @@
 import amqp from "amqplib";
 import sql from "../database";
 import Database from "better-sqlite3";
-import { IndexedWebpages, URLs, Webpage } from "../utils/types";
+import { IndexedWebpage, URLs, Webpage } from "../utils/types";
 import segmentSerializer from "../serializer/segment_serializer";
 import {
   CRAWLER_DB_INDEXING_QUEUE,
@@ -70,7 +70,7 @@ async function webpageHandler(
     if (data === null) throw new Error("No data was pushed.");
     const decoder = new TextDecoder();
     const decodedData = decoder.decode(data.content as ArrayBuffer);
-    const deserializeData: IndexedWebpages = JSON.parse(decodedData);
+    const deserializeData: IndexedWebpage = JSON.parse(decodedData);
     try {
       databaseChannel.ack(data);
       //await sql.indexWebpages(db, deserializeData);

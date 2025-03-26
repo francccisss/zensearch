@@ -1,63 +1,44 @@
-import { IndexedWebpages, URLs, Webpage, FrontierQueue } from "./utils/types";
+import { IndexedWebpage, URLs, Webpage, FrontierQueue } from "./utils/types";
 import { randomUUID } from "crypto";
 import Database from "better-sqlite3";
 
-async function indexWebpages(db: Database.Database, data: IndexedWebpages) {
-  //if (db == null) {
-  //  throw new Error("ERROR: Database is not connected.");
-  //}
-  //db.serialize(() => {
-  //  db.run(
-  //    "INSERT OR IGNORE INTO known_sites (url, last_added) VALUES ($url, $last_added);",
-  //    {
-  //      $url: data.URLSeed,
-  //      $last_added: Date.now(),
-  //    },
-  //  );
-  //  const insertIndexedSitesStmt = db.prepare(
-  //    "INSERT OR IGNORE INTO indexed_sites (primary_url, last_indexed) VALUES ($primary_url, $last_indexed);",
-  //  );
-  //  const insertWebpagesStmt = db.prepare(
-  //    "INSERT INTO webpages (url, title, contents, parent) VALUES ($webpage_url, $title, $contents, $parent);",
-  //  );
-  //  insertIndexedSitesStmt.run(
-  //    {
-  //      $primary_url: data.URLSeed,
-  //      $last_indexed: Date.now(),
-  //    },
-  //    function (err) {
-  //      if (err) {
-  //        console.error("Unable to add last indexed site:", err.message);
-  //        return;
-  //      }
-  //      const parentId = this.lastID;
-  //      data.Webpages.forEach((el) => {
-  //        if (el === undefined) return;
-  //        const {
-  //          Header: { Title, Url },
-  //          Contents,
-  //        } = el;
-  //
-  //        insertWebpagesStmt.run(
-  //          {
-  //            $webpage_url: Url,
-  //            $title: Title,
-  //            $contents: Contents,
-  //            $parent: parentId,
-  //          },
-  //          (err) => {
-  //            if (err) {
-  //              console.error("Error inserting webpage:", err.message);
-  //            }
-  //          },
-  //        );
-  //      });
-  //      insertWebpagesStmt.finalize();
-  //    },
-  //  );
-  //  insertIndexedSitesStmt.finalize();
-  //});
-  //console.log("NOTIF: DONE INDEXING");
+// TODO ADD UUID INSTEAD OF DATABASE INCREMENTING IDS
+async function indexWebpages(db: Database.Database, data: IndexedWebpage) {
+  if (db == null) {
+    throw new Error("ERROR: Database is not connected.");
+  }
+  const insertKnownStmt = db.prepare(
+    "INSERT INTO known_sites (id, url, last_added) VALUES (@id, @url, @last_added);",
+  );
+
+  insertKnownStmt.run({
+    id: randomUUID(),
+    url: data.URLSeed,
+    last_added: Date.now(),
+  });
+
+  const insertIndexedSitesStmt = db.prepare(
+    "INSERT INTO indexed_sites (id, primary_url, last_indexed) VALUES (@id ,@primary_url, @last_indexed);",
+  );
+
+  const indexedSiteID = randomUUID();
+  insertIndexedSitesStmt.run({
+    id: indexedSiteID,
+    primary_url: data.URLSeed,
+    last_indexed: Date.now(),
+  });
+
+  const insertWebpageStmt = db.prepare(
+    "INSERT INTO webpages (url, title, contents, parent) VALUES (@webpage_url, @title, @contents, @parent);",
+  );
+  insertWebpageStmt.run({
+    webpage_url: data.Webpage.Header.Url,
+    title: data.Webpage.Header.Title,
+    contents: data.Webpage.Contents,
+    parent: indexedSiteID,
+  });
+
+  console.log("NOTIF: DONE INDEXING");
 }
 
 async function queryWebpages(db: Database.Database): Promise<Array<Webpage>> {
@@ -144,23 +125,23 @@ const testDb: Map<string, Array<string>> = new Map();
 async function storeURLs(db: Database.Database, Urls: URLs) {
   //db.serialize(() => {
   //  db.get(
-  //    "SELECT Domain FROM Queue WHERE Domain = $Domain;",
-  //    { $Domain: Urls.Domain },
+  //    "SELECT Domain FROM Queue WHERE Domain = @Domain;",
+  //    { @Domain: Urls.Domain },
   //    (err: Error, row: Array<FrontierQueue> | FrontierQueue) => {
   //      if (err != null) {
   //        console.error(err);
   //        throw new Error(err.message);
   //      }
   //      if (row == undefined) {
-  //        db.run("INSERT INTO Queue (ID,Domain) VALUES ($ID, $Domain);", {
-  //          $ID: randomUUID(),
-  //          $Domain: Urls.Domain,
+  //        db.run("INSERT INTO Queue (ID,Domain) VALUES (@ID, @Domain);", {
+  //          @ID: randomUUID(),
+  //          @Domain: Urls.Domain,
   //        });
   //      }
   //      Urls.Nodes.forEach((url) => {
   //        db.run(
-  //          "INSERT INTO Node (ID, Url, QueueID) VALUES ($ID, $Url, $QueueID);",
-  //          { $ID: randomUUID(), $Url: url, $QueueID: "21" },
+  //          "INSERT INTO Node (ID, Url, QueueID) VALUES (@ID, @Url, @QueueID);",
+  //          { @ID: randomUUID(), @Url: url, @QueueID: "21" },
   //        );
   //      });
   //    },
