@@ -1,17 +1,16 @@
 CREATE TABLE queue (
-  ID TEXT PRIMARY KEY,
-  Domain TEXT NOT NULL
+  id TEXT PRIMARY KEY,
+  domain TEXT NOT NULL
 );
 
 CREATE TABLE node (
-  ID TEXT PRIMARY KEY,
-  Url TEXT NOT NULL,
-  QueueID TEXT REFERENCES queue(ID)
+  iD TEXT PRIMARY KEY,
+  url TEXT NOT NULL,
+  queue_id TEXT REFERENCES queue(id)
 );
 
 CREATE TABLE visited_node (
-  ID TEXT PRIMARY KEY,
-  Url TEXT NOT NULL,
-  NodeID TEXT REFERENCES node(ID)
+  id TEXT PRIMARY KEY,
+  url TEXT NOT NULL,
+  node_id TEXT REFERENCES node(id)
 );
-

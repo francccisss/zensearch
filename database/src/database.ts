@@ -1,42 +1,34 @@
-import { IndexedWebpage, URLs, Webpage, FrontierQueue } from "./utils/types";
+import type {
+  IndexedWebpage,
+  URLs,
+  Webpage,
+  FrontierQueue,
+} from "./utils/types.ts";
 import { randomUUID } from "crypto";
 import Database from "better-sqlite3";
 
 // TODO ADD UUID INSTEAD OF DATABASE INCREMENTING IDS
-async function indexWebpages(db: Database.Database, data: IndexedWebpage) {
+async function saveWebpage(db: Database.Database, data: IndexedWebpage) {
   if (db == null) {
     throw new Error("ERROR: Database is not connected.");
   }
-  const insertKnownStmt = db.prepare(
-    "INSERT INTO known_sites (id, url, last_added) VALUES (@id, @url, @last_added);",
-  );
-
-  insertKnownStmt.run({
-    id: randomUUID(),
-    url: data.URLSeed,
-    last_added: Date.now(),
-  });
 
   const insertIndexedSitesStmt = db.prepare(
-    "INSERT INTO indexed_sites (id, primary_url, last_indexed) VALUES (@id ,@primary_url, @last_indexed);",
+    "INSERT INTO indexed_sites (id, primary_url, last_indexed) VALUES (?,?,?);",
   );
 
   const indexedSiteID = randomUUID();
-  insertIndexedSitesStmt.run({
-    id: indexedSiteID,
-    primary_url: data.URLSeed,
-    last_indexed: Date.now(),
-  });
+  insertIndexedSitesStmt.run(indexedSiteID, data.URLSeed, Date.now());
 
   const insertWebpageStmt = db.prepare(
-    "INSERT INTO webpages (url, title, contents, parent) VALUES (@webpage_url, @title, @contents, @parent);",
+    "INSERT INTO webpages (url, title, contents, parent) VALUES (?, ?, ?, ?);",
   );
-  insertWebpageStmt.run({
-    webpage_url: data.Webpage.Header.Url,
-    title: data.Webpage.Header.Title,
-    contents: data.Webpage.Contents,
-    parent: indexedSiteID,
-  });
+  insertWebpageStmt.run(
+    data.Webpage.Header.Url,
+    data.Webpage.Header.Title,
+    data.Webpage.Contents,
+    indexedSiteID,
+  );
 
   console.log("NOTIF: DONE INDEXING");
 }
@@ -45,30 +37,9 @@ async function queryWebpages(db: Database.Database): Promise<Array<Webpage>> {
   // query function returns once the promise has either been resolved
   // or rejected by the sqlite query call.
 
-  return await new Promise(function (resolved, reject) {
-    //  const sql_query = "SELECT Url, Contents, Title FROM webpages";
-    //  db.all(sql_query, (err: Error, rows: Array<Webpage>) => {
-    //    try {
-    //      if (err) {
-    //        throw new Error(
-    //          "ERROR: Something went wrong while querying webpages for search query.",
-    //        );
-    //      }
-    //      if (rows.length === 0) {
-    //        console.log("There are 0 webpages.\n");
-    //        console.log("Please Crawl the web. \n");
-    //      }
-    //      resolved(rows);
-    //    } catch (err) {
-    //      const error = err as Error;
-    //      console.log(
-    //        "ERROR: Error while querying webpages in database service.",
-    //      );
-    //      console.error(error.message);
-    //      reject(error.message);
-    //    }
-    //  });
-  });
+  const stmt = db.prepare("SELECT Url, Contents, Title FROM webpages");
+  const pages = stmt.all();
+  return pages as Array<Webpage>;
 }
 
 // TODO clean this wrapper thingy majig next time. :D
@@ -170,7 +141,7 @@ async function dequeueURL(
   return { length: 0, url: "fzaid.vercel.app/home" };
 }
 export default {
-  indexWebpages,
+  saveWebpage,
   checkExistingTasks,
   queryWebpages,
   storeURLs,

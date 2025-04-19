@@ -1,14 +1,4 @@
 // Message
-export type IndexedWebpage = {
-  Message: string;
-  CrawlStatus: number;
-  Webpage: {
-    Header: header;
-    Contents: string;
-  };
-  Title: string;
-  URLSeed: string;
-};
 export const CRAWL_SUCCESS = 0;
 export const CRAWL_FAIL = 1;
 export type CrawlStatus = number;
@@ -16,6 +6,16 @@ export type CrawlStatus = number;
 type header = {
   Title: string;
   Url: string;
+};
+
+export type IndexedWebpage = {
+  Message: string;
+  CrawlStatus: number;
+  Webpage: {
+    Header: header;
+    Contents: string;
+  };
+  URLSeed: string;
 };
 export type Webpage = {
   Contents: string;
