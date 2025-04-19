@@ -10,6 +10,7 @@
     "postbuild": "cp -r src/db_utils/ dist/"
   },
   "keywords": [],
+  "type": "module",
   "author": "",
   "license": "ISC",
   "description": "",

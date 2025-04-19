@@ -1,6 +1,6 @@
 import path from "path";
 import Database from "better-sqlite3";
-import rabbitmq from "./rabbitmq";
+import rabbitmq from "./rabbitmq/index.ts";
 import { readFile } from "fs";
 import { exit } from "node:process";
 

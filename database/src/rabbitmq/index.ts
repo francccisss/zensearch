@@ -1,16 +1,16 @@
 import amqp from "amqplib";
-import sql from "../database";
+import sql from "../database.ts";
 import Database from "better-sqlite3";
-import { IndexedWebpage, URLs, Webpage } from "../utils/types";
-import segmentSerializer from "../serializer/segment_serializer";
+import type { IndexedWebpage, URLs, Webpage } from "../utils/types.ts";
+import segmentSerializer from "../serializer/segment_serializer.ts";
 import {
   CRAWLER_DB_INDEXING_QUEUE,
   DB_EXPRESS_CHECK_CBQ,
   DB_SENGINE_REQUEST_CBQ,
   EXPRESS_DB_CHECK_QUEUE,
   SENGINE_DB_REQUEST_QUEUE,
-} from "./routing_keys";
-import database from "../database";
+} from "./routing_keys.ts";
+import database from "../database.ts";
 
 export async function establishConnection(
   retries: number,
