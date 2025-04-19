@@ -4,7 +4,7 @@ CREATE TABLE queue (
 );
 
 CREATE TABLE node (
-  iD TEXT PRIMARY KEY,
+  id TEXT PRIMARY KEY,
   url TEXT NOT NULL,
   queue_id TEXT REFERENCES queue(id)
 );

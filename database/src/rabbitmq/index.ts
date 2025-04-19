@@ -135,7 +135,7 @@ async function webpageHandler(
       const crawlList: { Docs: Array<string> } = JSON.parse(
         data.content.toString(),
       );
-      const unindexedWebsites = await sql.checkExistingTasks(
+      const unindexedWebsites = sql.checkAlreadyIndexedWebpage(
         db,
         crawlList.Docs,
       );
