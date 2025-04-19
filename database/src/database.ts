@@ -18,7 +18,11 @@ async function saveWebpage(db: Database.Database, data: IndexedWebpage) {
   );
 
   const indexedSiteID = randomUUID();
-  insertIndexedSitesStmt.run(indexedSiteID, data.URLSeed, Date.now());
+  insertIndexedSitesStmt.run(
+    indexedSiteID,
+    new URL(data.URLSeed).hostname,
+    Date.now(),
+  );
 
   const insertWebpageStmt = db.prepare(
     "INSERT INTO webpages (url, title, contents, parent) VALUES (?, ?, ?, ?);",
@@ -43,53 +47,22 @@ async function queryWebpages(db: Database.Database): Promise<Array<Webpage>> {
 }
 
 // TODO clean this wrapper thingy majig next time. :D
-async function checkExistingTasks(
+function checkAlreadyIndexedWebpage(
   db: Database.Database,
   crawlList: Array<string>,
-): Promise<Array<string>> {
-  let tmp: Array<string> = [];
-  //const query = await queryPromiseWrapper(db);
-  //if (query == null)
-  //  throw new Error("ERROR: Unable to query indexed websites.");
-  //crawlList.forEach((item) => {
-  //  const url = new URL(item).hostname;
-  //  if (!query.has(url)) {
-  //    tmp.push(item);
-  //  }
-  //});
-  return tmp;
-}
+): Array<string> {
+  const stmt = db.prepare(
+    "SELECT primary_url as url FROM indexed_sites WHERE url = ?",
+  );
 
-async function queryPromiseWrapper(
-  db: Database.Database,
-): Promise<Map<string, string> | null> {
-  const stmt = `SELECT primary_url FROM indexed_sites`;
-  let indexed_map: Map<string, string> = new Map();
-  return new Promise((resolve, reject) => {
-    //db.each(
-    //  stmt,
-    //  function (err: Error, row: { primary_url: string }) {
-    //    try {
-    //      if (err) {
-    //        throw new Error(err.message);
-    //      }
-    //      indexed_map.set(row.primary_url, "");
-    //    } catch (err) {
-    //      console.error("ERROR: Unable to query indexed websites.");
-    //      console.error(err);
-    //      reject(null);
-    //    }
-    //  },
-    //  function (err) {
-    //    if (err) {
-    //      console.error(err);
-    //      reject(null);
-    //      return;
-    //    }
-    //    resolve(indexed_map);
-    //  },
-    //);
+  if (crawlList.length === 0) return [];
+  let tmp: Array<string> = crawlList.filter((item) => {
+    const hostname = new URL(item).hostname;
+    const webpage = stmt.get(hostname);
+    return webpage != undefined;
   });
+
+  return tmp;
 }
 
 const testDb: Map<string, Array<string>> = new Map();
@@ -142,7 +115,7 @@ async function dequeueURL(
 }
 export default {
   saveWebpage,
-  checkExistingTasks,
+  checkAlreadyIndexedWebpage,
   queryWebpages,
   storeURLs,
   clearURLs,

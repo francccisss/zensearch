@@ -15,12 +15,12 @@ export const testPages: IndexedWebpage[] = [
     Webpage: {
       Header: {
         Title: "Example Page 1",
-        Url: "https://example.com/page1",
+        Url: "https://lol.com/page1",
       },
       Contents:
         "<html><head><title>Example Page 1</title></head><body>Hello, world!</body></html>",
     },
-    URLSeed: "https://example.com/page1",
+    URLSeed: "https://lol.com/",
   },
   {
     Message: "Crawled successfully",
@@ -28,12 +28,12 @@ export const testPages: IndexedWebpage[] = [
     Webpage: {
       Header: {
         Title: "Example Page 2",
-        Url: "https://example.com/page2",
+        Url: "https://rerere.com/page2",
       },
       Contents:
         "<html><head><title>Example Page 2</title></head><body>Test content here.</body></html>",
     },
-    URLSeed: "https://example.com/page2",
+    URLSeed: "https://rerere.com/",
   },
   {
     Message: "Page not found",
@@ -41,11 +41,11 @@ export const testPages: IndexedWebpage[] = [
     Webpage: {
       Header: {
         Title: "Not Found",
-        Url: "https://example.com/missing",
+        Url: "https://unsolicitedadvice.com/",
       },
       Contents: "",
     },
-    URLSeed: "https://example.com/missing",
+    URLSeed: "https://unsolicitedadvice.com/",
   },
   {
     Message: "Redirected",
@@ -53,11 +53,11 @@ export const testPages: IndexedWebpage[] = [
     Webpage: {
       Header: {
         Title: "Redirect Page",
-        Url: "https://example.com/redirect",
+        Url: "https://excel.com/redirect",
       },
       Contents: "",
     },
-    URLSeed: "https://example.com/redirect",
+    URLSeed: "https://excel.com/redirect",
   },
   {
     Message: "Crawled successfully",
@@ -87,11 +87,28 @@ test.test("Webpage Indexing", async (t) => {
   }
 });
 
+test.test("clear_db", async () => {
+  db.prepare("delete from webpages;").run();
+  db.prepare("delete from indexed_sites;").run();
+  console.log("cleared database");
+});
+
 test.test("Webpage Query", async (t) => {
   try {
     const webpages = database.queryWebpages(db);
     console.log(webpages);
   } catch (e) {
+    t.assert.fail(e.code);
+  }
+});
+
+test.test("Check existing", (t) => {
+  try {
+    const crawlList = ["https://api.example.com"];
+    const webpages = database.checkAlreadyIndexedWebpage(db, crawlList);
+    console.log("Existing Urls: ", webpages);
+  } catch (e) {
+    console.error(e);
     t.assert.fail(e.code);
   }
 });
