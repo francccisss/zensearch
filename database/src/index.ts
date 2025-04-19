@@ -4,15 +4,18 @@ import rabbitmq from "./rabbitmq/index.ts";
 import { readFile } from "fs";
 import { exit } from "node:process";
 
-const wc = path.join(__dirname, "../website_collection.db");
-const fq = path.join(__dirname, "../frontier_queue.db");
+const wc = path.join(import.meta.dirname, "../website_collection.db");
+const fq = path.join(import.meta.dirname, "../frontier_queue.db");
 const websitesDB = initDatabase(wc);
 const frontierQueueDB = initDatabase(fq);
 const cumulativeAckCount = 1000;
-execScripts(websitesDB, path.join(__dirname, "./db_utils/websites.init.sql"));
+execScripts(
+  websitesDB,
+  path.join(import.meta.dirname, "./db_utils/websites.init.sql"),
+);
 execScripts(
   frontierQueueDB,
-  path.join(__dirname, "./db_utils/frontier_queue.sql"),
+  path.join(import.meta.dirname, "./db_utils/frontier_queue.sql"),
 );
 
 const tables = [
@@ -71,6 +74,7 @@ async function execScripts(db: Database.Database | null, scriptPath: string) {
             db.exec(stmt);
             break;
           }
+          console.log("Notif:  Table already exists for %s", tableName);
         }
       }
     });

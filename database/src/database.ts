@@ -65,41 +65,31 @@ function checkAlreadyIndexedWebpage(
   return tmp;
 }
 
-const testDb: Map<string, Array<string>> = new Map();
-async function storeURLs(db: Database.Database, Urls: URLs) {
-  //db.serialize(() => {
-  //  db.get(
-  //    "SELECT Domain FROM Queue WHERE Domain = @Domain;",
-  //    { @Domain: Urls.Domain },
-  //    (err: Error, row: Array<FrontierQueue> | FrontierQueue) => {
-  //      if (err != null) {
-  //        console.error(err);
-  //        throw new Error(err.message);
-  //      }
-  //      if (row == undefined) {
-  //        db.run("INSERT INTO Queue (ID,Domain) VALUES (@ID, @Domain);", {
-  //          @ID: randomUUID(),
-  //          @Domain: Urls.Domain,
-  //        });
-  //      }
-  //      Urls.Nodes.forEach((url) => {
-  //        db.run(
-  //          "INSERT INTO Node (ID, Url, QueueID) VALUES (@ID, @Url, @QueueID);",
-  //          { @ID: randomUUID(), @Url: url, @QueueID: "21" },
-  //        );
-  //      });
-  //    },
-  //  );
-  //});
-  //
-  //if (!testDb.has(Urls.Domain)) {
-  //  console.log("Creating queue for %s", Urls.Domain);
-  //  console.log("Stored URLS in FrontierQueue for %s", Urls.Domain);
-  //  testDb.set(Urls.Domain, Urls.Nodes);
-  //  return;
-  //}
-  //testDb.set(Urls.Domain, Urls.Nodes);
-  //console.log("Stored URLS in FrontierQueue for %s", Urls.Domain);
+function enqueueUrls(db: Database.Database, Urls: URLs) {
+  // check if domain exists
+  console.log("DATABASE NAME: %s", db.name);
+  const stmt = db.prepare("SELECT * FROM queues WHERE domain = ?");
+  let domain = stmt.get(Urls.Domain) as FrontierQueue | undefined;
+  if (domain === undefined) {
+    console.log(
+      "Domain does not exist, creating a new domain from `%s`",
+      Urls.Domain,
+    );
+    db.prepare("INSERT INTO queues (id, domain) VALUES (?, ?)").run(
+      randomUUID(),
+      Urls.Domain,
+    );
+    domain = stmt.get(Urls.Domain) as FrontierQueue;
+    console.log("Domain created");
+  }
+  const nodeInsert = db.prepare(
+    "INSERT INTO nodes (id, url, queue_id) VALUES (?, ?, ?)",
+  );
+  console.log("Inserting new nodes to queue");
+  Urls.Nodes.forEach((node) => {
+    nodeInsert.run(randomUUID(), node, domain.id);
+  });
+  console.log("Nodes Enqueued");
 }
 
 async function clearURLs(db: Database.Database, q: FrontierQueue) {
@@ -107,6 +97,7 @@ async function clearURLs(db: Database.Database, q: FrontierQueue) {
   console.log("Storing URLS in FrontierQueue");
 }
 
+// What is dequeued is considered a Visited Node, so
 async function dequeueURL(
   db: Database.Database,
   src: string,
@@ -117,7 +108,7 @@ export default {
   saveWebpage,
   checkAlreadyIndexedWebpage,
   queryWebpages,
-  storeURLs,
+  enqueueUrls,
   clearURLs,
   dequeueURL,
 };

@@ -6,9 +6,9 @@ const tables = [
   "known_sites",
   "indexed_sites",
   "webpages",
-  "visited_node", // Dont move this before node
-  "node",
-  "queue",
+  "visited_nodes", // Dont move this before node
+  "nodes",
+  "queues",
 ];
 
 export function initDatabase(src: string): Database.Database {
@@ -16,10 +16,7 @@ export function initDatabase(src: string): Database.Database {
   return db;
 }
 
-export async function execScripts(
-  db: Database.Database | null,
-  scriptPath: string,
-) {
+export function execScripts(db: Database.Database | null, scriptPath: string) {
   console.log("Execute sqlite script");
   console.log(scriptPath);
   if (db === null) {
