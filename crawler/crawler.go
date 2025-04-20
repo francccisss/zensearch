@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"crawler/internal/rabbitmq"
 	"crawler/internal/types"
 	webdriver "crawler/internal/webdriver"
 	utilities "crawler/utilities"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -157,7 +159,7 @@ func (c Crawler) Crawl() error {
 
 	pageNavigator := PageNavigator{
 		WD:              c.WD,
-		Urls:            []string{c.URL}, // initialize Queue with URLSeed
+		Urls:            []string{}, // initialize Queue with URLSeed
 		DisallowedPaths: disallowedPaths,
 		IndexedWebpages: make([]types.IndexedWebpage, 0, 50),
 		Hostname:        hostname,
@@ -173,27 +175,38 @@ func (c Crawler) Crawl() error {
 		c.URL += "/"
 	}
 
-	ex := ExtractedUrls{
-		Domain: hostname,
-		Nodes:  pageNavigator.Urls,
-	}
-
-	// Sends the URL seed to the frontier queue
-	err = EnqueueUrls(ex)
-
-	if err != nil {
-		// Error for when crawler is not able to crawl and index the seed URL.
-		fmt.Printf("ERROR: unable to store Urls to database service %s\n", c.URL)
-		fmt.Println(err.Error())
-		return err
-	}
-
 	dqUrlChan := make(chan DequeuedUrl)
 	go ListenDequeuedUrl(dqUrlChan)
+
+	// check queue length, means that if it is > 0, then there are pending
+	// nodes from the previous session, so if it > 0, we continue from
+	// the current node in the queue, else  then we enqueue a new seed url
 
 	// Visited links are already checked from the database service
 	// so crawler does not have to check if the current url has already
 	// been visited by it.
+
+	queueLength, err := GetQueueLength(hostname)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	if queueLength != 0 {
+		ex := ExtractedUrls{
+			Domain: hostname,
+			Nodes:  []string{c.URL},
+		}
+		// Sends the URL seed to the frontier queue
+		err = EnqueueUrls(ex)
+		if err != nil {
+			// Error for when crawler is not able to crawl and index the seed URL.
+			fmt.Printf("ERROR: unable to store Urls to database service %s\n", c.URL)
+			fmt.Println(err.Error())
+			return err
+		}
+	}
+
 	err = DequeueUrl(hostname)
 	if err != nil {
 		fmt.Println(err)
@@ -328,7 +341,6 @@ func ListenDequeuedUrl(dqChan chan DequeuedUrl) {
 }
 
 func EnqueueUrls(exUrls ExtractedUrls) error {
-	fmt.Println("storing")
 
 	const CRAWLER_DB_STOREURLS_QUEUE = "crawler_db_storeurls_queue"
 	chann, err := rabbitmq.GetChannel("frontierChannel")
@@ -348,4 +360,34 @@ func EnqueueUrls(exUrls ExtractedUrls) error {
 		return err
 	}
 	return nil
+}
+
+func GetQueueLength(hostname string) (int, error) {
+
+	const CRAWLER_DB_GET_LEN_QUEUE = "crawler_db_len_queue"
+	chann, err := rabbitmq.GetChannel("frontierChannel")
+	if err != nil {
+		return 0, err
+	}
+
+	err = chann.Publish("", CRAWLER_DB_GET_LEN_QUEUE, false, false, amqp091.Publishing{
+		ContentType: "application/json",
+		Body:        []byte(hostname),
+		ReplyTo:     "get_queue_len_queue",
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	lenMsg, err := chann.Consume("get_queue_len_queue", "", false, false, false, false, nil)
+
+	msg := <-lenMsg
+	var queueLen int
+	bufReader := bytes.NewReader(msg.Body)
+	err = binary.Read(bufReader, binary.LittleEndian, &queueLen)
+	if err != nil {
+		return 0, err
+	}
+
+	return queueLen, nil
 }
