@@ -83,6 +83,7 @@ function enqueueUrls(db: Database.Database, Urls: URLs) {
     domain = stmt.get(Urls.Domain) as FrontierQueue;
     console.log("Domain created");
   }
+  // check if the current node has already been visited
   const nodeInsert = db.prepare(
     "INSERT INTO nodes (url, queue_id) VALUES (?, ?)",
   );
@@ -112,10 +113,43 @@ function dequeueURL(
       console.log("Domain does not exist = `%s`", Qdomain);
       throw new Error(`Domain does not exist = '${Qdomain}'`);
     }
+
+    // used for continuing if the crawler crashes for some reason
+    // if the node was not sent to the crawler
+    // if the database fails
+    const inProgressNode = db
+      .prepare("SELECT * from nodes WHERE status = 'in_progress'")
+      .get() as Node;
+
+    if (inProgressNode == undefined) {
+      const nextNode = db
+        .prepare(
+          "SELECT * FROM nodes WHERE status = 'pending' ORDER BY id LIMIT 1",
+        )
+        .get() as Node;
+
+      if (nextNode === undefined) {
+        db.prepare("DELETE FROM queues WHERE id = ?").run(domain.id);
+        return {
+          length: 0,
+          url: "",
+          message: `Frontier queue for ${domain.domain} is empty.`,
+        };
+      }
+
+      db.prepare("UPDATE nodes SET status = 'in_progress' WHERE id = ?").run(
+        nextNode.id,
+      );
+      console.log("Update node=%s to 'in_progess'", nextNode.id);
+      const nodes = db
+        .prepare("SELECT * from nodes WHERE status = 'pending'")
+        .all() as Node[];
+
+      return { length: nodes.length, url: nextNode.url, message: "" };
+    }
+
     const nodes = db
-      .prepare(
-        "SELECT * from nodes WHERE status = 'pending' ORDER BY id LIMIT 2",
-      )
+      .prepare("SELECT * from nodes WHERE status = 'pending'")
       .all() as Node[];
 
     if (nodes.length == 0) {
@@ -128,12 +162,13 @@ function dequeueURL(
       };
     }
 
-    db.prepare("UPDATE nodes SET status = 'in_progress' WHERE id = ?").run(
-      nodes[0].id,
-    );
-    console.log("Update node=%s to 'in_progess'", nodes[0].id);
+    console.log("Update node=%s to 'in_progess'", inProgressNode.id);
 
-    return { length: nodes.length, url: nodes[0].url, message: "" };
+    return {
+      length: nodes.length,
+      url: inProgressNode.url,
+      message: "",
+    };
   } catch (e) {
     const err = e as Error;
     return { length: 0, url: "", message: err.message };
