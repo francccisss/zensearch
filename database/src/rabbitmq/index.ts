@@ -1,16 +1,21 @@
 import amqp from "amqplib";
-import sql from "../database.ts";
+import sql from "../database.js";
 import Database from "better-sqlite3";
-import type { IndexedWebpage, URLs, Webpage } from "../utils/types.ts";
-import segmentSerializer from "../serializer/segment_serializer.ts";
+import type {
+  DequeuedUrl,
+  IndexedWebpage,
+  URLs,
+  Webpage,
+} from "../utils/types.js";
+import segmentSerializer from "../serializer/segment_serializer.js";
 import {
   CRAWLER_DB_INDEXING_QUEUE,
   DB_EXPRESS_CHECK_CBQ,
   DB_SENGINE_REQUEST_CBQ,
   EXPRESS_DB_CHECK_QUEUE,
   SENGINE_DB_REQUEST_QUEUE,
-} from "./routing_keys.ts";
-import database from "../database.ts";
+} from "./routing_keys.js";
+import database from "../database.js";
 
 export async function establishConnection(
   retries: number,
@@ -246,7 +251,10 @@ async function frontierQueueHandler(
         }
 
         console.log("NOTIF: Dequeued URL Sent");
-        database.setNodeToVisited;
+        // node can be null if queue is empty
+        if (node !== null) {
+          database.setNodeToVisited(db, node);
+        }
       } catch (err) {
         console.log(err);
         // i dont know what to do with this yet
@@ -269,24 +277,5 @@ async function frontierQueueHandler(
       }
     },
   );
-
-  frontierChannel.consume(
-    CRAWLER_DB_CLEARURLS_QUEUE,
-    (msg: amqp.ConsumeMessage | null) => {
-      try {
-        if (msg == null) {
-          throw new Error("Message is null");
-        }
-        console.log("Clearing URLS in Queue");
-        frontierChannel.ack(msg);
-      } catch (err) {
-        console.log(err);
-      }
-    },
-  );
 }
-type DequeuedUrl = {
-  Url: string;
-  RemainingInQueue: number;
-};
 export default { establishConnection, webpageHandler, frontierQueueHandler };

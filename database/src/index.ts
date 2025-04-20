@@ -1,6 +1,6 @@
 import path from "path";
 import Database from "better-sqlite3";
-import rabbitmq from "./rabbitmq/index.ts";
+import rabbitmq from "./rabbitmq/index.js";
 import { readFile } from "fs";
 import { exit } from "node:process";
 
@@ -26,7 +26,7 @@ const tables = [
   "node",
   "queue",
 ];
-(async () => {
+(async (): Promise<void> => {
   console.log("Starting database server");
   try {
     const connection = await rabbitmq.establishConnection(7);

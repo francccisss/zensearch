@@ -53,3 +53,8 @@ export type VisitedNode = {
   node_id: number;
   queue_id: number;
 };
+
+export type DequeuedUrl = {
+  Url: string;
+  RemainingInQueue: number;
+};

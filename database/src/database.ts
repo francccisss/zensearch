@@ -4,7 +4,7 @@ import type {
   Webpage,
   FrontierQueue,
   Node,
-} from "./utils/types.ts";
+} from "./utils/types.js";
 import { randomUUID } from "crypto";
 import Database from "better-sqlite3";
 
