@@ -9,26 +9,28 @@ const fq = path.join(import.meta.dirname, "../frontier_queue.db");
 const websitesDB = initDatabase(wc);
 const frontierQueueDB = initDatabase(fq);
 const cumulativeAckCount = 1000;
-execScripts(
-  websitesDB,
-  path.join(import.meta.dirname, "./db_utils/websites.init.sql"),
-);
-execScripts(
-  frontierQueueDB,
-  path.join(import.meta.dirname, "./db_utils/frontier_queue.sql"),
-);
 
 const tables = [
   "known_sites",
   "indexed_sites",
   "webpages",
-  "visited_node", // Dont move this before node
-  "node",
-  "queue",
+  "visited_nodes", // Dont move this before node
+  "nodes",
+  "queues",
 ];
-(async (): Promise<void> => {
-  console.log("Starting database server");
+await (async (): Promise<void> => {
   try {
+    await execScripts(
+      websitesDB,
+      path.join(import.meta.dirname, "./db_utils/websites.init.sql"),
+    );
+    await execScripts(
+      frontierQueueDB,
+      path.join(import.meta.dirname, "./db_utils/frontier_queue.sql"),
+    );
+
+    console.log("Notif: tables created");
+    console.log("Starting database server");
     const connection = await rabbitmq.establishConnection(7);
     const databaseChannel = await connection.createChannel();
     const frontierChannel = await connection.createChannel();
