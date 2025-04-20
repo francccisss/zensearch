@@ -4,8 +4,9 @@ CREATE TABLE queues (
 );
 
 CREATE TABLE nodes (
-  id TEXT PRIMARY KEY,
+  id INTEGER PRIMARY KEY,
   url TEXT NOT NULL,
+  status TEXT DEFAULT 'pending',
   queue_id TEXT REFERENCES queues(id)
 );
 

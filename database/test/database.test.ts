@@ -116,6 +116,32 @@ test.test("Check existing", (t) => {
   }
 });
 
+test.test("dequeue", (t) => {
+  const urls: URLs = {
+    Domain: "https://example.com",
+    Nodes: [
+      "https://example.com/about",
+      "https://example.com/contact",
+      "https://example.com/blog",
+      "https://example.com/products/item-1",
+      "https://example.com/products/item-2",
+    ],
+  };
+  try {
+    database.enqueueUrls(frontierQueueDB, urls);
+    console.log("DEQUEING");
+    const node = database.dequeueURL(frontierQueueDB, urls.Domain);
+    console.log(frontierQueueDB.prepare("select * from nodes").all());
+    console.log(node);
+  } catch (e) {
+    console.error(e);
+    t.assert.fail(e.code);
+  } finally {
+    frontierQueueDB.prepare("delete from nodes").run();
+    frontierQueueDB.prepare("delete from queues").run();
+  }
+});
+
 test.test("push to queue", (t) => {
   const urls: URLs = {
     Domain: "https://example.com",
