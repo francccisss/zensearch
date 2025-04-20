@@ -2,7 +2,7 @@ import test from "node:test";
 import path from "node:path";
 import { execScripts, initDatabase } from "./setup_db.ts";
 import database from "../src/database.ts";
-import type { IndexedWebpage, URLs } from "../src/utils/types.ts";
+import type { IndexedWebpage, Node, URLs } from "../src/utils/types.ts";
 
 const wc = path.join(import.meta.dirname, "./website_collection_tst.db");
 const fq = path.join(import.meta.dirname, "./frontier_queue_tst.db");
@@ -105,7 +105,7 @@ test.test("Webpage Query", async (t) => {
   }
 });
 
-test.test("Check existing", (t) => {
+test.test("Check existing websites", (t) => {
   try {
     const crawlList = ["https://api.example.com"];
     const webpages = database.checkAlreadyIndexedWebpage(websitesDB, crawlList);
@@ -128,21 +128,18 @@ test.test("dequeue", (t) => {
     ],
   };
   try {
-    database.enqueueUrls(frontierQueueDB, urls);
-    console.log("DEQUEING");
+    //database.enqueueUrls(frontierQueueDB, urls);
     const node = database.dequeueURL(frontierQueueDB, urls.Domain);
-    console.log(frontierQueueDB.prepare("select * from nodes").all());
-    console.log(node);
+    console.log("DEQUEUED NODE: ", node);
   } catch (e) {
     console.error(e);
     t.assert.fail(e.code);
   } finally {
-    frontierQueueDB.prepare("delete from nodes").run();
-    frontierQueueDB.prepare("delete from queues").run();
+    console.log(frontierQueueDB.prepare("select * from nodes").all());
   }
 });
 
-test.test("push to queue", (t) => {
+test.test("enqueue urls", (t) => {
   const urls: URLs = {
     Domain: "https://example.com",
     Nodes: [
@@ -155,13 +152,52 @@ test.test("push to queue", (t) => {
   };
   try {
     database.enqueueUrls(frontierQueueDB, urls);
-    console.log(frontierQueueDB.prepare("select * from nodes").all());
-    console.log(frontierQueueDB.prepare("select * from queues").all());
   } catch (e) {
     console.error(e);
     t.assert.fail(e.code);
   } finally {
-    frontierQueueDB.prepare("delete from nodes").run();
-    frontierQueueDB.prepare("delete from queues").run();
+    console.log(frontierQueueDB.prepare("select * from nodes").all());
+    console.log(frontierQueueDB.prepare("select * from queues").all());
+  }
+});
+
+test.test("check node before pushing to queue if has been visited", (t) => {
+  const urls: URLs = {
+    Domain: "https://example.com",
+    Nodes: [
+      "https://example.com/about",
+      "https://example.com/contact",
+      "https://example.com/blog",
+      "https://example.com/products/item-1",
+      "https://example.com/products/item-2",
+    ],
+  };
+
+  try {
+    database.enqueueUrls(frontierQueueDB, urls);
+    const nodes = frontierQueueDB
+      .prepare("SELECT * FROM nodes")
+      .all() as Node[];
+
+    [nodes[0]].forEach((node) => {
+      frontierQueueDB
+        .prepare("INSERT INTO visited_nodes (node_url,queue_id) VALUES (?,?)")
+        .run(node.url, node.queue_id);
+    });
+    console.log(
+      // needs node id
+      frontierQueueDB
+        .prepare(
+          "SELECT * FROM visited_nodes vn JOIN nodes n ON ? = n.url JOIN queues ON vn.queue_id = queues.id",
+        )
+        .all(nodes[0].url),
+    );
+    //const node = database.setNodeToVisited(frontierQueueDB, "1");
+  } catch (e) {
+    console.error(e);
+    t.assert.fail(e.code);
+  } finally {
+    frontierQueueDB.prepare("DELETE FROM visited_nodes").run();
+    frontierQueueDB.prepare("DELETE FROM nodes").run();
   }
 });

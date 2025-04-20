@@ -5,14 +5,14 @@ CREATE TABLE queues (
 
 CREATE TABLE nodes (
   id INTEGER PRIMARY KEY,
-  url TEXT NOT NULL,
+  url TEXT NOT NULL UNIQUE,
   status TEXT DEFAULT 'pending',
   queue_id TEXT REFERENCES queues(id)
 );
 
 CREATE TABLE visited_nodes (
-  id TEXT PRIMARY KEY,
-  url TEXT NOT NULL,
+  id INTEGER PRIMARY KEY,
+  node_url TEXT NOT NULL REFERENCES nodes(url),
   queue_id TEXT REFERENCES queues(id)
 );
 

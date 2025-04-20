@@ -174,11 +174,35 @@ function dequeueURL(
     return { length: 0, url: "", message: err.message };
   }
 }
+
+function setNodeToVisited(db: Database.Database, node: Node) {
+  try {
+    db.prepare(
+      "INSERT INTO visited_nodes (node_url, queue_id) VALUES (?, ?)",
+    ).run(node.url, node.queue_id);
+  } catch (err) {
+    console.error("Error: Unable to set node as visited");
+    console.error(err);
+  }
+}
+
+function checkNodeVisited(db: Database.Database, url: string): boolean {
+  return db
+    .prepare(
+      "SELECT * FROM visited_nodes vn JOIN nodes n ON ? = n.url JOIN queues ON vn.queue_id = queues.id",
+    )
+    .get(url) == undefined
+    ? false
+    : true;
+}
+
 export default {
+  checkNodeVisited,
   saveWebpage,
   checkAlreadyIndexedWebpage,
   queryWebpages,
   enqueueUrls,
   clearURLs,
   dequeueURL,
+  setNodeToVisited,
 };

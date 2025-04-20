@@ -37,14 +37,19 @@ export type URLs = {
   Nodes: Array<string>;
 };
 
+// Corresponds to SQL schema
 export type Node = {
   id: number;
   url: string;
-  queueid: string;
+  queue_id: string;
   status: string;
 };
-
 export type FrontierQueue = {
   id: string;
   domain: string;
+};
+export type VisitedNode = {
+  id: string;
+  node_id: number;
+  queue_id: number;
 };
