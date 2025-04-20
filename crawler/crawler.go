@@ -157,8 +157,7 @@ func (c Crawler) Crawl() error {
 
 	pageNavigator := PageNavigator{
 		WD:              c.WD,
-		PagesVisited:    map[string]string{},
-		Urls:            []string{c.URL}, // inialize Queue with URLSeed
+		Urls:            []string{c.URL}, // initialize Queue with URLSeed
 		DisallowedPaths: disallowedPaths,
 		IndexedWebpages: make([]types.IndexedWebpage, 0, 50),
 		Hostname:        hostname,
@@ -174,24 +173,27 @@ func (c Crawler) Crawl() error {
 		c.URL += "/"
 	}
 
-	// sends the urls from current page to frontier queue
 	ex := ExtractedUrls{
 		Domain: hostname,
-		Urls:   pageNavigator.Urls,
+		Nodes:  pageNavigator.Urls,
 	}
 
-	err = StoreURLs(ex)
+	// Sends the URL seed to the frontier queue
+	err = EnqueueUrls(ex)
 
 	if err != nil {
-		// Error for when crawler is not able to crawl and index the remaining webpages.
+		// Error for when crawler is not able to crawl and index the seed URL.
 		fmt.Printf("ERROR: unable to store Urls to database service %s\n", c.URL)
 		fmt.Println(err.Error())
 		return err
 	}
 
 	dqUrlChan := make(chan DequeuedUrl)
-	go ListenDequeuedUrls(dqUrlChan)
+	go ListenDequeuedUrl(dqUrlChan)
 
+	// Visited links are already checked from the database service
+	// so crawler does not have to check if the current url has already
+	// been visited by it.
 	err = DequeueUrl(hostname)
 	if err != nil {
 		fmt.Println(err)
@@ -199,10 +201,14 @@ func (c Crawler) Crawl() error {
 	}
 	for dq := range dqUrlChan {
 		fmt.Println("Dequeued URL")
+		fmt.Println(dq)
 		retries := 0
 
-		if dq.RemainingInQueue == 0 {
+		// initial url is not going to run because there are and will be 0 RemainingInQueue
+		// need to navigat before checking
+		if dq.RemainingInQueue == 0 && dq.Url == "" {
 			fmt.Println("No more urls in queue, cleaning up")
+			close(dqUrlChan)
 			break
 		}
 
@@ -265,6 +271,8 @@ func SendIndexedWebpage(result types.Result) error {
 
 }
 
+// Dequeues the url in the current queue, the domain corresponds to the
+// crawler's current running job from a URL seed
 func DequeueUrl(domain string) error {
 
 	fmt.Println("Dequeue notif sent")
@@ -290,8 +298,8 @@ func DequeueUrl(domain string) error {
 	return nil
 }
 
-func ListenDequeuedUrls(dqChan chan DequeuedUrl) {
-	fmt.Println("Listening to dequeued urls")
+func ListenDequeuedUrl(dqChan chan DequeuedUrl) {
+	fmt.Println("Listening to dequeued url")
 
 	chann, err := rabbitmq.GetChannel("frontierChannel")
 	if err != nil {
@@ -319,7 +327,7 @@ func ListenDequeuedUrls(dqChan chan DequeuedUrl) {
 	}
 }
 
-func StoreURLs(exUrls ExtractedUrls) error {
+func EnqueueUrls(exUrls ExtractedUrls) error {
 	fmt.Println("storing")
 
 	const CRAWLER_DB_STOREURLS_QUEUE = "crawler_db_storeurls_queue"

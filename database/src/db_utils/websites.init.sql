@@ -17,3 +17,4 @@ CREATE TABLE webpages (
     title TEXT,
     contents TEXT
 );
+

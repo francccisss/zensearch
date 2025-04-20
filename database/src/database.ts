@@ -68,7 +68,7 @@ function checkAlreadyIndexedWebpage(
 
 function enqueueUrls(db: Database.Database, Urls: URLs) {
   // check if domain exists
-  console.log("DATABASE NAME: %s", db.name);
+  console.log(Urls);
   const stmt = db.prepare("SELECT * FROM queues WHERE domain = ?");
   let domain = stmt.get(Urls.Domain) as FrontierQueue | undefined;
   if (domain === undefined) {

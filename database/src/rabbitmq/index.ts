@@ -20,16 +20,15 @@ import database from "../database.js";
 export async function establishConnection(
   retries: number,
 ): Promise<amqp.ChannelModel> {
+  console.log("Notif: Connecting...");
   if (retries > 0) {
     retries--;
     try {
       const connection = await amqp.connect("amqp://localhost:5672");
-      console.log(
-        `Successfully connected to rabbitmq after ${retries} retries`,
-      );
+      console.log(`Successfully connected to rabbitmq after several retries`);
       return connection;
     } catch (err) {
-      console.error("Retrying Database service connection");
+      console.error("Retrying Database service connection...");
       await new Promise((resolve) => {
         const timeoutID = setTimeout(() => {
           resolve("Done blocking");
@@ -74,7 +73,7 @@ async function webpageHandler(
     // who is going to catch this error? aaaaaa
     if (data === null) throw new Error("No data was pushed.");
     const decoder = new TextDecoder();
-    const decodedData = decoder.decode(data.content as ArrayBuffer);
+    const decodedData = decoder.decode(data.content as unknown as ArrayBuffer);
     const deserializeData: IndexedWebpage = JSON.parse(decodedData);
     try {
       databaseChannel.ack(data);

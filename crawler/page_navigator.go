@@ -15,7 +15,6 @@ import (
 
 type PageNavigator struct {
 	WD              *selenium.WebDriver
-	PagesVisited    map[string]string
 	Urls            []string
 	DisallowedPaths []string
 	RetryCount      int
@@ -26,7 +25,7 @@ type PageNavigator struct {
 
 type ExtractedUrls struct {
 	Domain string
-	Urls   []string
+	Nodes  []string
 }
 
 type RequestTime struct {
@@ -104,8 +103,6 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) error {
 		return err
 	}
 
-	pn.PagesVisited[currentUrl] = currentUrl
-
 	fmt.Println("NOTIF: Page set to visited.")
 
 	// FETCHING STAGE (fetching anchor elements)
@@ -139,6 +136,8 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) error {
 		}
 	}
 
+	// Improve this by O(Log n), split it up, find duplicates on each branch
+	// combine, find duplicates
 	for _, link := range pageLinks {
 
 		// need to filter out links that is not the same as hostname
@@ -154,9 +153,8 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) error {
 		if !isAllowed {
 			continue
 		}
-		// enqueue links that have not been visited yet and that are the same as the hostname
-		_, visited := pn.PagesVisited[href]
-		if !visited && childHostname == pn.Hostname {
+		// Visited links are already checked from the database service
+		if childHostname == pn.Hostname {
 			pn.Urls = append(pn.Urls, href)
 		}
 	}
@@ -164,9 +162,9 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) error {
 	fmt.Printf("NOTIF: Queue Length: %d\n", len(pn.Urls))
 	ex := ExtractedUrls{
 		Domain: pn.Hostname,
-		Urls:   pn.Urls,
+		Nodes:  pn.Urls,
 	}
-	err = StoreURLs(ex)
+	err = EnqueueUrls(ex)
 	if err != nil {
 		fmt.Printf("ERROR: Unable to store extracted Urls.\n")
 		return err
