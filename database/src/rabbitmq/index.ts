@@ -231,7 +231,7 @@ async function frontierQueueHandler(
         }
         const domain = msg.content.toString();
         console.log("Fetching Urls for %s", domain);
-        const { length, url } = await database.dequeueURL(db, domain);
+        const { length, url, node } = database.dequeueURL(db, domain);
 
         frontierChannel.ack(msg);
         const dequeuedUrl: DequeuedUrl = { RemainingInQueue: length, Url: url };
@@ -242,9 +242,11 @@ async function frontierQueueHandler(
           msgBuffer,
         );
         if (!sent) {
-          throw new Error("WTFFFFF");
+          throw new Error("Error: Unable to send a dequeueded URL");
         }
-        console.log("Sending Dequeued Url");
+
+        console.log("NOTIF: Dequeued URL Sent");
+        database.setNodeToVisited;
       } catch (err) {
         console.log(err);
         // i dont know what to do with this yet
@@ -259,7 +261,7 @@ async function frontierQueueHandler(
           throw new Error("Message is null");
         }
         const URLs: URLs = JSON.parse(msg.content.toString());
-        database.storeURLs(db, URLs);
+        database.enqueueUrls(db, URLs);
         frontierChannel.ack(msg);
       } catch (err) {
         // i dont know what to do with this yet

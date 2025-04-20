@@ -105,7 +105,7 @@ function clearURLs(db: Database.Database, q: FrontierQueue) {
 function dequeueURL(
   db: Database.Database,
   Qdomain: string,
-): { length: number; url: string; message: string } {
+): { length: number; url: string; message: string; node: Node | null } {
   try {
     const stmt = db.prepare("SELECT * FROM queues WHERE domain = ?");
     let domain = stmt.get(Qdomain) as FrontierQueue | undefined;
@@ -117,7 +117,7 @@ function dequeueURL(
     // used for continuing if the crawler crashes for some reason
     // if the node was not sent to the crawler
     // if the database fails
-    const inProgressNode = db
+    let inProgressNode = db
       .prepare("SELECT * from nodes WHERE status = 'in_progress'")
       .get() as Node;
 
@@ -134,18 +134,15 @@ function dequeueURL(
           length: 0,
           url: "",
           message: `Frontier queue for ${domain.domain} is empty.`,
+          node: null,
         };
       }
 
       db.prepare("UPDATE nodes SET status = 'in_progress' WHERE id = ?").run(
         nextNode.id,
       );
-      console.log("Update node=%s to 'in_progess'", nextNode.id);
-      const nodes = db
-        .prepare("SELECT * from nodes WHERE status = 'pending'")
-        .all() as Node[];
-
-      return { length: nodes.length, url: nextNode.url, message: "" };
+      nextNode.status = "in_progress"; // just so i dont get confused when logging it
+      inProgressNode = nextNode;
     }
 
     const nodes = db
@@ -159,6 +156,7 @@ function dequeueURL(
         length: 0,
         url: "",
         message: `Frontier queue for ${domain.domain} is empty.`,
+        node: null,
       };
     }
 
@@ -168,13 +166,15 @@ function dequeueURL(
       length: nodes.length,
       url: inProgressNode.url,
       message: "",
+      node: inProgressNode,
     };
   } catch (e) {
     const err = e as Error;
-    return { length: 0, url: "", message: err.message };
+    return { length: 0, url: "", message: err.message, node: null };
   }
 }
 
+// only set once an ack has been received
 function setNodeToVisited(db: Database.Database, node: Node) {
   try {
     db.prepare(

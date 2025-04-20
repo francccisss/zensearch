@@ -128,14 +128,16 @@ test.test("dequeue", (t) => {
     ],
   };
   try {
-    //database.enqueueUrls(frontierQueueDB, urls);
+    database.enqueueUrls(frontierQueueDB, urls);
     const node = database.dequeueURL(frontierQueueDB, urls.Domain);
     console.log("DEQUEUED NODE: ", node);
   } catch (e) {
     console.error(e);
+    frontierQueueDB.prepare("DELETE FROM nodes").run();
     t.assert.fail(e.code);
   } finally {
     console.log(frontierQueueDB.prepare("select * from nodes").all());
+    frontierQueueDB.prepare("DELETE FROM nodes").run();
   }
 });
 
