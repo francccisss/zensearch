@@ -192,7 +192,8 @@ func (c Crawler) Crawl() error {
 		return err
 	}
 
-	if queueLength != 0 {
+	if queueLength == 0 {
+		fmt.Println("TEST: QUEUE IS EMPTY")
 		ex := ExtractedUrls{
 			Domain: hostname,
 			Nodes:  []string{c.URL},
@@ -207,13 +208,13 @@ func (c Crawler) Crawl() error {
 		}
 	}
 
+	fmt.Println("TEST: DEQUEUEING")
 	err = DequeueUrl(hostname)
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
 	for dq := range dqUrlChan {
-		fmt.Println("Dequeued URL")
 		fmt.Println(dq)
 		retries := 0
 
@@ -362,13 +363,15 @@ func EnqueueUrls(exUrls ExtractedUrls) error {
 	return nil
 }
 
-func GetQueueLength(hostname string) (int, error) {
+func GetQueueLength(hostname string) (int32, error) {
 
 	const CRAWLER_DB_GET_LEN_QUEUE = "crawler_db_len_queue"
 	chann, err := rabbitmq.GetChannel("frontierChannel")
 	if err != nil {
 		return 0, err
 	}
+	chann.QueueDeclare(CRAWLER_DB_GET_LEN_QUEUE, false, false, false, false, nil)
+	chann.QueueDeclare("get_queue_len_queue", false, false, false, false, nil)
 
 	err = chann.Publish("", CRAWLER_DB_GET_LEN_QUEUE, false, false, amqp091.Publishing{
 		ContentType: "application/json",
@@ -382,12 +385,13 @@ func GetQueueLength(hostname string) (int, error) {
 	lenMsg, err := chann.Consume("get_queue_len_queue", "", false, false, false, false, nil)
 
 	msg := <-lenMsg
-	var queueLen int
+	var queueLen int32
 	bufReader := bytes.NewReader(msg.Body)
 	err = binary.Read(bufReader, binary.LittleEndian, &queueLen)
 	if err != nil {
 		return 0, err
 	}
+	fmt.Println(queueLen)
 
 	return queueLen, nil
 }

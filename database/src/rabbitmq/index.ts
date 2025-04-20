@@ -212,10 +212,18 @@ async function frontierQueueHandler(
   const CRAWLER_DB_STOREURLS_QUEUE = "crawler_db_storeurls_queue";
   const CRAWLER_DB_CLEARURLS_QUEUE = "crawler_db_clearurls_queue";
 
+  const CRAWLER_DB_GET_LEN_QUEUE = "crawler_db_len_queue";
+
   await frontierChannel.assertQueue(CRAWLER_DB_DEQUEUE_URL_QUEUE, {
     exclusive: false,
     durable: false,
   });
+
+  await frontierChannel.assertQueue(CRAWLER_DB_GET_LEN_QUEUE, {
+    exclusive: false,
+    durable: false,
+  });
+
   await frontierChannel.assertQueue(CRAWLER_DB_STOREURLS_QUEUE, {
     exclusive: false,
     durable: false,
@@ -233,11 +241,12 @@ async function frontierQueueHandler(
         if (msg == null) {
           throw new Error("Message is null");
         }
+
+        frontierChannel.ack(msg);
         const domain = msg.content.toString();
         console.log("Fetching Urls for %s", domain);
         const { length, url, node } = database.dequeueURL(db, domain);
 
-        frontierChannel.ack(msg);
         const dequeuedUrl: DequeuedUrl = { RemainingInQueue: length, Url: url };
         const msgBuffer = Buffer.from(JSON.stringify(dequeuedUrl));
 
@@ -250,6 +259,7 @@ async function frontierQueueHandler(
         }
 
         console.log("NOTIF: Dequeued URL Sent");
+        console.log(node);
         // node can be null if queue is empty
         if (node !== null) {
           database.setNodeToVisited(db, node);
@@ -270,6 +280,28 @@ async function frontierQueueHandler(
         const URLs: URLs = JSON.parse(msg.content.toString());
         database.enqueueUrls(db, URLs);
         frontierChannel.ack(msg);
+      } catch (err) {
+        // i dont know what to do with this yet
+        console.log(err);
+      }
+    },
+  );
+
+  frontierChannel.consume(
+    CRAWLER_DB_GET_LEN_QUEUE,
+    (msg: amqp.ConsumeMessage | null) => {
+      try {
+        if (msg == null) {
+          throw new Error("Message is null");
+        }
+        frontierChannel.ack(msg);
+        const hostname = msg.content.toString();
+        const queueLen = database.getCurrentQueueLen(db, hostname);
+
+        const queueLenBuf = Buffer.alloc(4);
+        queueLenBuf.writeIntLE(queueLen, 0, 4);
+
+        frontierChannel.sendToQueue(msg.properties.replyTo, queueLenBuf);
       } catch (err) {
         // i dont know what to do with this yet
         console.log(err);
