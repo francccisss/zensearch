@@ -8,7 +8,20 @@ import type {
 import { randomUUID } from "crypto";
 import Database from "better-sqlite3";
 
-// TODO ADD UUID INSTEAD OF DATABASE INCREMENTING IDS
+function getCurrentQueueLen(db: Database.Database, domain: string): number {
+  const nodes = db
+    .prepare(
+      "SELECT * FROM (SELECT * FROM queues WHERE domain = ?) AS cq, nodes WHERE cq.id = nodes.queue_id",
+    )
+    .all(domain) as Array<Node>;
+
+  // if doesnt exist, just return 0, because the crawler will enqueue
+  // a new url and set its corresponding queue to be used
+  if (nodes == undefined) return 0;
+
+  return nodes.length;
+}
+
 async function saveWebpage(db: Database.Database, data: IndexedWebpage) {
   if (db == null) {
     throw new Error("ERROR: Database is not connected.");
@@ -68,7 +81,7 @@ function checkAlreadyIndexedWebpage(
 
 function enqueueUrls(db: Database.Database, Urls: URLs) {
   // check if domain exists
-  console.log(Urls);
+  console.log("FROM ENQUEUE", Urls);
   const stmt = db.prepare("SELECT * FROM queues WHERE domain = ?");
   let domain = stmt.get(Urls.Domain) as FrontierQueue | undefined;
   if (domain === undefined) {
@@ -89,6 +102,7 @@ function enqueueUrls(db: Database.Database, Urls: URLs) {
   );
   console.log("Inserting new nodes to queue");
   Urls.Nodes.forEach((node) => {
+    // need to skip if it already exists
     nodeInsert.run(node, domain.id);
   });
   console.log("Nodes Enqueued");
@@ -205,4 +219,5 @@ export default {
   clearURLs,
   dequeueURL,
   setNodeToVisited,
+  getCurrentQueueLen,
 };
