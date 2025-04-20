@@ -38,9 +38,10 @@ export type URLs = {
 };
 
 export type Node = {
-  id: string;
+  id: number;
   url: string;
   queueid: string;
+  status: string;
 };
 
 export type FrontierQueue = {

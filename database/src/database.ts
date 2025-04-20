@@ -3,6 +3,7 @@ import type {
   URLs,
   Webpage,
   FrontierQueue,
+  Node,
 } from "./utils/types.ts";
 import { randomUUID } from "crypto";
 import Database from "better-sqlite3";
@@ -83,26 +84,60 @@ function enqueueUrls(db: Database.Database, Urls: URLs) {
     console.log("Domain created");
   }
   const nodeInsert = db.prepare(
-    "INSERT INTO nodes (id, url, queue_id) VALUES (?, ?, ?)",
+    "INSERT INTO nodes (url, queue_id) VALUES (?, ?)",
   );
   console.log("Inserting new nodes to queue");
   Urls.Nodes.forEach((node) => {
-    nodeInsert.run(randomUUID(), node, domain.id);
+    nodeInsert.run(node, domain.id);
   });
   console.log("Nodes Enqueued");
 }
 
-async function clearURLs(db: Database.Database, q: FrontierQueue) {
+function clearURLs(db: Database.Database, q: FrontierQueue) {
   console.log(q);
   console.log("Storing URLS in FrontierQueue");
+  console.log(db);
 }
 
-// What is dequeued is considered a Visited Node, so
-async function dequeueURL(
+// What is dequeued is considered a Visited Node
+// Qdomain is used to identify the queue that is in-used by the crawler
+function dequeueURL(
   db: Database.Database,
-  src: string,
-): Promise<{ length: number; url: string }> {
-  return { length: 0, url: "fzaid.vercel.app/home" };
+  Qdomain: string,
+): { length: number; url: string; message: string } {
+  try {
+    const stmt = db.prepare("SELECT * FROM queues WHERE domain = ?");
+    let domain = stmt.get(Qdomain) as FrontierQueue | undefined;
+    if (domain === undefined) {
+      console.log("Domain does not exist = `%s`", Qdomain);
+      throw new Error(`Domain does not exist = '${Qdomain}'`);
+    }
+    const nodes = db
+      .prepare(
+        "SELECT * from nodes WHERE status = 'pending' ORDER BY id LIMIT 2",
+      )
+      .all() as Node[];
+
+    if (nodes.length == 0) {
+      console.log("Queue is empty clean up queue.");
+      db.prepare("DELETE FROM queues WHERE id = ?").run(domain.id);
+      return {
+        length: 0,
+        url: "",
+        message: `Frontier queue for ${domain.domain} is empty.`,
+      };
+    }
+
+    db.prepare("UPDATE nodes SET status = 'in_progress' WHERE id = ?").run(
+      nodes[0].id,
+    );
+    console.log("Update node=%s to 'in_progess'", nodes[0].id);
+
+    return { length: nodes.length, url: nodes[0].url, message: "" };
+  } catch (e) {
+    const err = e as Error;
+    return { length: 0, url: "", message: err.message };
+  }
 }
 export default {
   saveWebpage,
