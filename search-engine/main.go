@@ -145,12 +145,6 @@ func main() {
 			// Parsing webpages
 
 			timeStart := time.Now()
-			// compressor := util.NewSegmentBuffer()
-			// decompressed, err := compressor.DecompressData(webpageBuffer)
-			// if err != nil {
-			// 	fmt.Println(err.Error())
-			// 	continue
-			// }
 			webpages, err := utilities.ParseWebpages(webpageBuffer.Bytes())
 			if err != nil {
 				fmt.Println(err.Error())

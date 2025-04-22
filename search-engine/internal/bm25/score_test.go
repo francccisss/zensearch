@@ -146,11 +146,11 @@ func mockConnection(t *testing.T) bytes.Buffer {
 	if err != nil {
 		t.Fatalf("Unable to create a database channel")
 	}
-	_, err = dbQueryChannel.QueueDeclare(rabbitmq.DB_QUERY_QUEUE, false, false, false, false, nil)
+	_, err = dbQueryChannel.QueueDeclare(rabbitmq.SENGINE_EXPRESS_QUERY_CBQ, false, false, false, false, nil)
 	if err != nil {
 		t.Fatalf("Unable to declare DB_QUERY_QUEUE")
 	}
-	_, err = dbQueryChannel.QueueDeclare(rabbitmq.DB_RESPONSE_QUEUE, false, false, false, false, nil)
+	_, err = dbQueryChannel.QueueDeclare(rabbitmq.DB_SENGINE_REQUEST_CBQ, false, false, false, false, nil)
 	if err != nil {
 		t.Fatalf("Unable to declare DB_RESPONSE_QUEUE")
 	}
@@ -163,7 +163,7 @@ func mockConnection(t *testing.T) bytes.Buffer {
 	go func(chann *amqp.Channel) {
 
 		dbMsg, err := chann.Consume(
-			rabbitmq.DB_RESPONSE_QUEUE,
+			rabbitmq.DB_SENGINE_REQUEST_CBQ,
 			"",
 			false,
 			false,
@@ -173,7 +173,7 @@ func mockConnection(t *testing.T) bytes.Buffer {
 		)
 
 		if err != nil {
-			log.Panicf("Unable to listen to %s", rabbitmq.SEARCH_QUEUE)
+			log.Panicf("Unable to listen to %s", rabbitmq.EXPRESS_SENGINE_QUERY_QUEUE)
 		}
 
 		// Consume and send segment to segment channel
