@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"crawler/internal/rabbitmq"
 	"crawler/internal/types"
 	webdriver "crawler/internal/webdriver"
@@ -363,7 +362,7 @@ func EnqueueUrls(exUrls ExtractedUrls) error {
 	return nil
 }
 
-func GetQueueLength(hostname string) (int32, error) {
+func GetQueueLength(hostname string) (uint32, error) {
 
 	const CRAWLER_DB_GET_LEN_QUEUE = "crawler_db_len_queue"
 	chann, err := rabbitmq.GetChannel("frontierChannel")
@@ -385,13 +384,11 @@ func GetQueueLength(hostname string) (int32, error) {
 	lenMsg, err := chann.Consume("get_queue_len_queue", "", false, false, false, false, nil)
 
 	msg := <-lenMsg
-	var queueLen int32
-	bufReader := bytes.NewReader(msg.Body)
-	err = binary.Read(bufReader, binary.LittleEndian, &queueLen)
-	if err != nil {
-		return 0, err
-	}
-	fmt.Println(queueLen)
+
+	queueLen := binary.LittleEndian.Uint32(msg.Body)
+
+	fmt.Printf("TEST: BODY BUF = %v\n", msg.Body)
+	fmt.Printf("TEST: CURRENT QUEUE LEN: %d\n", queueLen)
 
 	return queueLen, nil
 }
