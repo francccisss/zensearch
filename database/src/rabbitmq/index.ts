@@ -243,10 +243,14 @@ async function frontierQueueHandler(
         }
 
         frontierChannel.ack(msg);
+        console.log("TEST: DEQUEUEING");
         const domain = msg.content.toString();
-        console.log("Fetching Urls for %s", domain);
-        const { length, url, node } = database.dequeueURL(db, domain);
+        const { length, url, inProgressNode, message } = database.dequeueURL(
+          db,
+          domain,
+        );
 
+        console.log("Dequeue Message: %s", message);
         const dequeuedUrl: DequeuedUrl = { RemainingInQueue: length, Url: url };
         const msgBuffer = Buffer.from(JSON.stringify(dequeuedUrl));
 
@@ -259,11 +263,18 @@ async function frontierQueueHandler(
         }
 
         console.log("NOTIF: Dequeued URL Sent");
-        console.log(node);
+        console.log(inProgressNode);
         // node can be null if queue is empty
-        if (node !== null) {
-          database.setNodeToVisited(db, node);
+        if (inProgressNode !== null) {
+          database.setNodeToVisited(db, inProgressNode);
+          db.prepare("DELETE FROM nodes WHERE nodes.id = ?").run(
+            inProgressNode.id,
+          );
+          console.log("Node updated to visited, remove in_progress node.");
         }
+        //if (inProgressNode === null && length == 0) {
+        //  database.removeQueue(db, domain);
+        //}
       } catch (err) {
         console.log(err);
         // i dont know what to do with this yet
@@ -300,6 +311,8 @@ async function frontierQueueHandler(
 
         const queueLenBuf = Buffer.alloc(4);
         queueLenBuf.writeIntLE(queueLen, 0, 4);
+        console.log(queueLenBuf);
+        console.log(queueLen);
 
         frontierChannel.sendToQueue(msg.properties.replyTo, queueLenBuf);
       } catch (err) {

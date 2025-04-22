@@ -8,20 +8,6 @@ import type {
 import { randomUUID } from "crypto";
 import Database from "better-sqlite3";
 
-function getCurrentQueueLen(db: Database.Database, domain: string): number {
-  const nodes = db
-    .prepare(
-      "SELECT * FROM (SELECT * FROM queues WHERE domain = ?) AS cq, nodes WHERE cq.id = nodes.queue_id",
-    )
-    .all(domain) as Array<Node>;
-
-  // if doesnt exist, just return 0, because the crawler will enqueue
-  // a new url and set its corresponding queue to be used
-  if (nodes == undefined) return 0;
-
-  return nodes.length;
-}
-
 async function saveWebpage(db: Database.Database, data: IndexedWebpage) {
   if (db == null) {
     throw new Error("ERROR: Database is not connected.");
@@ -81,7 +67,6 @@ function checkAlreadyIndexedWebpage(
 
 function enqueueUrls(db: Database.Database, Urls: URLs) {
   // check if domain exists
-  console.log("FROM ENQUEUE", Urls);
   const stmt = db.prepare("SELECT * FROM queues WHERE domain = ?");
   let domain = stmt.get(Urls.Domain) as FrontierQueue | undefined;
   if (domain === undefined) {
@@ -103,7 +88,12 @@ function enqueueUrls(db: Database.Database, Urls: URLs) {
   console.log("Inserting new nodes to queue");
   Urls.Nodes.forEach((node) => {
     // need to skip if it already exists
-    nodeInsert.run(node, domain.id);
+    if (!checkNodeVisited(db, node) && !checkNodeExists(db, node)) {
+      console.log("INSERT: %s", node);
+      nodeInsert.run(node, domain.id);
+    } else {
+      console.log("NODE VISITED/EXISTS: %s", node);
+    }
   });
   console.log("Nodes Enqueued");
 }
@@ -119,13 +109,23 @@ function clearURLs(db: Database.Database, q: FrontierQueue) {
 function dequeueURL(
   db: Database.Database,
   Qdomain: string,
-): { length: number; url: string; message: string; node: Node | null } {
+): {
+  length: number;
+  url: string;
+  message: string;
+  inProgressNode: Node | null;
+} {
   try {
     const stmt = db.prepare("SELECT * FROM queues WHERE domain = ?");
     let domain = stmt.get(Qdomain) as FrontierQueue | undefined;
     if (domain === undefined) {
       console.log("Domain does not exist = `%s`", Qdomain);
-      throw new Error(`Domain does not exist = '${Qdomain}'`);
+      return {
+        length: 0,
+        url: "",
+        message: `Domain does not exist = '${Qdomain}'`,
+        inProgressNode: null,
+      };
     }
 
     // used for continuing if the crawler crashes for some reason
@@ -148,7 +148,7 @@ function dequeueURL(
           length: 0,
           url: "",
           message: `Frontier queue for ${domain.domain} is empty.`,
-          node: null,
+          inProgressNode: null,
         };
       }
 
@@ -163,16 +163,10 @@ function dequeueURL(
       .prepare("SELECT * from nodes WHERE status = 'pending'")
       .all() as Node[];
 
-    if (nodes.length == 0) {
-      console.log("Queue is empty clean up queue.");
-      db.prepare("DELETE FROM queues WHERE id = ?").run(domain.id);
-      return {
-        length: 0,
-        url: "",
-        message: `Frontier queue for ${domain.domain} is empty.`,
-        node: null,
-      };
-    }
+    // TODO FIX THIS, FOREIGN KEY CONSTRAINT, NODES RELYING ON REMOVED QUEUE
+    // RETURNS ERROR, THE NODE WHERE ITS STATUS IS 'PENDING' STILL EXISTS
+    // IN THE QUEUE, NEED TO MAKE SURE THE NODE IS REMOVED AFTER DEQUEUE IS CALLED
+    // AND ONLY THEN WILL THE QUEUE BE REMOVED AS WELL
 
     console.log("Update node=%s to 'in_progess'", inProgressNode.id);
 
@@ -180,11 +174,11 @@ function dequeueURL(
       length: nodes.length,
       url: inProgressNode.url,
       message: "",
-      node: inProgressNode,
+      inProgressNode: inProgressNode,
     };
   } catch (e) {
     const err = e as Error;
-    return { length: 0, url: "", message: err.message, node: null };
+    return { length: 0, url: "", message: err.message, inProgressNode: null };
   }
 }
 
@@ -200,6 +194,13 @@ function setNodeToVisited(db: Database.Database, node: Node) {
   }
 }
 
+function checkNodeExists(db: Database.Database, url: string): boolean {
+  return db.prepare("SELECT * FROM nodes WHERE nodes.url = ?").get(url) ===
+    undefined
+    ? false
+    : true;
+}
+
 function checkNodeVisited(db: Database.Database, url: string): boolean {
   return db
     .prepare(
@@ -208,6 +209,29 @@ function checkNodeVisited(db: Database.Database, url: string): boolean {
     .get(url) == undefined
     ? false
     : true;
+}
+
+function removeQueue(db: Database.Database, domain: string) {
+  try {
+    db.prepare("DELETE FROM queues WHERE queues.domain = ?").run(domain);
+  } catch (err) {
+    console.error("ERROR: Unable to remove queue");
+  }
+}
+
+function getCurrentQueueLen(db: Database.Database, domain: string): number {
+  const nodes = db
+    .prepare(
+      "SELECT * FROM (SELECT * FROM queues WHERE domain = ?) AS cq, nodes WHERE cq.id = nodes.queue_id",
+    )
+    .all(domain) as Array<Node>;
+
+  // if doesnt exist, just return 0, because the crawler will enqueue
+  // a new url and set its corresponding queue to be used
+  if (nodes == undefined) return 0;
+  console.log(nodes);
+
+  return nodes.length;
 }
 
 export default {
@@ -220,4 +244,6 @@ export default {
   dequeueURL,
   setNodeToVisited,
   getCurrentQueueLen,
+  removeQueue,
+  checkNodeExists,
 };
