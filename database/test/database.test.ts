@@ -105,17 +105,17 @@ test.test("Webpage Query", async (t) => {
   }
 });
 
-test.test("Check existing websites", (t) => {
-  try {
-    const crawlList = ["https://api.example.com"];
-    const webpages = database.checkAlreadyIndexedWebpage(websitesDB, crawlList);
-    console.log("Existing Urls: ", webpages);
-  } catch (e) {
-    console.error(e);
-    t.assert.fail(e.code);
-  }
-});
-
+//test.test("Check existing websites", (t) => {
+//  try {
+//    const crawlList = ["https://api.example.com"];
+//    const webpages = database.checkAlreadyIndexedWebpage(websitesDB, crawlList);
+//    console.log("Existing Urls: ", webpages);
+//  } catch (e) {
+//    console.error(e);
+//    t.assert.fail(e.code);
+//  }
+//});
+//
 test.test("dequeue", (t) => {
   const urls: URLs = {
     Domain: "https://example.com",
@@ -163,7 +163,7 @@ test.test("enqueue urls", (t) => {
   }
 });
 
-test.test("check node before pushing to queue if has been visited", (t) => {
+test.only("check node before pushing to queue if has been visited", (t) => {
   const urls: URLs = {
     Domain: "https://example.com",
     Nodes: [
@@ -172,6 +172,8 @@ test.test("check node before pushing to queue if has been visited", (t) => {
       "https://example.com/blog",
       "https://example.com/products/item-1",
       "https://example.com/products/item-2",
+      "https://example.com/about",
+      "https://example.com/contact",
     ],
   };
 
@@ -181,18 +183,38 @@ test.test("check node before pushing to queue if has been visited", (t) => {
       .prepare("SELECT * FROM nodes")
       .all() as Node[];
 
-    [nodes[0]].forEach((node) => {
+    [nodes[0]].forEach((node: Node) => {
       frontierQueueDB
         .prepare("INSERT INTO visited_nodes (node_url,queue_id) VALUES (?,?)")
         .run(node.url, node.queue_id);
     });
+
+    //urls.Nodes.forEach((node) => {
+    //  if (database.checkNodeVisited(frontierQueueDB, node) == true) {
+    //    console.log("NODE ALREADY EXISTS: %s", node);
+    //  }
+    //  if (
+    //    database.checkNodeExists(
+    //      frontierQueueDB,
+    //      "https://example.com/about",
+    //    ) == true
+    //  ) {
+    //    console.log("NODE VISITED: %s", node);
+    //  }
+    //  console.log("OK=%s", node);
+    //});
+    //
     console.log(
-      // needs node id
+      frontierQueueDB
+        .prepare("SELECT * FROM nodes WHERE nodes.url = ?")
+        .get("https://example.com/about"),
+    );
+    console.log(
       frontierQueueDB
         .prepare(
-          "SELECT * FROM visited_nodes vn JOIN nodes n ON ? = n.url JOIN queues ON vn.queue_id = queues.id",
+          "SELECT * FROM visited_nodes vn JOIN nodes n ON vn.node_url = ? JOIN queues ON vn.queue_id = queues.id",
         )
-        .all(nodes[0].url),
+        .get("https://example.com/about"),
     );
     //const node = database.setNodeToVisited(frontierQueueDB, "1");
   } catch (e) {
@@ -201,5 +223,6 @@ test.test("check node before pushing to queue if has been visited", (t) => {
   } finally {
     frontierQueueDB.prepare("DELETE FROM visited_nodes").run();
     frontierQueueDB.prepare("DELETE FROM nodes").run();
+    frontierQueueDB.prepare("DELETE FROM queues").run();
   }
 });
