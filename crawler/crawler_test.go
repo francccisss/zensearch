@@ -54,6 +54,9 @@ func TestCrawlerIndexing(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// frontierChannel, err := conn.Channel()
+	// _, err = frontierChannel.QueueDeclare("db_crawler_dequeue_url_cbq", false, false, false, false, nil)
+	// rabbitmq.SetNewChannel("frontierChannel", frontierChannel)
 	rabbitmq.SetNewChannel("dbChannel", dbChannel)
 	defer dbChannel.Close()
 	rabbitmq.SetNewChannel("frontierChannel", frontierChannel)
