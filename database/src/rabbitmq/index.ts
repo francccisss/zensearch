@@ -267,14 +267,12 @@ async function frontierQueueHandler(
         // node can be null if queue is empty
         if (inProgressNode !== null) {
           database.setNodeToVisited(db, inProgressNode);
-          db.prepare("DELETE FROM nodes WHERE nodes.id = ?").run(
-            inProgressNode.id,
-          );
           console.log("Node updated to visited, remove in_progress node.");
         }
-        //if (inProgressNode === null && length == 0) {
-        //  database.removeQueue(db, domain);
-        //}
+
+        if (inProgressNode == null && length == 0) {
+          database.removeQueue(db, domain);
+        }
       } catch (err) {
         console.log(err);
         // i dont know what to do with this yet

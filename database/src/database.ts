@@ -185,6 +185,7 @@ function dequeueURL(
 // only set once an ack has been received
 function setNodeToVisited(db: Database.Database, node: Node) {
   try {
+    db.prepare("DELETE FROM nodes WHERE nodes.id = ?").run(node.id);
     db.prepare(
       "INSERT INTO visited_nodes (node_url, queue_id) VALUES (?, ?)",
     ).run(node.url, node.queue_id);
