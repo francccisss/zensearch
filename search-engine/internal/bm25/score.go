@@ -15,13 +15,13 @@ const CHUNK_SIZE = 40
 // takes exponential time
 func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF {
 	// return immediately if database is currently empty
-	if len(*webpages) == 0 {
-		return webpages
-
-	}
+	// if len(*webpages) == 0 {
+	// 	return webpages
+	//
+	// }
 	tokenizedTerms := Tokenizer(query)
 
-	// wpLen := len(*webpages)
+	// totalWebpages := len(*webpages)
 
 	var wg sync.WaitGroup
 	// get IDF and TF for each token
@@ -58,36 +58,39 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 				// First calculate term frequency of each webpage for each token
 				// TF(q1,webpages) -> TF(qT2,webpages)...
 
-				// fmt.Printf("TEST: creating data chunks using data parallelism for term=%s\n", term)
+				// fmt.Printf("TEST: creating data totalChunks using data parallelism for term=%s\n", term)
+				// You might be asking, why im using floats here? math.Min returns a 64bit float :D
+
 				var swg sync.WaitGroup
 				start := float64(0)
-				end := float64(CHUNK_SIZE)
-				wpLen := float64(len(*webpages))
-				chunks := int(wpLen / CHUNK_SIZE)
-				fmt.Printf("TEST chunk_distribution_length=%d\n", chunks)
+				totalWebpages := float64(len(*webpages))
+				totalChunks := math.Min(math.Round(totalWebpages/CHUNK_SIZE), totalWebpages) // chunk size is dependant on the
+				// length of the total webpages in the database
+				fmt.Printf("TEST chunk_distribution_length=%d\n", int(totalChunks))
+				end := totalChunks
 
 				// creates data parallelism
 				if len(tokenizedTerms) == 1 {
-					// dont separate into chunks
+					// dont separate into totalChunks
 					fmt.Println("DONT")
 					_ = TF(term, docLen, webpages, int(start), int(end))
 					mwg.Done()
 					return
 				}
-				for i := range chunks {
+				for i := range int(totalChunks) {
 					// if equal to valid chunk size
-					// fmt.Printf("TEST: start=%d, end=%d, diff=%d\n", int(start), int(end), int(math.Min(math.Abs(end-wpLen), CHUNK_SIZE)))
+					// fmt.Printf("TEST: start=%d, end=%d, diff=%d\n", int(start), int(end), int(math.Min(math.Abs(end-totalWebpages), CHUNK_SIZE)))
 					swg.Add(1)
 					go func() {
 						defer swg.Done()
 						_ = TF(term, docLen, webpages, int(start), int(end))
 					}()
 					start = float64(i) * CHUNK_SIZE
-					end = start + math.Min(math.Abs(start+end-wpLen), CHUNK_SIZE)
+					end = start + math.Min(math.Abs(start+end-totalWebpages), CHUNK_SIZE)
 				}
-				// fmt.Println("TEST: waiting for chunks")
+				// fmt.Println("TEST: waiting for totalChunks")
 				swg.Wait()
-				// fmt.Printf("TEST: aggregate chunks for term=%s\n", term)
+				// fmt.Printf("TEST: aggregate totalChunks for term=%s\n", term)
 				mwg.Done()
 			}()
 		}
