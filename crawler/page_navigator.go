@@ -172,32 +172,32 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) error {
 
 	// INDEXING PHASE
 
-	indexedWebpage, err := pn.Index()
-	if err != nil {
-		// then skip this page
-		fmt.Printf("ERROR: Something went wrong, unable to index current webpage.\n")
-		return err
-	}
-
-	fmt.Printf("NOTIF: page %s indexed\n", currentUrl)
-
-	// SAVING PHASE
-	fmt.Println("NOTIF: storing indexed page")
-	result := types.IndexedResult{
-		CrawlResult: types.CrawlResult{
-			URLSeed:     currentUrl,
-			Message:     "Successfully indexed and stored webpages",
-			CrawlStatus: CRAWL_SUCCESS,
-		},
-		Webpage: indexedWebpage,
-	}
-
-	err = SendIndexedWebpage(result)
-	if err != nil {
-		return fmt.Errorf("Unable to send indexed result to database service\nreturning...")
-	}
-	fmt.Println("NOTIF: stored indexed webpage")
-
+	// indexedWebpage, err := pn.Index()
+	// if err != nil {
+	// 	// then skip this page
+	// 	fmt.Printf("ERROR: Something went wrong, unable to index current webpage.\n")
+	// 	return err
+	// }
+	//
+	// fmt.Printf("NOTIF: page %s indexed\n", currentUrl)
+	//
+	// // SAVING PHASE
+	// fmt.Println("NOTIF: storing indexed page")
+	// result := types.IndexedResult{
+	// 	CrawlResult: types.CrawlResult{
+	// 		URLSeed:     currentUrl,
+	// 		Message:     "Successfully indexed and stored webpages",
+	// 		CrawlStatus: CRAWL_SUCCESS,
+	// 	},
+	// 	Webpage: indexedWebpage,
+	// }
+	//
+	// err = SendIndexedWebpage(result)
+	// if err != nil {
+	// 	return fmt.Errorf("Unable to send indexed result to database service\nreturning...")
+	// }
+	// fmt.Println("NOTIF: stored indexed webpage")
+	//
 	return nil
 }
 
