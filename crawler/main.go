@@ -57,6 +57,11 @@ func main() {
 	}
 	defer expressChannel.Close()
 
+	frontierChannel, err := conn.Channel()
+	if err != nil {
+		log.Printf("Unable to create a express channel.")
+	}
+
 	dbChannel.QueueDeclare(rabbitmq.CRAWLER_DB_INDEXING_QUEUE, false, false, false, false, nil)
 	dbChannel.QueueDeclare(rabbitmq.DB_CRAWLER_INDEXING_CBQ, false, false, false, false, nil)
 
@@ -65,6 +70,9 @@ func main() {
 	expressChannel.QueueDeclare(rabbitmq.EXPRESS_CRAWLER_QUEUE, false, false, false, false, nil)
 	expressChannel.QueueDeclare(rabbitmq.CRAWLER_EXPRESS_CBQ, false, false, false, false, nil)
 	rabbitmq.SetNewChannel("expressChannel", expressChannel)
+
+	frontierChannel.QueueDeclare("db_crawler_dequeue_url_cbq", false, false, false, false, nil)
+	rabbitmq.SetNewChannel("frontierChannel", frontierChannel)
 
 	expressMsg, err := expressChannel.Consume(rabbitmq.EXPRESS_CRAWLER_QUEUE, "", false, false, false, false, nil)
 	if err != nil {
