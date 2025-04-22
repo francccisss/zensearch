@@ -12,7 +12,7 @@ CREATE TABLE nodes (
 
 CREATE TABLE visited_nodes (
   id INTEGER PRIMARY KEY,
-  node_url TEXT NOT NULL REFERENCES nodes(url),
+  node_url TEXT NOT NULL ,
   queue_id TEXT REFERENCES queues(id)
 );
 

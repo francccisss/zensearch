@@ -14,7 +14,11 @@ const CHUNK_SIZE = 40
 
 // takes exponential time
 func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF {
-	fmt.Println("TEST: DP/TP/MS Pattern")
+	// return immediately if database is currently empty
+	if len(*webpages) == 0 {
+		return webpages
+
+	}
 	tokenizedTerms := Tokenizer(query)
 
 	// wpLen := len(*webpages)
@@ -59,8 +63,8 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 				start := float64(0)
 				end := float64(CHUNK_SIZE)
 				wpLen := float64(len(*webpages))
-				chunks := int(wpLen/CHUNK_SIZE + 1)
-				// fmt.Printf("TEST chunk_distribution_length=%d\n", chunks)
+				chunks := int(wpLen / CHUNK_SIZE)
+				fmt.Printf("TEST chunk_distribution_length=%d\n", chunks)
 
 				// creates data parallelism
 				if len(tokenizedTerms) == 1 {
@@ -70,7 +74,7 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 					mwg.Done()
 					return
 				}
-				for i := 0; i < chunks; i++ {
+				for i := range chunks {
 					// if equal to valid chunk size
 					// fmt.Printf("TEST: start=%d, end=%d, diff=%d\n", int(start), int(end), int(math.Min(math.Abs(end-wpLen), CHUNK_SIZE)))
 					swg.Add(1)
@@ -92,7 +96,7 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 	}()
 	wg.Wait()
 	// for each token calculate BM25Rating for each webpages
-	// by summing the rating from the previous tokens
+	// by summ*ing the rating from the previous tokens
 	for IDF := range IDFChan {
 		for j := range *webpages {
 			bm25rating := BM25(IDF, (*webpages)[j].TfRating)
@@ -119,7 +123,7 @@ func RankBM25Ratings(webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF {
 func Tokenizer(query string) []string {
 	tmpSlice := []string{}
 	var charHolder = ""
-	for i := 0; i < len(query); i++ {
+	for i := range len(query) {
 		char := string(query[i])
 		charHolder += char
 		if char == " " {
