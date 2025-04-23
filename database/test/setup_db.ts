@@ -13,6 +13,7 @@ const tables = [
 
 export function initDatabase(src: string): Database.Database {
   const db = new Database(src);
+  db.pragma("foreign_keys = ON");
   return db;
 }
 

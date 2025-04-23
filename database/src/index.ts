@@ -4,8 +4,8 @@ import rabbitmq from "./rabbitmq/index.js";
 import { readFile } from "fs";
 import { exit } from "node:process";
 
-const wc = path.join(import.meta.dirname, "../website_collection.db");
-const fq = path.join(import.meta.dirname, "../frontier_queue.db");
+const wc = path.join(import.meta.dirname, "../../website_collection.db");
+const fq = path.join(import.meta.dirname, "../../frontier_queue.db");
 const websitesDB = initDatabase(wc);
 const frontierQueueDB = initDatabase(fq);
 const cumulativeAckCount = 1000;

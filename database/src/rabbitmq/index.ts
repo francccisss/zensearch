@@ -243,7 +243,7 @@ async function frontierQueueHandler(
         }
 
         frontierChannel.ack(msg);
-        console.log("TEST: DEQUEUEING");
+        console.log("DATABASE TEST: DEQUEUEING");
         const domain = msg.content.toString();
         const { length, url, inProgressNode, message } = database.dequeueURL(
           db,
@@ -287,6 +287,7 @@ async function frontierQueueHandler(
           throw new Error("Message is null");
         }
         const URLs: URLs = JSON.parse(msg.content.toString());
+        console.log("DATABASE TEST: URLS ", URLs);
         database.enqueueUrls(db, URLs);
         frontierChannel.ack(msg);
       } catch (err) {
@@ -309,8 +310,8 @@ async function frontierQueueHandler(
 
         const queueLenBuf = Buffer.alloc(4);
         queueLenBuf.writeIntLE(queueLen, 0, 4);
-        console.log(queueLenBuf);
-        console.log(queueLen);
+        console.log("DATABASE TEST: QUEUE LEN BUFFER ", queueLenBuf);
+        console.log("DATABASE TEST: QUEUE='%s' LENGTH ", hostname, queueLen);
 
         frontierChannel.sendToQueue(msg.properties.replyTo, queueLenBuf);
       } catch (err) {

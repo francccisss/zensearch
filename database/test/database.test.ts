@@ -2,7 +2,7 @@ import test from "node:test";
 import path from "node:path";
 import { execScripts, initDatabase } from "./setup_db.ts";
 import database from "../src/database.ts";
-import type { IndexedWebpage, Node, URLs } from "../src/utils/types.ts";
+import type { IndexedWebpage, URLs } from "../src/utils/types.ts";
 
 const wc = path.join(import.meta.dirname, "./website_collection_tst.db");
 const fq = path.join(import.meta.dirname, "./frontier_queue_tst.db");
@@ -163,8 +163,8 @@ test.test("enqueue urls", (t) => {
   }
 });
 
-test.only("check node before pushing to queue if has been visited", (t) => {
-  const urls: URLs = {
+test.only("Dequeuing and Enqueuing Urls", (t) => {
+  let urls: URLs = {
     Domain: "https://example.com",
     Nodes: [
       "https://example.com/about",
@@ -172,55 +172,49 @@ test.only("check node before pushing to queue if has been visited", (t) => {
       "https://example.com/blog",
       "https://example.com/products/item-1",
       "https://example.com/products/item-2",
-      "https://example.com/about",
-      "https://example.com/contact",
     ],
   };
 
   try {
-    database.enqueueUrls(frontierQueueDB, urls);
-    const nodes = frontierQueueDB
-      .prepare("SELECT * FROM nodes")
-      .all() as Node[];
+    frontierQueueDB.transaction(() => {
+      database.enqueueUrls(frontierQueueDB, urls);
 
-    [nodes[0]].forEach((node: Node) => {
-      frontierQueueDB
-        .prepare("INSERT INTO visited_nodes (node_url,queue_id) VALUES (?,?)")
-        .run(node.url, node.queue_id);
-    });
+      urls.Nodes.forEach((n) => {
+        const dequeued = database.dequeueURL(frontierQueueDB, urls.Domain);
+        if (dequeued.inProgressNode == null) {
+          t.assert.fail("Progress node is null");
+          return;
+        }
+        database.setNodeToVisited(frontierQueueDB, dequeued.inProgressNode);
+        console.log("DEQUEUD NODE: ", dequeued);
+      });
+    })();
 
-    //urls.Nodes.forEach((node) => {
-    //  if (database.checkNodeVisited(frontierQueueDB, node) == true) {
-    //    console.log("NODE ALREADY EXISTS: %s", node);
-    //  }
-    //  if (
-    //    database.checkNodeExists(
-    //      frontierQueueDB,
-    //      "https://example.com/about",
-    //    ) == true
-    //  ) {
-    //    console.log("NODE VISITED: %s", node);
-    //  }
-    //  console.log("OK=%s", node);
-    //});
-    //
-    console.log(
-      frontierQueueDB
-        .prepare("SELECT * FROM nodes WHERE nodes.url = ?")
-        .get("https://example.com/about"),
-    );
-    console.log(
-      frontierQueueDB
-        .prepare(
-          "SELECT * FROM visited_nodes vn JOIN nodes n ON vn.node_url = ? JOIN queues ON vn.queue_id = queues.id",
-        )
-        .get("https://example.com/about"),
-    );
+    urls = {
+      Domain: "https://example.com",
+      Nodes: [
+        "https://example.com/about",
+        "https://example.com/contact",
+        "https://example.com/blog",
+      ],
+    };
     //const node = database.setNodeToVisited(frontierQueueDB, "1");
   } catch (e) {
     console.error(e);
     t.assert.fail(e.code);
   } finally {
+    console.log(
+      "NODES: ",
+      frontierQueueDB.prepare("select * FROM nodes").all(),
+    );
+    console.log(
+      "V_NODES: ",
+      frontierQueueDB.prepare("select * FROM visited_nodes").all(),
+    );
+    console.log(
+      "QUEUES: ",
+      frontierQueueDB.prepare("select * FROM queues").all(),
+    );
     frontierQueueDB.prepare("DELETE FROM visited_nodes").run();
     frontierQueueDB.prepare("DELETE FROM nodes").run();
     frontierQueueDB.prepare("DELETE FROM queues").run();

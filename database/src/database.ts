@@ -92,10 +92,9 @@ function enqueueUrls(db: Database.Database, Urls: URLs) {
       console.log("INSERT: %s", node);
       nodeInsert.run(node, domain.id);
     } else {
-      console.log("NODE VISITED/EXISTS: %s", node);
+      console.log("NODE EXISTS: ", node);
     }
   });
-  console.log("Nodes Enqueued");
 }
 
 function clearURLs(db: Database.Database, q: FrontierQueue) {
