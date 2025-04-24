@@ -96,7 +96,7 @@ func (pn *PageNavigator) requestDelay(multiplier int) {
 func (pn *PageNavigator) ProcessUrl(currentUrl string) error {
 
 	fmt.Printf("NOTIF: `%s` has popped from queue.\n", currentUrl)
-	pn.requestDelay(2)
+	pn.requestDelay(0)
 	err := pn.navigatePageWithRetries(MAX_RETRIES, currentUrl)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -159,11 +159,46 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) error {
 		}
 	}
 	fmt.Printf("NOTIF: Link Count in current url: %d\n", len(pageLinks))
-	fmt.Printf("NOTIF: Queue Length: %d\n", len(pn.Urls))
+
+	if len(pageLinks) == 0 {
+		indexedWebpage, err := pn.Index()
+		if err != nil {
+			// then skip this page
+			fmt.Printf("ERROR: Something went wrong, unable to index current webpage.\n")
+			return err
+		}
+
+		fmt.Printf("NOTIF: page %s indexed\n", currentUrl)
+
+		// SAVING PHASE
+		fmt.Println("NOTIF: storing indexed page")
+		result := types.IndexedResult{
+			CrawlResult: types.CrawlResult{
+				URLSeed:     currentUrl,
+				Message:     "Successfully indexed and stored webpages",
+				CrawlStatus: CRAWL_SUCCESS,
+			},
+			Webpage: indexedWebpage,
+		}
+
+		err = SendIndexedWebpage(result)
+		if err != nil {
+			return fmt.Errorf("Unable to send indexed result to database service\nreturning...")
+		}
+		fmt.Println("NOTIF: stored indexed webpage")
+
+		return nil
+
+	}
+
 	ex := ExtractedUrls{
 		Domain: pn.Hostname,
 		Nodes:  pn.Urls,
 	}
+
+	// Empty urls
+	pn.Urls = []string{}
+
 	err = EnqueueUrls(ex)
 	if err != nil {
 		fmt.Printf("ERROR: Unable to store extracted Urls.\n")

@@ -8,7 +8,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -61,8 +60,8 @@ func NewCrawler(entryPoint string) (*Crawler, error) {
 	}
 	wd, err := webdriver.CreateClient()
 	if err != nil {
-		log.Print(err.Error())
-		log.Printf("ERROR: Unable to create a new connection with Chrome Web Driver.\n")
+		fmt.Print(err.Error())
+		fmt.Printf("ERROR: Unable to create a new connection with Chrome Web Driver.\n")
 		return nil, err
 	}
 	c.WD = wd
@@ -93,7 +92,7 @@ func (s *Spawner) SpawnCrawlers() {
 		for _, entryPoint := range s.URLs {
 			wg.Add(1)
 			threadSlot <- ThreadToken{}
-			log.Printf("NOTIF: Thread token insert\n")
+			fmt.Printf("NOTIF: Thread token insert\n")
 			go func() {
 
 				defer func() {
@@ -102,8 +101,8 @@ func (s *Spawner) SpawnCrawlers() {
 				}()
 				crawler, err := NewCrawler(entryPoint)
 				if err != nil {
-					log.Print(err.Error())
-					log.Printf("NOTIF: Thread token release due to error.\n")
+					fmt.Printf(err.Error())
+					fmt.Printf("NOTIF: Thread token release due to error.\n")
 					return
 				}
 				err = crawler.Crawl()
@@ -126,23 +125,23 @@ func (s *Spawner) SpawnCrawlers() {
 				// 	URLSeed:   entryPoint,
 				// }
 				// SendCrawlMessageStatus(messageStatus)
-				log.Printf("NOTIF: Thread Token release\n")
+				fmt.Printf("NOTIF: Thread Token release\n")
 			}()
 		}
 	}()
 
-	log.Printf("NOTIF: Wait for crawlers\n")
+	fmt.Printf("NOTIF: Wait for crawlers\n")
 	wg.Wait()
 	close(crawlResultsChan)
 
-	log.Println("NOTIF: All Process have finished.")
+	fmt.Println("NOTIF: All Process have finished.")
 }
 
 func (c Crawler) Crawl() error {
-	defer log.Printf("NOTIF: Finished Crawling\n")
+	defer fmt.Printf("NOTIF: Finished Crawling\n")
 	defer (*c.WD).Close()
 
-	log.Printf("NOTIF: Start Crawling %s\n", c.URL)
+	fmt.Printf("NOTIF: Start Crawling %s\n", c.URL)
 
 	// ROBOTS.TXT HANDLING
 	hostname, _, _ := utilities.GetHostname(c.URL)
@@ -192,11 +191,12 @@ func (c Crawler) Crawl() error {
 	}
 
 	if queueLength == 0 {
-		fmt.Println("TEST: QUEUE IS EMPTY")
+		fmt.Println("CRAWLER TEST: QUEUE IS EMPTY")
 		ex := ExtractedUrls{
 			Domain: hostname,
 			Nodes:  []string{c.URL},
 		}
+		fmt.Printf("CRAWLER TEST: HOSTNAME OF SEED %s\n", hostname)
 		// Sends the URL seed to the frontier queue
 		err = EnqueueUrls(ex)
 		if err != nil {
@@ -207,24 +207,40 @@ func (c Crawler) Crawl() error {
 		}
 	}
 
-	fmt.Println("TEST: DEQUEUEING")
+	fmt.Println("CRAWLER TEST: DEQUEUEING")
 	err = DequeueUrl(hostname)
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
+
 	for dq := range dqUrlChan {
-		fmt.Println(dq)
+		fmt.Printf("DEQUEUE DATA: %+v\n", dq)
 		retries := 0
 
 		// initial url is not going to run because there are and will be 0 RemainingInQueue
-		// need to navigat before checking
-		if dq.RemainingInQueue == 0 && dq.Url == "" {
+		// problem is, the initial url would be in_progress state,
+		// the length returned are nodes that are pending state
+		// when the first enqueue is called on the root url, the root url is in pending state,
+		// so when a dequeue is called, the database service checks the queue if
+		// there are any in_progress nodes, if not it grab the second one that is in pending state
+		// once grabbed, it returns the length of pending nodes, but since the new node now is
+		// in_progress state, the length of pending nodes is returned as 0
+		// but it also checks that if there are no more nodes after the first one, then it doesnt return
+		// a new URL
+
+		if dq.RemainingInQueue == 0 {
 			fmt.Println("No more urls in queue, cleaning up")
 			close(dqUrlChan)
 			break
 		}
+		// if dq.RemainingInQueue == 0 && isRoot == false {
+		// 	fmt.Println("No more urls in queue, cleaning up")
+		// 	close(dqUrlChan)
+		// 	break
+		// }
 
+		fmt.Printf("TEST CRAWLER: PROCESSING DEQUEUED URL: %s\n", dq.Url)
 		err = pageNavigator.ProcessUrl(dq.Url)
 		if err != nil {
 			retries++
@@ -238,6 +254,8 @@ func (c Crawler) Crawl() error {
 			fmt.Printf("ERROR: unable to naviagate to %s after %d, skipping url\n", dq.Url, retries)
 		}
 
+		// if queue is empty it should return an object with blanked url string
+		// and a length of 0 and sets the current node to is_visited
 		err := DequeueUrl(hostname)
 		if err != nil {
 			fmt.Println(err)
@@ -288,7 +306,6 @@ func SendIndexedWebpage(result types.Result) error {
 // crawler's current running job from a URL seed
 func DequeueUrl(domain string) error {
 
-	fmt.Println("Dequeue notif sent")
 	chann, err := rabbitmq.GetChannel("frontierChannel")
 	if err != nil {
 		fmt.Println(err)
@@ -328,7 +345,7 @@ func ListenDequeuedUrl(dqChan chan DequeuedUrl) {
 
 	for chanMsg := range msg {
 		dq := &DequeuedUrl{}
-		fmt.Println("Received Dequeued URL")
+		fmt.Println("CRAWLER TEST: received dequeued URL")
 		err = json.Unmarshal(chanMsg.Body, dq)
 		if err != nil {
 			fmt.Println("ERROR: unable to unmarshal dequeued url")
@@ -342,6 +359,7 @@ func ListenDequeuedUrl(dqChan chan DequeuedUrl) {
 
 func EnqueueUrls(exUrls ExtractedUrls) error {
 
+	fmt.Printf("CRAWLER TEST: ENQUEUING %+d URLS\n", len(exUrls.Nodes))
 	const CRAWLER_DB_STOREURLS_QUEUE = "crawler_db_storeurls_queue"
 	chann, err := rabbitmq.GetChannel("frontierChannel")
 	if err != nil {
@@ -363,7 +381,7 @@ func EnqueueUrls(exUrls ExtractedUrls) error {
 }
 
 func GetQueueLength(hostname string) (uint32, error) {
-
+	fmt.Printf("CRAWLER TEST: GETTING QUEUE LENGTH FOR %s\n", hostname)
 	const CRAWLER_DB_GET_LEN_QUEUE = "crawler_db_len_queue"
 	chann, err := rabbitmq.GetChannel("frontierChannel")
 	if err != nil {
@@ -387,8 +405,9 @@ func GetQueueLength(hostname string) (uint32, error) {
 
 	queueLen := binary.LittleEndian.Uint32(msg.Body)
 
-	fmt.Printf("TEST: BODY BUF = %v\n", msg.Body)
-	fmt.Printf("TEST: CURRENT QUEUE LEN: %d\n", queueLen)
+	fmt.Printf("CRAWLER TEST: BODY BUF = %v\n", msg.Body)
+	fmt.Printf("CRAWLER TEST: CURRENT QUEUE LEN: %d\n", queueLen)
+	chann.Ack(msg.DeliveryTag, false)
 
 	return queueLen, nil
 }
