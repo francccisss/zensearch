@@ -73,7 +73,9 @@ func TestCrawlerIndexing(t *testing.T) {
 		}
 	}()
 
+	// seeds := []string{"https://fzaid.vercel.app"}
 	seeds := []string{"https://magill.dev/"}
+	// seeds := []string{"https://www.bettinasosa.com/"}
 
 	// seeds := []string{"https://gobyexample.com/", "https://fzaid.vercel.app/"}
 	fmt.Printf("Crawling seeds: %+v\n", seeds)
