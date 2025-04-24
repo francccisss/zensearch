@@ -172,6 +172,8 @@ test.only("Dequeuing and Enqueuing Urls", (t) => {
       "https://example.com/blog",
       "https://example.com/products/item-1",
       "https://example.com/products/item-2",
+      "https://example.com/products/item-1",
+      "https://example.com/products/item-2",
     ],
   };
 
@@ -182,7 +184,6 @@ test.only("Dequeuing and Enqueuing Urls", (t) => {
       urls.Nodes.forEach((n) => {
         const dequeued = database.dequeueURL(frontierQueueDB, urls.Domain);
         if (dequeued.inProgressNode == null) {
-          t.assert.fail("Progress node is null");
           return;
         }
         database.setNodeToVisited(frontierQueueDB, dequeued.inProgressNode);

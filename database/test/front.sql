@@ -12,7 +12,7 @@ CREATE TABLE nodes (
 
 CREATE TABLE visited_nodes (
   id INTEGER PRIMARY KEY,
-  node_url TEXT NOT NULL ,
+  node_url TEXT NOT NULL UNIQUE,
   queue_id TEXT REFERENCES queues(id) ON DELETE CASCADE
 );
 
