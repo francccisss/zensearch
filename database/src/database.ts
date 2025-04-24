@@ -88,11 +88,16 @@ function enqueueUrls(db: Database.Database, Urls: URLs) {
   console.log("Inserting new nodes to queue");
   Urls.Nodes.forEach((node) => {
     // need to skip if it already exists
-    if (!checkNodeVisited(db, node) && !checkNodeExists(db, node)) {
-      console.log("INSERT: %s", node);
-      nodeInsert.run(node, domain.id);
+    if (!checkNodeVisited(db, node)) {
+      console.log("CHECKING IF EXIST/VISITED: %s", node);
+      // Try catch prevent from crashing due to duplication of node.url
+      try {
+        nodeInsert.run(node, domain.id);
+      } catch (err) {
+        console.log("NODE EXISTS: ", node);
+      }
     } else {
-      console.log("NODE EXISTS: ", node);
+      console.log("NODE VISITED: ", node);
     }
   });
 }
@@ -142,7 +147,6 @@ function dequeueURL(
         .get() as Node;
 
       if (nextNode === undefined) {
-        db.prepare("DELETE FROM queues WHERE id = ?").run(domain.id);
         return {
           length: 0,
           url: "",
@@ -158,9 +162,8 @@ function dequeueURL(
       inProgressNode = nextNode;
     }
 
-    const nodes = db
-      .prepare("SELECT * from nodes WHERE status = 'pending'")
-      .all() as Node[];
+    //const nodeCount = db.prepare("SELECT COUNT(*) from nodes").get();
+    const nodeCount = db.prepare("SELECT * from nodes").all();
 
     // TODO FIX THIS, FOREIGN KEY CONSTRAINT, NODES RELYING ON REMOVED QUEUE
     // RETURNS ERROR, THE NODE WHERE ITS STATUS IS 'PENDING' STILL EXISTS
@@ -170,7 +173,8 @@ function dequeueURL(
     console.log("Update node=%s to 'in_progess'", inProgressNode.id);
 
     return {
-      length: nodes.length,
+      length: nodeCount.length,
+      //length: Object.values(nodeCount as { [key: string]: any })[0] as number,
       url: inProgressNode.url,
       message: "",
       inProgressNode: inProgressNode,

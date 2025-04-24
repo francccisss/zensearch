@@ -250,7 +250,6 @@ async function frontierQueueHandler(
           domain,
         );
 
-        console.log("Dequeue Message: %s", message);
         const dequeuedUrl: DequeuedUrl = { RemainingInQueue: length, Url: url };
         const msgBuffer = Buffer.from(JSON.stringify(dequeuedUrl));
 
@@ -262,7 +261,8 @@ async function frontierQueueHandler(
           throw new Error("Error: Unable to send a dequeueded URL");
         }
 
-        console.log("NOTIF: Dequeued URL Sent");
+        console.log("TEST DATABASE: DEQUEUED NODE ", dequeuedUrl);
+        console.log("TEST DATABASE: DEQUEUE MESSAGE: %s", message);
         console.log(inProgressNode);
         // node can be null if queue is empty
         if (inProgressNode !== null) {
@@ -271,6 +271,7 @@ async function frontierQueueHandler(
         }
 
         if (inProgressNode == null && length == 0) {
+          console.log("DATABASE TEST: GOTCHA BITCH");
           database.removeQueue(db, domain);
         }
       } catch (err) {
