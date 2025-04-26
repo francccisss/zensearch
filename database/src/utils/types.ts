@@ -3,9 +3,15 @@ export const CRAWL_SUCCESS = 0;
 export const CRAWL_FAIL = 1;
 export type CrawlStatus = number;
 
+export type IndexedSite = {
+  id: string;
+  primary_url: string;
+  last_indexed: number;
+};
+
 type header = {
   Title: string;
-  Url: string;
+  URL: string;
 };
 
 export type IndexedWebpage = {

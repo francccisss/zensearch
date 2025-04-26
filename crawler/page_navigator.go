@@ -168,13 +168,14 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) error {
 			return err
 		}
 
+		indexedWebpage.Header.URL = currentUrl
 		fmt.Printf("NOTIF: page %s indexed\n", currentUrl)
 
 		// SAVING PHASE
 		fmt.Println("NOTIF: storing indexed page")
 		result := types.IndexedResult{
 			CrawlResult: types.CrawlResult{
-				URLSeed:     currentUrl,
+				URLSeed:     pn.Hostname,
 				Message:     "Successfully indexed and stored webpages",
 				CrawlStatus: CRAWL_SUCCESS,
 			},
@@ -207,32 +208,34 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) error {
 
 	// INDEXING PHASE
 
-	// indexedWebpage, err := pn.Index()
-	// if err != nil {
-	// 	// then skip this page
-	// 	fmt.Printf("ERROR: Something went wrong, unable to index current webpage.\n")
-	// 	return err
-	// }
-	//
-	// fmt.Printf("NOTIF: page %s indexed\n", currentUrl)
-	//
+	indexedWebpage, err := pn.Index()
+	if err != nil {
+		// then skip this page
+		fmt.Printf("ERROR: Something went wrong, unable to index current webpage.\n")
+		return err
+	}
+	indexedWebpage.Header.URL = currentUrl
+	fmt.Printf("INDEXED WEBPAGE HEADER: %+v\n", indexedWebpage.Header)
+
+	fmt.Printf("NOTIF: page %s indexed\n", currentUrl)
+
 	// // SAVING PHASE
-	// fmt.Println("NOTIF: storing indexed page")
-	// result := types.IndexedResult{
-	// 	CrawlResult: types.CrawlResult{
-	// 		URLSeed:     currentUrl,
-	// 		Message:     "Successfully indexed and stored webpages",
-	// 		CrawlStatus: CRAWL_SUCCESS,
-	// 	},
-	// 	Webpage: indexedWebpage,
-	// }
-	//
-	// err = SendIndexedWebpage(result)
-	// if err != nil {
-	// 	return fmt.Errorf("Unable to send indexed result to database service\nreturning...")
-	// }
-	// fmt.Println("NOTIF: stored indexed webpage")
-	//
+	fmt.Println("NOTIF: storing indexed page")
+	result := types.IndexedResult{
+		CrawlResult: types.CrawlResult{
+			URLSeed:     pn.Hostname,
+			Message:     "Successfully indexed and stored webpages",
+			CrawlStatus: CRAWL_SUCCESS,
+		},
+		Webpage: indexedWebpage,
+	}
+
+	err = SendIndexedWebpage(result)
+	if err != nil {
+		return fmt.Errorf("Unable to send indexed result to database service\nreturning...")
+	}
+	fmt.Println("NOTIF: stored indexed webpage")
+
 	return nil
 }
 
@@ -292,15 +295,9 @@ func (pt PageNavigator) Index() (types.IndexedWebpage, error) {
 		log.Printf("ERROR: No title for this page")
 	}
 
-	url, err := (*pt.WD).CurrentURL()
-	if err != nil {
-		log.Printf("ERROR: No url for this page")
-	}
-
 	newIndexedPage := types.IndexedWebpage{
 		Contents: pageContents,
 		Header: types.Header{
-			URL:   url,
 			Title: title,
 		},
 	}

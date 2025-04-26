@@ -77,7 +77,7 @@ async function webpageHandler(
     const deserializeData: IndexedWebpage = JSON.parse(decodedData);
     try {
       databaseChannel.ack(data);
-      //await sql.indexWebpages(db, deserializeData);
+      database.saveWebpage(db, deserializeData);
       console.log("Storing data");
       databaseChannel.sendToQueue(
         data.properties.replyTo,
@@ -271,7 +271,7 @@ async function frontierQueueHandler(
         }
 
         if (inProgressNode == null && length == 0) {
-          console.log("DATABASE TEST: GOTCHA BITCH");
+          console.log("DATABASE TEST: REMOVED QUEUE");
           database.removeQueue(db, domain);
         }
       } catch (err) {

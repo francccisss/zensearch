@@ -108,23 +108,23 @@ func (s *Spawner) SpawnCrawlers() {
 				err = crawler.Crawl()
 				if err != nil {
 					fmt.Println(err.Error())
-					// errMessageStatus := CrawlMessageStatus{
-					// 	IsSuccess: false,
-					// 	URLSeed:   entryPoint,
-					// 	Message:   err.Error(),
-					// }
-					// SendCrawlMessageStatus(errMessageStatus)
+					errMessageStatus := CrawlMessageStatus{
+						IsSuccess: false,
+						URLSeed:   entryPoint,
+						Message:   err.Error(),
+					}
+					SendCrawlMessageStatus(errMessageStatus)
 					return
 				}
 
 				(*crawler.WD).Quit()
 
-				// messageStatus := CrawlMessageStatus{
-				// 	IsSuccess: true,
-				// 	Message:   "Succesfully indexed and stored webpages",
-				// 	URLSeed:   entryPoint,
-				// }
-				// SendCrawlMessageStatus(messageStatus)
+				messageStatus := CrawlMessageStatus{
+					IsSuccess: true,
+					Message:   "Succesfully indexed and stored webpages",
+					URLSeed:   entryPoint,
+				}
+				SendCrawlMessageStatus(messageStatus)
 				fmt.Printf("NOTIF: Thread Token release\n")
 			}()
 		}
@@ -217,17 +217,6 @@ func (c Crawler) Crawl() error {
 	for dq := range dqUrlChan {
 		fmt.Printf("DEQUEUE DATA: %+v\n", dq)
 		retries := 0
-
-		// initial url is not going to run because there are and will be 0 RemainingInQueue
-		// problem is, the initial url would be in_progress state,
-		// the length returned are nodes that are pending state
-		// when the first enqueue is called on the root url, the root url is in pending state,
-		// so when a dequeue is called, the database service checks the queue if
-		// there are any in_progress nodes, if not it grab the second one that is in pending state
-		// once grabbed, it returns the length of pending nodes, but since the new node now is
-		// in_progress state, the length of pending nodes is returned as 0
-		// but it also checks that if there are no more nodes after the first one, then it doesnt return
-		// a new URL
 
 		if dq.RemainingInQueue == 0 {
 			fmt.Println("No more urls in queue, cleaning up")
