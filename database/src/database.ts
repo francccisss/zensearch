@@ -4,31 +4,48 @@ import type {
   Webpage,
   FrontierQueue,
   Node,
+  IndexedSite,
 } from "./utils/types.js";
 import { randomUUID } from "crypto";
 import Database from "better-sqlite3";
+
+// URLSeed/primary_url and the url (webpages) from crawler should be different
+// the URLSeed should be the entry point of the crawler, while the primary_url
+// is the  that the contents correponds to.
 
 async function saveWebpage(db: Database.Database, data: IndexedWebpage) {
   if (db == null) {
     throw new Error("ERROR: Database is not connected.");
   }
 
+  const indexedSite = db
+    .prepare("SELECT * FROM indexed_sites WHERE primary_url = ?")
+    .get(data.URLSeed) as IndexedSite | undefined;
+
+  if (indexedSite !== undefined) {
+    const insertWebpageStmt = db.prepare(
+      "INSERT INTO webpages (url, title, contents, parent) VALUES (?, ?, ?, ?);",
+    );
+    insertWebpageStmt.run(
+      data.Webpage.Header.URL,
+      data.Webpage.Header.Title,
+      data.Webpage.Contents,
+      indexedSite.id,
+    );
+    return;
+  }
+
+  let indexedSiteID = randomUUID();
   const insertIndexedSitesStmt = db.prepare(
     "INSERT INTO indexed_sites (id, primary_url, last_indexed) VALUES (?,?,?);",
   );
 
-  const indexedSiteID = randomUUID();
-  insertIndexedSitesStmt.run(
-    indexedSiteID,
-    new URL(data.URLSeed).hostname,
-    Date.now(),
-  );
-
+  insertIndexedSitesStmt.run(indexedSiteID, data.URLSeed, Date.now());
   const insertWebpageStmt = db.prepare(
     "INSERT INTO webpages (url, title, contents, parent) VALUES (?, ?, ?, ?);",
   );
   insertWebpageStmt.run(
-    data.Webpage.Header.Url,
+    data.Webpage.Header.URL,
     data.Webpage.Header.Title,
     data.Webpage.Contents,
     indexedSiteID,
@@ -162,8 +179,7 @@ function dequeueURL(
       inProgressNode = nextNode;
     }
 
-    //const nodeCount = db.prepare("SELECT COUNT(*) from nodes").get();
-    const nodeCount = db.prepare("SELECT * from nodes").all();
+    const nodeCount = db.prepare("SELECT COUNT(*) from nodes").get();
 
     // TODO FIX THIS, FOREIGN KEY CONSTRAINT, NODES RELYING ON REMOVED QUEUE
     // RETURNS ERROR, THE NODE WHERE ITS STATUS IS 'PENDING' STILL EXISTS
@@ -173,8 +189,7 @@ function dequeueURL(
     console.log("Update node=%s to 'in_progess'", inProgressNode.id);
 
     return {
-      length: nodeCount.length,
-      //length: Object.values(nodeCount as { [key: string]: any })[0] as number,
+      length: Object.values(nodeCount as { [key: string]: any })[0] as number,
       url: inProgressNode.url,
       message: "",
       inProgressNode: inProgressNode,
@@ -188,10 +203,12 @@ function dequeueURL(
 // only set once an ack has been received
 function setNodeToVisited(db: Database.Database, node: Node) {
   try {
-    db.prepare("DELETE FROM nodes WHERE nodes.id = ?").run(node.id);
-    db.prepare(
-      "INSERT INTO visited_nodes (node_url, queue_id) VALUES (?, ?)",
-    ).run(node.url, node.queue_id);
+    db.transaction(() => {
+      db.prepare("DELETE FROM nodes WHERE nodes.id = ?").run(node.id);
+      db.prepare(
+        "INSERT INTO visited_nodes (node_url, queue_id) VALUES (?, ?)",
+      ).run(node.url, node.queue_id);
+    })();
   } catch (err) {
     console.error("Error: Unable to set node as visited");
     console.error(err);
@@ -208,7 +225,7 @@ function checkNodeExists(db: Database.Database, url: string): boolean {
 function checkNodeVisited(db: Database.Database, url: string): boolean {
   return db
     .prepare(
-      "SELECT * FROM visited_nodes vn JOIN nodes n ON ? = n.url JOIN queues ON vn.queue_id = queues.id",
+      "SELECT * FROM visited_nodes vn JOIN queues ON vn.queue_id = queues.id WHERE vn.node_url = ?",
     )
     .get(url) == undefined
     ? false

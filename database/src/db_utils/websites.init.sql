@@ -13,7 +13,7 @@ CREATE TABLE indexed_sites (
 CREATE TABLE webpages (
     parent TEXT REFERENCES indexed_sites(id),
     id TEXT PRIMARY KEY,
-    url TEXT NOT NULL ,
+    url TEXT NOT NULL UNIQUE,
     title TEXT,
     contents TEXT
 );
