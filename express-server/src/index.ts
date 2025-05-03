@@ -1,8 +1,8 @@
 import http from "http";
-import rabbitmq from "./rabbitmq/index";
-import WebsocketService from "./websocket";
+import rabbitmq from "./rabbitmq/index.js";
+import WebsocketService from "./websocket/index.js";
 import { WebSocketServer } from "ws";
-import app from "./express_server";
+import app from "./express_server/index.js";
 import { exit } from "process";
 
 const httpServer = http.createServer(app);
@@ -23,33 +23,33 @@ const PORT = 8080;
    Creates an indefinite loop to listen/receive
    new messages from the message broker.
   */
-  const rbqClient = await rabbitmq.client.establishConnection(7);
+  // const rbqClient = await rabbitmq.client.establishConnection(7);
 
   // Connect Websocket for search results retrieved
-  const wss: WebSocketServer = new WebSocketServer({ server: httpServer });
-  const wsService = new WebsocketService(wss);
-  wsService.handler();
-
-  //rbq_client.segmentGenerator();
-  await rbqClient.initChannelQueues();
-
-  rbqClient.crawlChannelListener(
-    wsService.sendCrawlResultsToClient.bind(wsService),
-  );
-  (async () => {
-    let segmentsReceived = 0;
-    rbqClient.eventEmitter.on("newSegment", () => {
-      segmentsReceived++;
-    });
-
-    rbqClient.eventEmitter.on("done", () => {
-      console.log("Segments Received: %d", segmentsReceived);
-      segmentsReceived = 0;
-    });
-  })();
-
-  rbqClient.addSegmentsToQueue();
-  rbqClient.searchChannelListener();
+  // const wss: WebSocketServer = new WebSocketServer({ server: httpServer });
+  // const wsService = new WebsocketService(wss);
+  // wsService.handler();
+  //
+  // //rbq_client.segmentGenerator();
+  // await rbqClient.initChannelQueues();
+  //
+  // rbqClient.crawlChannelListener(
+  //   wsService.sendCrawlResultsToClient.bind(wsService),
+  // );
+  // (async () => {
+  //   let segmentsReceived = 0;
+  //   rbqClient.eventEmitter.on("newSegment", () => {
+  //     segmentsReceived++;
+  //   });
+  //
+  //   rbqClient.eventEmitter.on("done", () => {
+  //     console.log("Segments Received: %d", segmentsReceived);
+  //     segmentsReceived = 0;
+  //   });
+  // })();
+  //
+  // rbqClient.addSegmentsToQueue();
+  // rbqClient.searchChannelListener();
 
   // Start HTTP server
   httpServer.listen(PORT, () => {

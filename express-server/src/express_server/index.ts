@@ -1,20 +1,20 @@
-import express, { Request, Response, NextFunction } from "express";
+import express from "express";
+import type { Request, Response, NextFunction } from "express";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import rabbitmq from "../rabbitmq";
+import rabbitmq from "../rabbitmq/index.js";
 import { create } from "express-handlebars";
-import segmentSerializer from "../segments/segment_serializer";
-import { EXPRESS_CRAWLER_QUEUE } from "../rabbitmq/routing_keys";
+import segmentSerializer from "../segments/segment_serializer.js";
+import { EXPRESS_CRAWLER_QUEUE } from "../rabbitmq/routing_keys.js";
 
-const cors = require("cors");
-const body_parser = require("body-parser");
+import cors from "cors";
+import body_parser from "body-parser";
 const app = express();
-const public_route = [__dirname, "..", "public"];
+const public_route = [import.meta.dirname, "..", "public"];
 
 app.use(body_parser.urlencoded({ extended: false }));
 app.use(body_parser.json());
 app.use(cors());
-app.use(express.static(path.join(...public_route)));
 
 app.engine(
   "handlebars",
@@ -54,22 +54,37 @@ app.engine(
   }).engine,
 );
 app.set("view engine", "handlebars");
-app.set("views", path.join(__dirname, "views"));
+app.set("views", path.join(import.meta.dirname, "views"));
 app.use(
-  express.static(path.join(__dirname, "..", "public/scripts")),
+  express.static(path.join(import.meta.dirname, "..", "public")),
   (req: Request, res: Response, next: NextFunction) => {
     if (req.path.endsWith(".js")) {
       res.setHeader("Content-Type", "application/javascript");
+      next();
     }
-    next();
+    if (req.path.endsWith(".css")) {
+      res.setHeader("Content-Type", "text/css");
+      next();
+    }
   },
 );
-app.get("/", (_, res: Response) => {
+// app.use(express.static(path.join(...public_route)));
+app.get("/", (req: Request, res: Response) => {
+  console.log("NEW CONNECTION");
+  console.log(req.cookies);
   res.sendFile(path.join(...public_route, "index.html"));
 });
 
 app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
+  // check if URL is valid
   const Docs: Array<string> = [...req.body];
+  if (Docs.length == 0) {
+    return res.status(200).json({
+      is_crawling: false,
+      message: "List is empty.",
+      crawl_list: Docs,
+    });
+  }
   const encoder = new TextEncoder();
   const encoded_docs = encoder.encode(JSON.stringify({ Docs }));
 
@@ -92,13 +107,11 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     // TODO need to return some error after some amount of time if there is not ack received
     // results are the array of websites that have NOT been indexed yet
 
-    //const results = await rabbitmq.client.crawlListCheck(encoded_docs);
-    //if (results === null) {
-    //  throw new Error(
-    //    "Unable to check user's crawl list, there might be something wrong with the database service.",
-    //  );
-    //}
-    let results = { unindexed: Docs };
+    const results = await rabbitmq.client.crawlListCheck(encoded_docs);
+    // let results = { unindexed: Docs };
+    if (results === null) {
+      throw new Error("Unable to check user's crawl list, results == null.");
+    }
     if (results.unindexed.length === 0) {
       return res.status(200).json({
         is_crawling: false,

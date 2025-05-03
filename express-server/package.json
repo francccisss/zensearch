@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "build": "npx tsc && cp -r ./src/public ./dist && cp -r ./src/express_server/views/ ./dist/express_server/views/"
   },
+  "type": "module",
   "keywords": [],
   "author": "",
   "license": "ISC",

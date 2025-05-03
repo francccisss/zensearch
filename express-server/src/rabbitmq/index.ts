@@ -1,6 +1,7 @@
-import amqp, { Connection, Channel, ConsumeMessage } from "amqplib";
-import { EventEmitter } from "stream";
-import CircularBuffer from "../segments/circular_buffer";
+import type { Channel, ConsumeMessage, ChannelModel } from "amqplib";
+import amqp from "amqplib";
+import EventEmitter from "stream";
+import CircularBuffer from "../segments/circular_buffer.js";
 import {
   DB_EXPRESS_CHECK_CBQ,
   CRAWLER_EXPRESS_CBQ,
@@ -8,12 +9,12 @@ import {
   EXPRESS_DB_CHECK_QUEUE,
   EXPRESS_SENGINE_QUERY_QUEUE,
   SENGINE_EXPRESS_QUERY_CBQ,
-} from "./routing_keys";
-import { CrawlMessageStatus } from "../types";
+} from "./routing_keys.js";
+import type { CrawlMessageStatus } from "../types/index.js";
 
 // TODO ADD LOGS TO RECEIVED AND PROCESSED SEGMENTS
 class RabbitMQClient {
-  connection: null | Connection = null;
+  connection: null | ChannelModel = null;
   client: this = this;
   searchChannel: Channel | null = null;
   crawlChannel: Channel | null = null;
@@ -207,8 +208,10 @@ class RabbitMQClient {
       Sends a message to the database service to check and see if the DOCS
       or list of websites the users want to crawl already exists in the database.
     */
-  async crawlListCheck(encoded_list: ArrayBuffer): Promise<null | {
-    undindexed: Array<string>;
+  async crawlListCheck(
+    encoded_list: Uint8Array<ArrayBufferLike>,
+  ): Promise<null | {
+    unindexed: Array<string>;
   }> {
     if (this.connection === null)
       throw new Error("Unable to create a channel for crawl queue.");
@@ -223,9 +226,11 @@ class RabbitMQClient {
       exclusive: false,
     });
 
-    channel.sendToQueue(EXPRESS_DB_CHECK_QUEUE, Buffer.from(encoded_list));
-    let undindexed: Array<string> = [];
-    let isError = true;
+    channel.sendToQueue(EXPRESS_DB_CHECK_QUEUE, Buffer.from(encoded_list), {
+      replyTo: DB_EXPRESS_CHECK_CBQ,
+    });
+    let unindexed: Array<string> = [];
+    let isError = false;
     await channel.consume(DB_EXPRESS_CHECK_CBQ, async (data) => {
       if (data === null) {
         throw new Error("ERROR: Data received is null.");
@@ -234,7 +239,7 @@ class RabbitMQClient {
         const parseList: { Docs: Array<string> } = JSON.parse(
           data.content.toString(),
         );
-        undindexed = parseList.Docs;
+        unindexed = parseList.Docs;
         channel.ack(data);
       } catch (err) {
         isError = true;
@@ -248,7 +253,7 @@ class RabbitMQClient {
       );
 
     channel.close();
-    return isError ? null : { undindexed };
+    return isError ? null : { unindexed };
   }
 }
 
