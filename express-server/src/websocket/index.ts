@@ -1,7 +1,8 @@
-import { WebSocketServer, WebSocket, RawData, Data } from "ws";
-import rabbitmq from "../rabbitmq";
-import { Channel, ConsumeMessage } from "amqplib";
-import { EXPRESS_CRAWLER_QUEUE } from "../rabbitmq/routing_keys";
+import { WebSocketServer, WebSocket } from "ws";
+import type { RawData, Data } from "ws";
+import rabbitmq from "../rabbitmq/index.js";
+import type { Channel, ConsumeMessage } from "amqplib";
+import { EXPRESS_CRAWLER_QUEUE } from "../rabbitmq/routing_keys.js";
 
 const EVENTS = {
   message: "message",

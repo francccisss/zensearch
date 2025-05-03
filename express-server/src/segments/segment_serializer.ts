@@ -1,11 +1,11 @@
-import { Channel, ConsumeMessage } from "amqplib";
+import type { Channel, ConsumeMessage } from "amqplib";
 
 type SegmentHeader = {
   TotalSegments: number;
   SequenceNumber: number;
 };
 
-type WebpageBuffer = Buffer;
+// type WebpageBuffer = Buffer;
 
 async function listenIncomingSegments(
   channel: Channel,
@@ -53,14 +53,14 @@ function decodeSegments(segment: Buffer): {
   payload: Uint8Array;
 } {
   return {
-    header: getSegmentHeader(segment.slice(0, 8)),
+    header: getSegmentHeader(segment.subarray(0, 8)),
     payload: getSegmentPayload(segment),
   };
 }
 
 function getSegmentHeader(bytes: Buffer): SegmentHeader {
-  const seqNumBuff = bytes.slice(0, 4);
-  const totalSegmentsBuff = bytes.slice(4, 8);
+  const seqNumBuff = bytes.subarray(0, 4);
+  const totalSegmentsBuff = bytes.subarray(4, 8);
   return {
     SequenceNumber: seqNumBuff.readUint32LE(),
     TotalSegments: totalSegmentsBuff.readUint32LE(),
@@ -68,7 +68,7 @@ function getSegmentHeader(bytes: Buffer): SegmentHeader {
 }
 
 function getSegmentPayload(bytes: Buffer): Buffer {
-  return bytes.slice(8);
+  return bytes.subarray(8);
 }
 
 function parseWebpages(webpageBuffer: Buffer): Array<{
