@@ -25,6 +25,7 @@ type SegmentHeader struct {
 }
 
 // waits for all of the incoming segments and decodes then appends bytes into the `webpageBytesChan`
+// incoming segment is the input while the webpageBytesChan is the output
 func HandleIncomingSegments(dbChannel *amqp.Channel, incomingSegmentsChan <-chan amqp.Delivery, webpageBytesChan chan bytes.Buffer) {
 
 	var (

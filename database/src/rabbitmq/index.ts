@@ -10,7 +10,6 @@ import type {
 import segmentSerializer from "../serializer/segment_serializer.js";
 import {
   CRAWLER_DB_INDEXING_QUEUE,
-  DB_EXPRESS_CHECK_CBQ,
   DB_SENGINE_REQUEST_CBQ,
   EXPRESS_DB_CHECK_QUEUE,
   SENGINE_DB_REQUEST_QUEUE,
@@ -151,7 +150,7 @@ async function webpageHandler(
 
       databaseChannel.ack(data);
       const is_sent = databaseChannel.sendToQueue(
-        DB_EXPRESS_CHECK_CBQ,
+        data.properties.replyTo,
         Buffer.from(encodedDocs),
       );
       if (!is_sent) {

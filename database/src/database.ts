@@ -23,15 +23,22 @@ async function saveWebpage(db: Database.Database, data: IndexedWebpage) {
     .get(data.URLSeed) as IndexedSite | undefined;
 
   if (indexedSite !== undefined) {
-    const insertWebpageStmt = db.prepare(
-      "INSERT INTO webpages (url, title, contents, parent) VALUES (?, ?, ?, ?);",
-    );
-    insertWebpageStmt.run(
-      data.Webpage.Header.URL,
-      data.Webpage.Header.Title,
-      data.Webpage.Contents,
-      indexedSite.id,
-    );
+    try {
+      const insertWebpageStmt = db.prepare(
+        "INSERT INTO webpages (url, title, contents, parent) VALUES (?, ?, ?, ?);",
+      );
+      insertWebpageStmt.run(
+        data.Webpage.Header.URL,
+        data.Webpage.Header.Title,
+        data.Webpage.Contents,
+        indexedSite.id,
+      );
+    } catch (err) {
+      console.error(
+        "WEBPAGE URL ALREADY EXISTS, SKIPPING=%s",
+        data.Webpage.Header.URL,
+      );
+    }
     return;
   }
 
@@ -58,7 +65,7 @@ async function queryWebpages(db: Database.Database): Promise<Array<Webpage>> {
   // query function returns once the promise has either been resolved
   // or rejected by the sqlite query call.
 
-  const stmt = db.prepare("SELECT Url, Contents, Title FROM webpages");
+  const stmt = db.prepare("SELECT url, contents, title FROM webpages");
   const pages = stmt.all();
   return pages as Array<Webpage>;
 }
@@ -68,6 +75,7 @@ function checkAlreadyIndexedWebpage(
   db: Database.Database,
   crawlList: Array<string>,
 ): Array<string> {
+  console.log("checking");
   const stmt = db.prepare(
     "SELECT primary_url as url FROM indexed_sites WHERE url = ?",
   );

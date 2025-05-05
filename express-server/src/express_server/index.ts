@@ -10,7 +10,7 @@ import { EXPRESS_CRAWLER_QUEUE } from "../rabbitmq/routing_keys.js";
 import cors from "cors";
 import body_parser from "body-parser";
 const app = express();
-const public_route = [import.meta.dirname, "..", "public"];
+const public_route = [import.meta.dirname, "../", "public"];
 
 app.use(body_parser.urlencoded({ extended: false }));
 app.use(body_parser.json());
@@ -55,20 +55,20 @@ app.engine(
 );
 app.set("view engine", "handlebars");
 app.set("views", path.join(import.meta.dirname, "views"));
-app.use(
-  express.static(path.join(import.meta.dirname, "..", "public")),
-  (req: Request, res: Response, next: NextFunction) => {
-    if (req.path.endsWith(".js")) {
-      res.setHeader("Content-Type", "application/javascript");
-      next();
-    }
-    if (req.path.endsWith(".css")) {
-      res.setHeader("Content-Type", "text/css");
-      next();
-    }
-  },
-);
-// app.use(express.static(path.join(...public_route)));
+// app.use(
+//   express.static(path.join(...public_route)),
+// (req: Request, res: Response, next: NextFunction) => {
+//   if (req.path.endsWith(".js")) {
+//     res.setHeader("Content-Type", "application/javascript");
+//     next();
+//   }
+//   if (req.path.endsWith(".css")) {
+//     res.setHeader("Content-Type", "text/css");
+//     next();
+//   }
+// },
+// );
+app.use(express.static(path.join(...public_route)));
 app.get("/", (req: Request, res: Response) => {
   console.log("NEW CONNECTION");
   console.log(req.cookies);
