@@ -57,7 +57,7 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 
 			go func() {
 				// First calculate term frequency of each webpage for each token
-				// TF(q1,webpages) -> TF(qT2,webpages)...
+				// TF(q1,webpages) -> TF(q2,webpages)...
 
 				// fmt.Printf("TEST: creating data totalChunks using data parallelism for term=%s\n", term)
 				// You might be asking, why im using floats here? math.Min returns a 64bit float :D
@@ -72,22 +72,20 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 				totalChunks := math.Max(math.Round(totalWebpages/CHUNK_SIZE), 1) // chunk size is dependant on the
 				// length of the total webpages in the database
 				fmt.Printf("TEST chunk_distribution_length=%d\n", int(totalChunks))
-				end := totalChunks
+				end := float64(CHUNK_SIZE)
 
-				for i := range int(totalChunks) {
-					// if equal to valid chunk size
-					// fmt.Printf("TEST: start=%d, end=%d, diff=%d\n", int(start), int(end), int(math.Min(math.Abs(end-totalWebpages), CHUNK_SIZE)))
+				for range int(totalChunks) {
 					swg.Add(1)
 					go func() {
 						defer swg.Done()
-						_ = TF(term, docLen, webpages, int(start), int(end))
+
+						// TF(q1,webpages) + TF(q2,webpages)...
+						_ = TF(term, docLen, webpages, int(start), int(end)) // adds old rating if exists
 					}()
-					start = float64(i) * CHUNK_SIZE
+					start = end + 1 // always 0
 					end = start + math.Min(math.Abs(start+end-totalWebpages), CHUNK_SIZE)
 				}
-				// fmt.Println("TEST: waiting for totalChunks")
 				swg.Wait()
-				// fmt.Printf("TEST: aggregate totalChunks for term=%s\n", term)
 				mwg.Done()
 			}()
 		}
@@ -95,8 +93,8 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 		wg.Done()
 	}()
 	wg.Wait()
-	// for each token calculate BM25Rating for each webpages
-	// by summ*ing the rating from the previous tokens
+	// for each IDF of each token, calculate BM25Rating for each webpages
+	// by summing the rating from the previous rated token
 	for IDF := range IDFChan {
 		for j := range *webpages {
 			bm25rating := BM25(IDF, (*webpages)[j].TfRating)
@@ -109,13 +107,15 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 func RankBM25Ratings(webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF {
 	webpagesSlice := (*webpages)[:]
 
+	for i := range *webpages {
+		fmt.Printf("RANKED: %+v\n", (*webpages)[i].Bm25rating)
+
+	}
 	// TODO replace sort.Slice with slices.SortFunc
 	sort.Slice(webpagesSlice, func(i, j int) bool {
 		return webpagesSlice[i].TokenRating.Bm25rating > webpagesSlice[j].TokenRating.Bm25rating
 	})
 	filteredWebpages := filter(webpagesSlice)
-
-	// fmt.Printf("Filtered: %+v\n", filteredWebpages)
 
 	return &filteredWebpages
 }

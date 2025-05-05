@@ -108,6 +108,7 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     // results are the array of websites that have NOT been indexed yet
 
     const results = await rabbitmq.client.crawlListCheck(encoded_docs);
+    console.log(results);
     // let results = { unindexed: Docs };
     if (results === null) {
       throw new Error("Unable to check user's crawl list, results == null.");
