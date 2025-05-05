@@ -24,9 +24,9 @@ export type IndexedWebpage = {
   URLSeed: string;
 };
 export type Webpage = {
-  Contents: string;
-  Title: string;
-  Url: string;
+  contents: string;
+  title: string;
+  url: string;
 };
 
 export type Segment = {

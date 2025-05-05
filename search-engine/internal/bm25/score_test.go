@@ -27,7 +27,7 @@ import (
  an argument to each BM25ranking methods
 */
 
-var TEST_QRY = []string{"Using", "golang", "makes", "it", "so", "simple", "to", "implement", "concurrency"}
+var TEST_QRY = []string{"Projects"}
 
 func TestProcessParallelism(t *testing.T) {
 
@@ -45,9 +45,9 @@ func TestProcessParallelism(t *testing.T) {
 	results = append(results, testResponsetime(TEST_QRY, webpages, CalculateBMRatings),
 		testResponsetime(TEST_QRY, webpages, Bm25TestConcurrency), testResponsetime(TEST_QRY, webpages, Bm25TestSequential))
 
-	for _, result := range results {
-		fmt.Printf("results=%+v\n", result)
-	}
+	// for _, result := range results {
+	// fmt.Printf("results=%+v\n", result)
+	// }
 
 	t.Logf("TEST: %+v token", TEST_QRY)
 	t.Log("TEST: test end")
@@ -59,6 +59,7 @@ func testResponsetime(termTokens []string,
 	method func(term string, webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF) []string {
 	timings := []string{}
 	terms := ""
+	fmt.Printf("WBP COUNT:%d\n", len(*webpages))
 	for _, tt := range termTokens {
 		terms += tt + " "
 		fmt.Printf("TEST: current token= '%s'\n", terms)
@@ -145,10 +146,6 @@ func mockConnection(t *testing.T) bytes.Buffer {
 	dbQueryChannel, err := conn.Channel()
 	if err != nil {
 		t.Fatalf("Unable to create a database channel")
-	}
-	_, err = dbQueryChannel.QueueDeclare(rabbitmq.SENGINE_EXPRESS_QUERY_CBQ, false, false, false, false, nil)
-	if err != nil {
-		t.Fatalf("Unable to declare DB_QUERY_QUEUE")
 	}
 	_, err = dbQueryChannel.QueueDeclare(rabbitmq.DB_SENGINE_REQUEST_CBQ, false, false, false, false, nil)
 	if err != nil {
