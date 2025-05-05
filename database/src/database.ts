@@ -84,7 +84,7 @@ function checkAlreadyIndexedWebpage(
   let tmp: Array<string> = crawlList.filter((item) => {
     const hostname = new URL(item).hostname;
     const webpage = stmt.get(hostname);
-    return webpage != undefined;
+    return webpage == undefined;
   });
 
   return tmp;
