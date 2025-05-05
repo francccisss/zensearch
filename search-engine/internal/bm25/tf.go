@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	k1 = 4  // controls the weight of term frequency, lower value saturates the term frequency quicker
-	b  = .4 // controlling document normalization
+	k1 = 1.5 // controls the weight of term frequency, lower value saturates the term frequency quicker
+	b  = .75 // controlling document normalization
 )
 
 // Updating TF ranking of each webpage
