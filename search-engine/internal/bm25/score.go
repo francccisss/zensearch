@@ -6,23 +6,22 @@ import (
 	"search-engine/internal/types"
 	"search-engine/utilities"
 	"sort"
-	"strings"
 	"sync"
 )
 
 // CHUNK_SIZE is the total amount of webpages within each chunks to be proccessed in parallel
 const CHUNK_SIZE = 40
 
+// TODO CONCURRENCY ISSUE NOT FROM TEST AND MAIN
+// SOMETIMES TEXT IS FULLY RENDERED AND RANKED SOMETIMES IT ISNT
 // takes exponential time
 func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF {
 	// return immediately if database is currently empty
-	// if len(*webpages) == 0 {
-	// 	return webpages
-	//
-	// }
+	if len(*webpages) == 0 {
+		return webpages
+	}
+	var mux sync.Mutex
 	tokenizedTerms := Tokenizer(query)
-
-	// totalWebpages := len(*webpages)
 
 	var wg sync.WaitGroup
 	// get IDF and TF for each token
@@ -90,7 +89,11 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 
 						// TF(q1,webpages) + TF(q2,webpages)...
 						_ = TF(term, docLen, webpages, int(start), int(end)) // adds old rating if exists
+						mux.Unlock()
+
 					}()
+					// fmt.Println(start - end)
+					mux.Lock()
 					start = end + 1 // always 0
 					end = start + math.Min(math.Abs(start-totalWebpages), CHUNK_SIZE)
 				}
@@ -119,25 +122,29 @@ func RankBM25Ratings(webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF {
 	sort.Slice(webpagesSlice, func(i, j int) bool {
 		return webpagesSlice[i].TokenRating.Bm25rating > webpagesSlice[j].TokenRating.Bm25rating
 	})
-	filteredWebpages := filter(webpagesSlice)
+	// filteredWebpages := filter(webpagesSlice)
 
-	return &filteredWebpages
+	return &webpagesSlice
 }
 
+// TODO SKIP SPACES
 func Tokenizer(query string) []string {
 	tmpSlice := []string{}
-	var charHolder = ""
-	for i := range len(query) {
-		char := string(query[i])
-		charHolder += char
-		if char == " " {
-			tmpSlice = append(tmpSlice, strings.Trim(charHolder, " "))
-			charHolder = ""
+	cur := 0
+	read := 0
+
+	for range query {
+		if query[read] == ' ' {
+			stringHolder := query[cur:read]
+			tmpSlice = append(tmpSlice, stringHolder)
+			cur = read
 		}
+		read++
 	}
 
-	// add the remaining character after reaching null byte
-	tmpSlice = append(tmpSlice, strings.Trim(charHolder, " "))
+	stringHolder := query[cur:read]
+	tmpSlice = append(tmpSlice, stringHolder)
+	fmt.Printf("TOKENIZER SLICE=%+v\n", tmpSlice)
 	return tmpSlice
 }
 
