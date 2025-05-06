@@ -47,6 +47,15 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 	wg.Add(1)
 	go func() {
 
+		// TODO FIX THE MATH HERE
+		// divide to valid chunks valid chunks == chunk_size = total webpages in chunk
+		// if total webapages is odd add another chunk
+		// calculate end of each chunks
+		// total wbpg = 15 chunk_size = 10
+		// 1.5 = 2 chunks -> chunks[0] = total wbpg = 10, chunks[1] = total wbpg = 5
+		// for each chunk process from 0 to size of wbpg in chunk
+		// calculate end = start + math.Min(remaning webpages,chunk_size)
+
 		var mwg sync.WaitGroup
 		// Ranking webpages
 		docLen := utilities.AvgDocLen(webpages)
@@ -59,7 +68,6 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 				// First calculate term frequency of each webpage for each token
 				// TF(q1,webpages) -> TF(q2,webpages)...
 
-				// fmt.Printf("TEST: creating data totalChunks using data parallelism for term=%s\n", term)
 				// You might be asking, why im using floats here? math.Min returns a 64bit float :D
 
 				var swg sync.WaitGroup
@@ -69,10 +77,11 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 				// the totalwebpages which is < CHUNK_SIZE would not be processed if math.Min()
 				// was used, so instead it will always be assumed that there will always be 1 chunk
 				// to process every webpage
-				totalChunks := math.Max(math.Round(totalWebpages/CHUNK_SIZE), 1) // chunk size is dependant on the
+				totalChunks := math.Min(totalWebpages/CHUNK_SIZE, CHUNK_SIZE) + 1
 				// length of the total webpages in the database
 				fmt.Printf("TEST chunk_distribution_length=%d\n", int(totalChunks))
-				end := float64(CHUNK_SIZE)
+				// INIT END INDEX
+				end := math.Min(totalWebpages, CHUNK_SIZE)
 
 				for range int(totalChunks) {
 					swg.Add(1)
@@ -83,7 +92,7 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 						_ = TF(term, docLen, webpages, int(start), int(end)) // adds old rating if exists
 					}()
 					start = end + 1 // always 0
-					end = start + math.Min(math.Abs(start+end-totalWebpages), CHUNK_SIZE)
+					end = start + math.Min(math.Abs(start-totalWebpages), CHUNK_SIZE)
 				}
 				swg.Wait()
 				mwg.Done()
@@ -106,11 +115,6 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 
 func RankBM25Ratings(webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF {
 	webpagesSlice := (*webpages)[:]
-
-	for i := range *webpages {
-		fmt.Printf("RANKED: %+v\n", (*webpages)[i].Bm25rating)
-
-	}
 	// TODO replace sort.Slice with slices.SortFunc
 	sort.Slice(webpagesSlice, func(i, j int) bool {
 		return webpagesSlice[i].TokenRating.Bm25rating > webpagesSlice[j].TokenRating.Bm25rating

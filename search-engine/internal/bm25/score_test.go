@@ -27,7 +27,7 @@ import (
  an argument to each BM25ranking methods
 */
 
-var TEST_QRY = []string{"Projects"}
+var TEST_QRY = []string{"postgres"}
 
 func TestProcessParallelism(t *testing.T) {
 
@@ -41,14 +41,17 @@ func TestProcessParallelism(t *testing.T) {
 	t.Logf("TEST: Time elapsed parsing: %dms\n\n\n", time.Until(timeStart).Abs().Milliseconds())
 
 	fmt.Printf("TEST: Comparing runtime\n\n")
-	results := [][]string{}
-	results = append(results, testResponsetime(TEST_QRY, webpages, CalculateBMRatings),
-		testResponsetime(TEST_QRY, webpages, Bm25TestConcurrency), testResponsetime(TEST_QRY, webpages, Bm25TestSequential))
-
+	// results := [][]string{}
+	// results = append(results, testResponsetime(TEST_QRY, webpages, CalculateBMRatings),
+	// 	testResponsetime(TEST_QRY, webpages, Bm25TestConcurrency), testResponsetime(TEST_QRY, webpages, Bm25TestSequential))
+	testResponsetime(TEST_QRY, webpages, CalculateBMRatings)
 	// for _, result := range results {
 	// fmt.Printf("results=%+v\n", result)
 	// }
 
+	for _, l := range *RankBM25Ratings(webpages) {
+		fmt.Printf("SAUCE=%+v\n", l.Title)
+	}
 	t.Logf("TEST: %+v token", TEST_QRY)
 	t.Log("TEST: test end")
 
@@ -60,6 +63,7 @@ func testResponsetime(termTokens []string,
 	timings := []string{}
 	terms := ""
 	fmt.Printf("WBP COUNT:%d\n", len(*webpages))
+	fmt.Printf("Token COUNT:%d\n", len(termTokens))
 	for _, tt := range termTokens {
 		terms += tt + " "
 		fmt.Printf("TEST: current token= '%s'\n", terms)
