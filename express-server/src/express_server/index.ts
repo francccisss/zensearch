@@ -188,9 +188,8 @@ app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
       rabbitmq.client.segmentGenerator.bind(rabbitmq.client),
     );
     rabbitmq.client.eventEmitter.emit("done", {});
-    const parseWebpages = segmentSerializer
-      .parseWebpages(webpageBuffer)
-      .slice(0, 10);
+    const parseWebpages = segmentSerializer.parseWebpages(webpageBuffer);
+    // .slice(0, 10);
 
     res.render("search", {
       search_results: parseWebpages.length === 0 ? [] : parseWebpages,

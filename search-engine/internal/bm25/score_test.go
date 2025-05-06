@@ -27,7 +27,7 @@ import (
  an argument to each BM25ranking methods
 */
 
-var TEST_QRY = []string{"postgres"}
+var TEST_QRY = "bm25"
 
 func TestProcessParallelism(t *testing.T) {
 
@@ -49,29 +49,25 @@ func TestProcessParallelism(t *testing.T) {
 	// fmt.Printf("results=%+v\n", result)
 	// }
 
-	for _, l := range *RankBM25Ratings(webpages) {
-		fmt.Printf("SAUCE=%+v\n", l.Title)
+	for i, l := range *RankBM25Ratings(webpages) {
+		if i > 10 {
+			break
+		}
+		fmt.Printf("SAUCE=%s, RATE=%f\n", l.Url, l.Bm25rating)
 	}
 	t.Logf("TEST: %+v token", TEST_QRY)
 	t.Log("TEST: test end")
 
 }
 
-func testResponsetime(termTokens []string,
-	webpages *[]types.WebpageTFIDF,
-	method func(term string, webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF) []string {
+func testResponsetime(term string, webpages *[]types.WebpageTFIDF, method func(term string, webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF) []string {
 	timings := []string{}
-	terms := ""
 	fmt.Printf("WBP COUNT:%d\n", len(*webpages))
-	fmt.Printf("Token COUNT:%d\n", len(termTokens))
-	for _, tt := range termTokens {
-		terms += tt + " "
-		fmt.Printf("TEST: current token= '%s'\n", terms)
-		timeStart := time.Now()
-		_ = method(terms, webpages)
-		fmt.Printf("TEST: Time elapsed for old: %dms\n", time.Until(timeStart).Abs().Milliseconds())
-		timings = append(timings, fmt.Sprintf("\n - timings=%d, ", time.Until(timeStart).Abs().Milliseconds()))
-	}
+	fmt.Printf("TEST: current token= '%s'\n", term)
+	timeStart := time.Now()
+	_ = method(term, webpages)
+	fmt.Printf("TEST: Time elapsed for old: %dms\n", time.Until(timeStart).Abs().Milliseconds())
+	timings = append(timings, fmt.Sprintf("\n - timings=%d, ", time.Until(timeStart).Abs().Milliseconds()))
 	return timings
 }
 
