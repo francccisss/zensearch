@@ -1,27 +1,20 @@
-import express, { Request, Response, NextFunction } from "express";
-import amqp, { Connection, Channel, ConsumeMessage } from "amqplib";
+import express from "express";
+import type { Request, Response, NextFunction } from "express";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import {
-  CRAWL_QUEUE_CB,
-  CRAWL_QUEUE,
-  SEARCH_QUEUE_CB,
-} from "../rabbitmq/routing_keys";
-import rabbitmq from "../rabbitmq";
-import { Data } from "ws";
+import rabbitmq from "../rabbitmq/index.js";
 import { create } from "express-handlebars";
-import segmentSerializer from "../segments/segment_serializer";
-import CircBuffer from "../segments/circular_buffer";
+import segmentSerializer from "../segments/segment_serializer.js";
+import { EXPRESS_CRAWLER_QUEUE } from "../rabbitmq/routing_keys.js";
 
-const cors = require("cors");
-const body_parser = require("body-parser");
+import cors from "cors";
+import body_parser from "body-parser";
 const app = express();
-const public_route = [__dirname, "..", "public"];
+const public_route = [import.meta.dirname, "../", "public"];
 
 app.use(body_parser.urlencoded({ extended: false }));
 app.use(body_parser.json());
 app.use(cors());
-app.use(express.static(path.join(...public_route)));
 
 app.engine(
   "handlebars",
@@ -61,22 +54,37 @@ app.engine(
   }).engine,
 );
 app.set("view engine", "handlebars");
-app.set("views", path.join(__dirname, "views"));
-app.use(
-  express.static(path.join(__dirname, "..", "public/scripts")),
-  (req: Request, res: Response, next: NextFunction) => {
-    if (req.path.endsWith(".js")) {
-      res.setHeader("Content-Type", "application/javascript");
-    }
-    next();
-  },
-);
+app.set("views", path.join(import.meta.dirname, "views"));
+// app.use(
+//   express.static(path.join(...public_route)),
+// (req: Request, res: Response, next: NextFunction) => {
+//   if (req.path.endsWith(".js")) {
+//     res.setHeader("Content-Type", "application/javascript");
+//     next();
+//   }
+//   if (req.path.endsWith(".css")) {
+//     res.setHeader("Content-Type", "text/css");
+//     next();
+//   }
+// },
+// );
+app.use(express.static(path.join(...public_route)));
 app.get("/", (req: Request, res: Response) => {
+  console.log("NEW CONNECTION");
+  console.log(req.cookies);
   res.sendFile(path.join(...public_route, "index.html"));
 });
 
 app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
+  // check if URL is valid
   const Docs: Array<string> = [...req.body];
+  if (Docs.length == 0) {
+    return res.status(200).json({
+      is_crawling: false,
+      message: "List is empty.",
+      crawl_list: Docs,
+    });
+  }
   const encoder = new TextEncoder();
   const encoded_docs = encoder.encode(JSON.stringify({ Docs }));
 
@@ -97,11 +105,15 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     */
 
     // TODO need to return some error after some amount of time if there is not ack received
+    // results are the array of websites that have NOT been indexed yet
+
     const results = await rabbitmq.client.crawlListCheck(encoded_docs);
+    console.log(results);
+    // let results = { unindexed: Docs };
     if (results === null) {
-      throw new Error("Unable to check user's crawl list.");
+      throw new Error("Unable to check user's crawl list, results == null.");
     }
-    if (results.undindexed.length === 0) {
+    if (results.unindexed.length === 0) {
       return res.status(200).json({
         is_crawling: false,
         message:
@@ -112,18 +124,20 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
 
     /*
       Need to notify users that some of the items in the list have already been indexed,
-      so we need to send back the items that are not included in the unindexed list
+      so we need to send back the items that were NOT included in the unindexed list
       (means return only the indexed ones).
 
-      Doing the opposite by filtering out websites that have already been indexed and
+      Doing the opposite by filtering out websites that have already been indexed from `Docs` and
       return it back to the user to change these entries.
+
+      This returns the unindexed list to the user
     */
-    if (results.undindexed.length !== Docs.length) {
+    if (results.unindexed.length !== Docs.length) {
       return res.status(200).json({
         is_crawling: false,
         message: "Some of the items in this list has already been indexed.",
         crawl_list: Docs.filter(
-          (website) => results.undindexed.includes(website) ?? website,
+          (website) => results.unindexed.includes(website) ?? website,
         ),
       });
     }
@@ -131,20 +145,17 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
     // proceed to Crawler Service
 
     res.cookie("job_id", job_id);
-    res.cookie("job_count", results.undindexed.length);
-    res.cookie("job_queue", CRAWL_QUEUE_CB);
+    res.cookie("job_count", results.unindexed.length);
+    res.cookie("job_queue", EXPRESS_CRAWLER_QUEUE);
     res.cookie("message_type", "crawling");
     res.setHeader("Connection", "Upgrade");
     res.setHeader("Upgrade", "Websocket");
     res.json({
       is_crawling: true,
       message: "Crawling",
-      crawl_list: results.undindexed,
+      crawl_list: results.unindexed,
     });
   } catch (err) {
-    const error = err as Error;
-    console.log("ERROR :Something went wrong with Crawl queue");
-    console.error(error.message);
     next(err);
   }
 });
@@ -177,9 +188,8 @@ app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
       rabbitmq.client.segmentGenerator.bind(rabbitmq.client),
     );
     rabbitmq.client.eventEmitter.emit("done", {});
-    const parseWebpages = segmentSerializer
-      .parseWebpages(webpageBuffer)
-      .slice(0, 10);
+    const parseWebpages = segmentSerializer.parseWebpages(webpageBuffer);
+    // .slice(0, 10);
 
     res.render("search", {
       search_results: parseWebpages.length === 0 ? [] : parseWebpages,
@@ -192,8 +202,8 @@ app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error(err.stack);
+app.use((err: Error, _: Request, res: Response, __: NextFunction) => {
+  console.error("ERROR STACK: %s", err.stack);
   res.status(500).json({ message: err.message });
 });
 

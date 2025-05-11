@@ -1,12 +1,23 @@
 import http from "http";
-import rabbitmq from "./rabbitmq/index";
-import WebsocketService from "./websocket";
+import rabbitmq from "./rabbitmq/index.js";
+import WebsocketService from "./websocket/index.js";
 import { WebSocketServer } from "ws";
-import app from "./express_server";
+import app from "./express_server/index.js";
+import { exit } from "process";
 
+const httpServer = http.createServer(app);
 const PORT = 8080;
 (async function start_server() {
-  const httpServer = http.createServer(app);
+  console.log("Starting express server");
+
+  httpServer.on("error", (err: any) => {
+    if (err.code == "EADDRINUSE") {
+      console.error(err.message);
+      httpServer.close();
+      console.log("exiting process");
+      exit(1);
+    }
+  });
   /*
    Connect Rabbitmq
    Creates an indefinite loop to listen/receive
@@ -19,7 +30,7 @@ const PORT = 8080;
   const wsService = new WebsocketService(wss);
   wsService.handler();
 
-  //rbq_client.segmentGenerator();
+  // rbq_client.segmentGenerator();
   await rbqClient.initChannelQueues();
 
   rbqClient.crawlChannelListener(
@@ -48,4 +59,9 @@ const PORT = 8080;
    Catching errors propogated by these initializers defined inside
    in the try block
   */
-})().catch(console.error);
+})().catch((e) => {
+  console.error(e);
+  httpServer.close();
+  console.log("SHUTDOWN");
+  exit(1);
+});

@@ -1,19 +1,20 @@
 package bm25
 
 import (
+	"search-engine/internal/types"
 	"search-engine/utilities"
 	"strings"
 )
 
 const (
-	k1 = 4  // controls the weight of term frequency, lower value saturates the term frequency quicker
-	b  = .4 // controlling document normalization
+	k1 = 1.5 // controls the weight of term frequency, lower value saturates the term frequency quicker
+	b  = .75 // controlling document normalization
 )
 
 // Updating TF ranking of each webpage
-func TF(searchQuery string, webpages *[]WebpageTFIDF, AvgDocLen float64) error {
+func TF(searchQuery string, AvgDocLen float64, webpages *[]types.WebpageTFIDF, start int, end int) error {
 
-	for i := range *webpages {
+	for i := range (*webpages)[start:end] {
 
 		currentDocument := (*webpages)[i].Contents
 		currentDocLength := float64(utilities.DocLength(currentDocument))
@@ -21,16 +22,8 @@ func TF(searchQuery string, webpages *[]WebpageTFIDF, AvgDocLen float64) error {
 
 		numerator := rawTermCount * (k1 + 1.0)
 		denominator := (rawTermCount + k1) * ((1.0 - b + b) * (currentDocLength / AvgDocLen))
-		(*webpages)[i].TokenRating.TfRating = numerator / denominator
+		oldRating := (*webpages)[i].TokenRating.TfRating
+		(*webpages)[i].TokenRating.TfRating = numerator/denominator + oldRating
 	}
 	return nil
-}
-
-func AvgDocLen(webpages *[]WebpageTFIDF) float64 {
-	totalTermCount := 0
-	for i := range *webpages {
-		docLength := utilities.DocLength((*webpages)[i].Contents)
-		totalTermCount += docLength
-	}
-	return float64(totalTermCount) / float64(len(*webpages))
 }

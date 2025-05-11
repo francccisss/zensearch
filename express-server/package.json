@@ -1,5 +1,5 @@
 {
-  "name": "search-engine",
+  "name": "express-server",
   "version": "1.0.0",
   "description": "Building a small scale search engine using NodeJs for Crawling and indexing.",
   "main": "dist/index.js",
@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "build": "npx tsc && cp -r ./src/public ./dist && cp -r ./src/express_server/views/ ./dist/express_server/views/"
   },
+  "type": "module",
   "keywords": [],
   "author": "",
   "license": "ISC",

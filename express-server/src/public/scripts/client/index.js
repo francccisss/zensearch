@@ -19,8 +19,13 @@ async function checkListAndUpgrade(webUrls) {
     });
     // specific for network errors
     if (sendWebUrls.ok === false) {
-      throw new Error(sendWebUrls.statusText);
+      let r = await sendWebUrls.json();
+      if (Object.keys(r).length == 0) {
+        throw new error(sendWebUrls.text());
+      }
+      throw new error(r.message);
     }
+
     responseObj = await sendWebUrls.json();
     // For handling crawl list to be returned if
     // it has already been indexed, before upgrading
@@ -55,7 +60,8 @@ async function sendCrawlList() {
     invalidList = checkURLList(inputValues);
     if (invalidList.length !== 0) {
       throw new Error(
-        `Some of the items in this list are invalid URLs make sure to include a valid/supported protocol schema eg: "http","https" and TLD eg: ".com", ".dev"
+        `Some of the items in this list are invalid URLs make sure to include a valid/supported
+        protocol schema eg: "http","https" and TLD eg: ".com", ".dev"
         ".lol" etc.`,
       );
     }

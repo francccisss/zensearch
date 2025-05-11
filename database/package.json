@@ -10,19 +10,20 @@
     "postbuild": "cp -r src/db_utils/ dist/"
   },
   "keywords": [],
+  "type": "module",
   "author": "",
   "license": "ISC",
   "description": "",
   "devDependencies": {
     "@types/amqplib": "^0.10.5",
     "@types/node": "^22.5.0",
-    "@types/sqlite3": "^3.1.11",
+    "nodemon": "^3.1.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.4",
-    "nodemon": "^3.1.4"
+    "@types/better-sqlite3": "^7.6.12"
   },
   "dependencies": {
     "amqplib": "^0.10.4",
-    "sqlite3": "^5.1.7"
+    "better-sqlite3": "^11.9.1"
   }
 }

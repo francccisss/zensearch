@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -10,6 +9,7 @@ import (
 	"search-engine/internal/bm25"
 	"search-engine/internal/rabbitmq"
 	"search-engine/internal/segment_serializer"
+	"search-engine/utilities"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -56,19 +56,19 @@ func main() {
 	}()
 
 	// DECLARING QUEUES
-	mainChannel.QueueDeclare(rabbitmq.SEARCH_QUEUE, false, false, false, false, nil)
+	mainChannel.QueueDeclare(rabbitmq.EXPRESS_SENGINE_QUERY_QUEUE, false, false, false, false, nil)
 	failOnError(err, "Failed to create search queue")
-	mainChannel.QueueDeclare(rabbitmq.PUBLISH_QUEUE, false, false, false, false, nil)
+	mainChannel.QueueDeclare(rabbitmq.SENGINE_EXPRESS_QUERY_CBQ, false, false, false, false, nil)
 	failOnError(err, "Failed to create publish queue")
 
-	dbQueryChannel.QueueDeclare(rabbitmq.DB_QUERY_QUEUE, false, false, false, false, nil)
+	dbQueryChannel.QueueDeclare(rabbitmq.SENGINE_DB_REQUEST_QUEUE, false, false, false, false, nil)
 	failOnError(err, "Failed to create query queue")
-	dbQueryChannel.QueueDeclare(rabbitmq.DB_RESPONSE_QUEUE, false, false, false, false, nil)
+	dbQueryChannel.QueueDeclare(rabbitmq.DB_SENGINE_REQUEST_CBQ, false, false, false, false, nil)
 	failOnError(err, "Failed to create db response queue")
 	// DECLARING QUEUES
 
 	msgs, err := mainChannel.Consume(
-		rabbitmq.SEARCH_QUEUE,
+		rabbitmq.EXPRESS_SENGINE_QUERY_QUEUE,
 		"",
 		false,
 		false,
@@ -77,36 +77,13 @@ func main() {
 		nil,
 	)
 	if err != nil {
-		log.Panicf("Unable to listen to %s", rabbitmq.SEARCH_QUEUE)
+		log.Panicf("Unable to listen to %s", rabbitmq.EXPRESS_SENGINE_QUERY_QUEUE)
 	}
 
 	searchQueryChan := make(chan string)
 	incomingSegmentsChan := make(chan amqp.Delivery)
 	webpageBytesChan := make(chan bytes.Buffer)
 	var currentSearchQuery string
-
-	go func(chann *amqp.Channel) {
-
-		dbMsg, err := chann.Consume(
-			rabbitmq.DB_RESPONSE_QUEUE,
-			"",
-			false,
-			false,
-			false,
-			false,
-			nil,
-		)
-
-		if err != nil {
-			log.Panicf("Unable to listen to %s", rabbitmq.SEARCH_QUEUE)
-		}
-
-		// Consume and send segment to segment channel
-		for incomingSegment := range dbMsg {
-			incomingSegmentsChan <- incomingSegment
-		}
-
-	}(dbQueryChannel)
 
 	// Receiving User's Query
 	go func(searchQueryChan chan string) {
@@ -121,7 +98,31 @@ func main() {
 		}
 	}(searchQueryChan)
 
-	// Sending to query database and creating a segment listener
+	// Consumes and pushes segments to the `incomingSegmentsChan` channel
+	go func(chann *amqp.Channel) {
+
+		dbMsg, err := chann.Consume(
+			rabbitmq.DB_SENGINE_REQUEST_CBQ,
+			"",
+			false,
+			false,
+			false,
+			false,
+			nil,
+		)
+
+		if err != nil {
+			log.Panicf("Unable to listen to %s", rabbitmq.DB_SENGINE_REQUEST_CBQ)
+		}
+
+		// Consume and send segment to segment channel
+		for incomingSegment := range dbMsg {
+			incomingSegmentsChan <- incomingSegment
+		}
+
+	}(dbQueryChannel)
+
+	// the consumed incoming segments will be processed here and
 	go func() {
 		for searchQuery := range searchQueryChan {
 
@@ -132,7 +133,7 @@ func main() {
 			fmt.Print("Spawn segment listener\n")
 
 			// Listens for incoming segments from the database Query channel consumer
-			go segments.ListenIncomingSegments(dbQueryChannel, incomingSegmentsChan, webpageBytesChan)
+			go segments.HandleIncomingSegments(dbQueryChannel, incomingSegmentsChan, webpageBytesChan)
 		}
 	}()
 
@@ -144,15 +145,9 @@ func main() {
 			// Parsing webpages
 
 			timeStart := time.Now()
-			// compressor := util.NewSegmentBuffer()
-			// decompressed, err := compressor.DecompressData(webpageBuffer)
-			// if err != nil {
-			// 	fmt.Println(err.Error())
-			// 	continue
-			// }
-			webpages, err := ParseWebpages(webpageBuffer.Bytes())
+			webpages, err := utilities.ParseWebpages(webpageBuffer.Bytes())
 			if err != nil {
-				fmt.Printf(err.Error())
+				fmt.Println(err.Error())
 				log.Println("Unable to parse webpages")
 				continue
 			}
@@ -160,7 +155,8 @@ func main() {
 
 			// Ranking webpages
 			timeStart = time.Now()
-			calculatedRatings := bm25.CalculateBMRatings(currentSearchQuery, webpages, bm25.AvgDocLen(webpages))
+
+			calculatedRatings := bm25.CalculateBMRatings(currentSearchQuery, webpages)
 			rankedWebpages := bm25.RankBM25Ratings(calculatedRatings)
 
 			fmt.Printf("Total ranked webpages: %d\n", len(*rankedWebpages))
@@ -193,14 +189,4 @@ func failOnError(err error, msg string) {
 	if err != nil {
 		log.Panicf("%s: %s", msg, err.Error())
 	}
-}
-
-func ParseWebpages(data []byte) (*[]bm25.WebpageTFIDF, error) {
-
-	var webpages []bm25.WebpageTFIDF
-	err := json.Unmarshal(data, &webpages)
-	if err != nil {
-		return nil, err
-	}
-	return &webpages, nil
 }

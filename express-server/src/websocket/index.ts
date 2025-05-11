@@ -1,14 +1,8 @@
-import { WebSocketServer, WebSocket, RawData, Data } from "ws";
-import http, { Server, ServerOptions } from "http";
-import os from "os";
-import rabbitmq from "../rabbitmq";
-import { Channel, ConsumeMessage } from "amqplib";
-import {
-  CRAWL_QUEUE,
-  SEARCH_QUEUE,
-  SEARCH_QUEUE_CB,
-} from "../rabbitmq/routing_keys";
-import { finalization } from "process";
+import { WebSocketServer, WebSocket } from "ws";
+import type { RawData, Data } from "ws";
+import rabbitmq from "../rabbitmq/index.js";
+import type { Channel, ConsumeMessage } from "amqplib";
+import { EXPRESS_CRAWLER_QUEUE } from "../rabbitmq/routing_keys.js";
 
 const EVENTS = {
   message: "message",
@@ -35,13 +29,24 @@ class WebsocketService {
     this.wss.on(EVENTS.connection, async (ws: WebSocket) => {
       console.log("connected");
       this.isAlive = true;
+
       ws.on(EVENTS.message, async (data: Data) => {
+        // client sends an ack when a message from crawler was received
         if (data.toString() === "ACK") {
           // Client cant send a pong to the server so, server will have to handle that
           // ignore this
           console.log("Client sent ACK to websocket server.");
           return;
         }
+
+        // After server check the user defined crawl list, client
+        // will trigger a remote procedure to the websocket server by calling
+        // `rabbitmq.client.crawl` along with the list to be crawled by the crawler
+
+        // this is confusing because data could be anything
+        // the first pass is used when data is just a pure string
+        // which is used by the `sendCrawlResultsToClient` handler
+        // for acknowledging notifications from crawler
         console.log("Message received");
         const decodeBuffer: {
           message_type: "crawling" | "searching";
@@ -55,7 +60,7 @@ class WebsocketService {
             JSON.stringify({ Docs: decodeBuffer.unindexed_list! }),
           );
           const success = await rabbitmq.client.crawl(serializeList, {
-            queue: CRAWL_QUEUE,
+            queue: EXPRESS_CRAWLER_QUEUE,
             id: decodeBuffer.meta.job_id,
           });
           if (!success) {
@@ -74,24 +79,21 @@ class WebsocketService {
   }
 
   /*
-    A callback function that is called within the channel listeners for consuming
-    messages from the message queues, it handles the delivery of acknoledgments to
+    A callback function that is called within the channel listeners when there is 
+    a new message in the `EXPRESS_CRAWLER_QUEUE` queue, it handles the delivery of acknoledgments to
     the rabbitmq message broker based on the connection of the client through
     the websocket connection.
+    (basically messages will only be acknowledge when client is connected)
 
-    Need to create a reliable data transfer pipeline for sending acks from client
-    that it received the message from the websocket server
-    such that the websocket server will be able to send an acknoledgment back
-    to the message broker that the message from the message queue
-    has been successfully acknowledged
+    sendCrawlResultsToClient is called, creates a clientAckListener and sends the message from crawler to the client
+    which then the client sends back an ack for the current message (the handler above, when on "message" is sent by 
+    client it also receives the ack message so ignore that), the clientAckListener checks if message is ack
+    (it should only just be ack, this function should be the one to call nack if the client has not received it in some
+    alloted time and will requeue it).
+
+    after that the listener is removed
 
 
-    I just realized theres no way for me to reconnect the client
-    using the same ephemeral port that is stored as a client object
-    in the server's memory once the client disconnects from the server
-    so this will just be requeued indefinitely. Wow
-
-    Implement a websocket user authentication for client reconnection?
   */
 
   async sendCrawlResultsToClient(
@@ -102,49 +104,8 @@ class WebsocketService {
     this.wss.clients.forEach((ws) => {
       let isAck = { state: false };
       console.log("Sending start");
-      /* Handling Disconnected clients
 
-         The requeuing of the message back to the message queue
-         will call this function again.
-
-         Need to somehow set a timer for on pong event, if the server has not received
-         an acknowledgment from the alloted time, then we retransmit the message from message queue
-
-         When nack is called on message queue channel, the message will be requeued.
-        */
-
-      /*
-         Error code 406 from rabbitmq because of an Unkown delivery tag
-         after we ack the last message, this is called again, right after acknowledging
-         the previous one. which is why it throws a 406 error code.
-
-
-         --LOGS--
-
-         LOG: Message received from crawling
-         Sending start
-         {"Message":"Success","Url":"fzaid.vercel.app","WebpageCount":5}
-         Client sent ACK
-         Server received ACK
-         Called from settimeout
-         LOG: Message received from crawling
-         Sending start
-         {"Message":"Success","Url":"m7mad.dev","WebpageCount":6}
-         Client sent ACK
-         Server received ACK
-         Server received ACK <-- Problem
-        */
-
-      /*
-         Client does not need to send a "NACK" message since we can rely on tcp for currupted bits
-         handling, but instead we will only handle lossy channel between client and server to
-         retransmit messages from the message queue when client suddenly disconnects.
-
-         BRUH after creating a listener for the previous message
-         the previous listener still exists, ALWAYS REMOVE AN EVENT LISTENER AFTER USING IT,
-         TO PREVENT DUPLICATE CALLS.
-        */
-      const messageHandler = function (message: RawData) {
+      const clientAckListener = function (message: RawData) {
         const ack: "ACK" | "NACK" = message.toString() as "ACK" | "NACK";
         if (ack === "ACK") {
           console.log("Server received ACK");
@@ -162,16 +123,20 @@ class WebsocketService {
             console.error(error.name);
             console.error(error.message);
           } finally {
-            ws.off("message", messageHandler);
+            ws.removeListener("message", clientAckListener);
           }
         }
       };
-      ws.on("message", messageHandler);
+      // listener handles message from the client when client sends an ack for the current
+      // message from the crawler.
+      ws.on("message", clientAckListener);
 
       const responseData = JSON.stringify({
         data_buffer: msg.content,
         message_type,
       });
+
+      // send the crawl message status to client from the crawler
       ws.send(responseData, (err) => {
         if (err) {
           // This Nack will be labeled as a server | client error.
@@ -185,6 +150,7 @@ class WebsocketService {
       });
 
       /*
+       ## Requeuing when a client is ready to receive message from crawler
        Start timer to determine if connection is closed and is unable
        to send an Ack to the websocket sender if client disconnects while
        sending this message.
@@ -201,7 +167,7 @@ class WebsocketService {
           }
           console.log("LOG: Timeout, retransmit message.");
           chan.nack(msg, false, true);
-          ws.off("message", messageHandler);
+          ws.removeListener("message", clientAckListener);
         }
       }, 3 * 1000);
     });

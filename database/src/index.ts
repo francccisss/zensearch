@@ -1,78 +1,84 @@
-import sqlite3 from "sqlite3";
 import path from "path";
-import amqp, { Channel, Connection } from "amqplib";
-import databaseOperations from "./database_operations";
-import channelOperations from "./rabbitmq/channel_operations";
+import Database from "better-sqlite3";
+import rabbitmq from "./rabbitmq/index.js";
 import { readFile } from "fs";
+import { exit } from "node:process";
 
-const db = init_database();
+const wc = path.join(import.meta.dirname, "../../website_collection.db");
+const fq = path.join(import.meta.dirname, "../../frontier_queue.db");
+const websitesDB = initDatabase(wc);
+const frontierQueueDB = initDatabase(fq);
 const cumulativeAckCount = 1000;
-exec_scripts(db, path.join(__dirname, "./db_utils/websites.init.sql"));
 
-(async () => {
+const tables = [
+  "known_sites",
+  "indexed_sites",
+  "webpages",
+  "visited_nodes", // Dont move this before node
+  "nodes",
+  "queues",
+];
+await (async (): Promise<void> => {
   try {
-    const connection = await establishConnection(7);
+    await execScripts(
+      websitesDB,
+      path.join(import.meta.dirname, "./db_utils/websites.init.sql"),
+    );
+    await execScripts(
+      frontierQueueDB,
+      path.join(import.meta.dirname, "./db_utils/frontier_queue.sql"),
+    );
+
+    console.log("Notif: tables created");
+    console.log("Starting database server");
+    const connection = await rabbitmq.establishConnection(7);
     const databaseChannel = await connection.createChannel();
+    const frontierChannel = await connection.createChannel();
     console.log("Channel Created");
     databaseChannel.prefetch(cumulativeAckCount, false);
-    await channelOperations.channelHandler(db, databaseChannel);
+    rabbitmq.webpageHandler(websitesDB, databaseChannel);
+    rabbitmq.frontierQueueHandler(frontierQueueDB, frontierChannel);
   } catch (err) {
     const error = err as Error;
     console.error(error.message);
   }
 })();
 
-async function establishConnection(retries: number): Promise<Connection> {
-  if (retries-- > 0) {
-    try {
-      const connection = await amqp.connect("amqp://rabbitmq:5672");
-      console.log(
-        `Successfully connected to rabbitmq after ${retries} retries`,
-      );
-      return connection;
-    } catch (err) {
-      console.error("Retrying Database service connection");
-      await new Promise((resolve) => {
-        const timeoutID = setTimeout(() => {
-          resolve("Done blocking");
-          clearTimeout(timeoutID);
-        }, 2000);
-      });
-      return await establishConnection(retries);
-    }
-  }
-  throw new Error("Shutting down database server after several retries");
-}
-
-function init_database(): sqlite3.Database {
-  const dbFile = "/app/data/website_collection.db";
-  const sqlite = sqlite3.verbose();
-  const db = new sqlite.Database(
-    path.join(dbFile),
-    sqlite.OPEN_READWRITE,
-    (err) => {
-      if (err) {
-        console.error("Unable to connect to website_collection.db");
-        process.exit(1);
-      }
-      console.log("Connected to sqlite3 database.");
-    },
-  );
+function initDatabase(src: string): Database.Database {
+  const db = new Database(src);
   return db;
 }
 
-async function exec_scripts(db: sqlite3.Database, scriptPath: string) {
+async function execScripts(db: Database.Database | null, scriptPath: string) {
   console.log("Execute sqlite script");
-  await readFile(scriptPath, "utf-8", (err, data) => {
+  console.log(scriptPath);
+  if (db === null) {
+    console.error("ERROR: database does not exist for %s", scriptPath);
+    exit(1);
+  }
+  readFile(scriptPath, "utf-8", (_, data) => {
     const stmts = data
       .split(";")
       .map((stmt) => stmt.trim())
       .filter((stmt) => stmt);
-
-    stmts.forEach((statement) => {
-      db.run(statement, [], (err) => {
-        console.log("Executed statement: %s ", statement);
-      });
+    stmts.forEach((stmt) => {
+      const firstLine = stmt.split("\n")[0];
+      for (let i = 0; i < tables.length; i++) {
+        const tableName = tables[i];
+        if (firstLine.includes(tableName)) {
+          console.log(tableName);
+          const checkTableStmt = db.prepare(
+            `SELECT name FROM sqlite_master WHERE type='table' AND name=? ;`,
+          );
+          const result = checkTableStmt.get([tableName]);
+          if (result == undefined) {
+            console.log("Notif: Creating table for %s", tableName);
+            db.exec(stmt);
+            break;
+          }
+          console.log("Notif:  Table already exists for %s", tableName);
+        }
+      }
     });
   });
 }
