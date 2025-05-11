@@ -2,16 +2,12 @@ import crawlInput from "./components/crawl_input/index.js";
 import ui from "./ui/index.js";
 import cookiesUtil from "./utils/cookies.js";
 import pubsub from "./utils/pubsub.js";
-import client from "./client_operations/index.js";
-import clientws from "./client_operations/websocket.js";
-import crawl_input from "./components/crawl_input/index.js";
+import client from "./client/index.js";
+import clientws from "./client/websocket.js";
 
 const sidebar = document.getElementById("sidebar-container");
-const searchBtn = document.getElementById("search-btn");
 const openSbBtn = document.getElementById("add-entry-sb-btn");
-const crawlBtn = document.querySelector(".crawl-btn");
 const crawledData = new Map();
-let isCrawling = false;
 
 // TODO Add documentations
 // TODO Network requests from pubsub needs to be asynchronous
@@ -45,6 +41,7 @@ pubsub.subscribe("checkAndUpgradeStart", ui.crawlui.onCrawlUrls);
 pubsub.subscribe("checkAndUpgradeDone", ui.crawlui.onCrawlDone);
 pubsub.subscribe("checkAndUpgradeError", ui.errorsui.displayErrors);
 
+// Parses incoming message from the message queue via websocket message
 pubsub.subscribe("crawlReceiver", (msg) => {
   const { job_count } = cookiesUtil.extractCookies();
   const uint8 = new Uint8Array(msg.data_buffer.data);
@@ -52,7 +49,8 @@ pubsub.subscribe("crawlReceiver", (msg) => {
   const decodedBuffer = decoder.decode(uint8);
   const parseDecodedBuffer = JSON.parse(decodedBuffer);
 
-  crawledData.set(parseDecodedBuffer.Url, parseDecodedBuffer);
+  crawledData.set(parseDecodedBuffer.URLSeed, parseDecodedBuffer);
+  // sends an ack back to the server that the crawl message status was received by client
   clientws.ackMessage();
   pubsub.publish("crawlNotify", parseDecodedBuffer);
   if (crawledData.size === Number(job_count)) {
@@ -63,12 +61,15 @@ pubsub.subscribe("crawlReceiver", (msg) => {
 // Transition sidebar from crawl list to waiting area
 pubsub.subscribe("crawlStart", ui.transitionToWaitingList);
 
+// Notifies user when a crawler is done
 pubsub.subscribe("crawlNotify", (currentCrawledObj) => {
+  const list = JSON.parse(localStorage.getItem("list"));
+  console.log(currentCrawledObj);
   const waitItems = Array.from(document.querySelectorAll(".wait-item"));
-  const updateItems = waitItems.map((waitItem) => {
+  waitItems.map((waitItem) => {
     const itemText = waitItem.children[0].textContent;
-    if (itemText.includes(currentCrawledObj.Url)) {
-      if (currentCrawledObj.isSuccess) {
+    if (itemText.includes(currentCrawledObj.URLSeed)) {
+      if (currentCrawledObj.IsSuccess == true) {
         waitItem.dataset.state = "done";
         console.log(currentCrawledObj.Message);
       } else {
@@ -77,11 +78,9 @@ pubsub.subscribe("crawlNotify", (currentCrawledObj) => {
         errorContainer.textContent = currentCrawledObj.Message + ": ";
         errorContainer.style.color = "#ed5e5e";
         waitItem.parentElement.insertBefore(errorContainer, waitItem);
-        console.log(currentCrawledObj.Message);
       }
 
       // UPDATING LIST
-      const list = JSON.parse(localStorage.getItem("list"));
       const updatedList = list.map((item) => {
         if (itemText === item.url) {
           return { url: item.url, state: waitItem.dataset.state };
@@ -94,9 +93,10 @@ pubsub.subscribe("crawlNotify", (currentCrawledObj) => {
   });
 });
 
-pubsub.subscribe("crawlDone", (currentCrawledObj) => {
+pubsub.subscribe("crawlDone", () => {
+  console.log("TEST: DONE CRAWLING");
   const newListBtn = document.getElementById("new-list-btn");
   newListBtn.style.display = "block";
   cookiesUtil.clearAllCookies();
-  localStorage.clear();
+  localStorage.setItem("list", "[]");
 });

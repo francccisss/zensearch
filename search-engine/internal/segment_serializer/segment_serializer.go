@@ -8,7 +8,7 @@ import (
 	"log"
 	"math"
 	"search-engine/constants"
-	"search-engine/internal/bm25"
+	"search-engine/internal/types"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -24,7 +24,9 @@ type SegmentHeader struct {
 	TotalSegments uint32
 }
 
-func ListenIncomingSegments(dbChannel *amqp.Channel, incomingSegmentsChan <-chan amqp.Delivery, webpageBytesChan chan bytes.Buffer) {
+// waits for all of the incoming segments and decodes then appends bytes into the `webpageBytesChan`
+// incoming segment is the input while the webpageBytesChan is the output
+func HandleIncomingSegments(dbChannel *amqp.Channel, incomingSegmentsChan <-chan amqp.Delivery, webpageBytesChan chan bytes.Buffer) {
 
 	var (
 		segmentCounter      uint32 = 0
@@ -105,7 +107,7 @@ func GetSegmentPayload(buf []byte) ([]byte, error) {
 }
 
 // MSS is the maximum segment size of the bytes to be transported to the express server
-func CreateSegments(webpages *[]bm25.WebpageTFIDF, MSS int) ([][]byte, error) {
+func CreateSegments(webpages *[]types.WebpageTFIDF, MSS int) ([][]byte, error) {
 	serializeWebpages, err := json.Marshal(webpages)
 	if err != nil {
 		fmt.Println("Unable to Marshal webpages")

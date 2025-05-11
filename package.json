@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "db": "file:database",
+    "express-server": "file:express-server"
+  },
+  "devDependencies": {
+    "@types/body-parser": "^1.19.5",
+    "@types/cors": "^2.8.17"
+  }
+}

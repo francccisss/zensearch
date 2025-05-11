@@ -1,6 +1,39 @@
-const CRAWL_QUEUE = "crawl_queue";
-const CRAWL_QUEUE_CB = "crawl_poll_queue";
-const SEARCH_QUEUE_CB = "search_poll_queue";
-const SEARCH_QUEUE = "search_queue";
+/*
+ * Message queue convention
+ * <source>_<destination>_<function (optional can be chained for more context at the cost of verbosity)>_<queue|cbq (callback queue)>
+ *
+ * since each endpoint does not implement any fan-out message to multiple
+ * services, its easier to isolate the destination in this naming convention
+ *
+ * that's just for me.
+ */
 
-export { CRAWL_QUEUE, CRAWL_QUEUE_CB, SEARCH_QUEUE_CB, SEARCH_QUEUE };
+// CRAWLER ROUTING KEYS
+// queue for requesting a crawl from express to crawler
+const EXPRESS_CRAWLER_QUEUE = "express_crawler_queue";
+// a callback queue from express to crawler to notify express server
+// about the state of the crawl
+const CRAWLER_EXPRESS_CBQ = "crawler_express_cbq";
+
+// SEARCH ENGINE ROUTING KEYS
+// queue for sending search query to search engine from express server
+const EXPRESS_SENGINE_QUERY_QUEUE = "express_sengine_query_queue";
+
+// a callback queue to consume from search engine to express server
+// after ranking webpages
+const SENGINE_EXPRESS_QUERY_CBQ = "sengine_express_query_cbq";
+
+// DB ROUTING KEYS
+// route keys for checking db if the array of urls already exists
+// or websites have already been indexed
+const EXPRESS_DB_CHECK_QUEUE = "express_db_check_queue";
+const DB_EXPRESS_CHECK_CBQ = "db_express_check_cbq";
+
+export {
+  EXPRESS_CRAWLER_QUEUE,
+  EXPRESS_DB_CHECK_QUEUE,
+  EXPRESS_SENGINE_QUERY_QUEUE,
+  DB_EXPRESS_CHECK_CBQ,
+  SENGINE_EXPRESS_QUERY_CBQ,
+  CRAWLER_EXPRESS_CBQ,
+};
