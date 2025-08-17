@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
+	_ "io"
 	"log"
 	"os"
 
@@ -65,63 +65,65 @@ func NewContainer(name string, hports HostPorts, cports ContainerPorts, shmsize 
 // TODO maybe instead of creating image name here, instead do it when creating a new Container?
 // Pulls image from registry build the image, adds port mapping arguments and then runs
 // the container (the port mapping is only done when the container first starts up)
-func (cc *Client) Run(dctx context.Context, imageName string, tag string) error {
+func (cc *Client) Run(dctx context.Context, imageName string, tag string) <-chan error {
 
 	fmt.Printf("%s: checking for existing container before running...\n", cc.ContainerName)
+	errChan := make(chan error)
 	// err is nil if it exists, else not nil if container does not exists
 	c, exists := cc.getContainer(dctx)
 	if exists {
+		fmt.Printf("Docker: %s container already exist\n", cc.ContainerName)
 		// is it running?
 		err := cc.Start(dctx, c.ID)
 		if err != nil {
 			fmt.Printf("%s: unable to start from existing container...\n", cc.ContainerName)
-			return err
+			errChan <- err
+			return errChan
 		}
-		go cc.listenContainerState(dctx)
-		return nil
+		// go cc.listenContainerState(dctx)
+		fmt.Println("RETURN FROM HERE DONT END CONTEXT")
+		return errChan
 	}
-	fmt.Printf("%s: creating container.../n", cc.ContainerName)
+	fmt.Printf("%s: creating container...\n", cc.ContainerName)
 	imageNameWithTag := imageName + ":" + tag
 	fmt.Printf("%s: pulling %s image...\n", cc.ContainerName, imageNameWithTag)
-	reader, err := cc.Client.ImagePull(dctx, imageName+":"+tag, image.PullOptions{})
+	_, err := cc.Client.ImagePull(dctx, imageName+":"+tag, image.PullOptions{})
 	if err != nil {
-		return err
+		errChan <- err
+		return errChan
 	}
 
 	// print pulling image stdin
-	go func() {
-		_, err = io.Copy(os.Stdout, reader)
-		if err != nil {
-			fmt.Println(err.Error())
-		}
-		defer reader.Close()
-	}()
+	// go func() {
+	// 	_, err = io.Copy(os.Stdout, reader)
+	// 	if err != nil {
+	// 		fmt.Println(err.Error())
+	// 	}
+	// 	defer reader.Close()
+	// }()
 
 	err = cc.create(dctx, imageName, tag)
 	if err != nil {
-		fmt.Printf("%s: Unable to create %s container", cc.ContainerName)
-		return err
+		fmt.Printf("%s: Unable to create container\n", cc.ContainerName)
+		errChan <- err
+		return errChan
 	}
+
 	fmt.Printf("%s: starting container...\n", cc.ContainerName)
 
 	if err := cc.Client.ContainerStart(dctx, cc.ContainerID, container.StartOptions{}); err != nil {
-		fmt.Printf("%s: Unable to start container", cc.ContainerName)
-		return err
+		fmt.Printf("%s: Unable to start container\n", cc.ContainerName)
+		errChan <- err
+		return errChan
 	}
 	// dont know when it is completely finished, need to set a timer for other
 	// process that depends on rabbitmq
 
 	fmt.Printf("%s: container started!\n", cc.ContainerName)
 	fmt.Printf("%s: container exposed ports -> %+v\n", cc.ContainerName, cc.HostPorts)
-	go cc.listenContainerState(dctx)
+	// go cc.listenContainerState(dctx)
 
-	// above operations could take time
-	select {
-	case <-dctx.Done():
-		fmt.Printf("Docker: ERROR process timeout, unable to build and run docker container\n")
-		fmt.Errorf(dctx.Err().Error())
-	default:
-	}
+	fmt.Println("RETURN FROM HERE DONT END CONTEXT")
 	return nil
 }
 
@@ -167,15 +169,6 @@ func (cc *Client) Stop(dctx context.Context) error {
 // else will panic dont use separately from Run() because port mapping is only initialized
 // on container startup and not on creation... i dont know why
 func (cc *Client) create(dctx context.Context, imageName string, tag string) error {
-
-	go func() {
-		select {
-		case <-dctx.Done():
-			fmt.Printf("Docker: ERROR process timeout, unable to build and run docker container\n")
-			fmt.Errorf(dctx.Err().Error())
-		default:
-		}
-	}()
 	fmt.Printf("%s: creating container...\n", cc.ContainerName)
 	imageNameWithTag := imageName + ":" + tag
 	fmt.Println("%s: applying ports", cc.ContainerName)

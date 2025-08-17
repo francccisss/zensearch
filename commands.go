@@ -33,20 +33,17 @@ func (se *StdError) addError(value string) {
 // need to start containerized services first eg: selenium/rabbitmq
 func startServices(pctx context.Context, commands [][]string) {
 	fmt.Println("zensearch: Starting services...")
-	rbqCtx, cancel := context.WithTimeout(pctx, time.Second*5)
-	defer cancel()
-	selCtx, cancel := context.WithTimeout(pctx, time.Second*5)
+	ctx, cancel := context.WithCancel(pctx)
 	errChan := make(chan error)
 	defer cancel()
 
-	ctxs := []context.Context{rbqCtx, selCtx}
 	var wg sync.WaitGroup
 	// TODO SOMETHING IS BLOCKING DOCKER SERVICE, COULD BE AFTER
 	// RABBITMQ has started or could be selenium is broken
 
-	for i, contConfig := range dockerContainerConf {
+	for _, contConfig := range dockerContainerConf {
 		wg.Add(1)
-		go runningDockerService(ctxs[i], &wg, contConfig, errChan)
+		go runningDockerService(ctx, &wg, contConfig, errChan)
 	}
 	fmt.Print("Waiting on all docker services to run")
 	wg.Wait()
@@ -54,7 +51,6 @@ func startServices(pctx context.Context, commands [][]string) {
 	for err := range errChan {
 		fmt.Println(err.Error())
 	}
-	ctx, cancel := context.WithCancel(pctx)
 	go func() {
 		for _, command := range commands {
 			cmd := exec.Command(command[1], command[2:]...)
@@ -85,11 +81,25 @@ func runningDockerService(ctx context.Context, wg *sync.WaitGroup, contConfig Do
 
 	cont := NewContainer(contConfig.Name, contConfig.HostPorts, contConfig.ContainerPorts, contConfig.ShmSize, contConfig.Env)
 
-	err := cont.Run(ctx, contConfig.ImageName, contConfig.Tag)
-	if err != nil {
-		errChan <- err
+	// cancellation for specific service
+	dctx := context.Background()
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	select {
+	case err := <-cont.Run(dctx, contConfig.ImageName, contConfig.Tag):
+		fmt.Println("THIS WAS RETURNED BY CONT.RUN")
+		if err != nil {
+			errChan <- err
+			return
+		}
+	case <-timeoutCtx.Done():
+		fmt.Printf("%s: Process timeout\n", cont.ContainerName)
+		fmt.Printf("%s: Cause %s\n", cont.ContainerName, timeoutCtx.Err().Error())
 		return
+
 	}
+	// used for global cancellation for cleaning up all the services
 	select {
 	case <-ctx.Done():
 		fmt.Printf("Docker: shutting down %s container...\n", contConfig.Name)
@@ -98,7 +108,6 @@ func runningDockerService(ctx context.Context, wg *sync.WaitGroup, contConfig Do
 			return
 		}
 		fmt.Printf("Docker: %s container stopped\n", contConfig.Name)
-	default:
 
 	}
 }
