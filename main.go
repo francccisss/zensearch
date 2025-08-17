@@ -46,7 +46,7 @@ var seleniumContConfig = DockerContainerConfig{
 	ShmSize:        4 * 1024 * 1024 * 1024,
 	Env:            []string{"SE_NODE_MAX_SESSIONS=5"},
 }
-var dockerContainerConf = []DockerContainerConfig{rabbitmqContConfig, seleniumContConfig}
+var dockerContainerConf = []DockerContainerConfig{seleniumContConfig}
 
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)

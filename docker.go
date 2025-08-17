@@ -68,20 +68,19 @@ func NewContainer(name string, hports HostPorts, cports ContainerPorts, shmsize 
 func (cc *Client) Run(dctx context.Context, imageName string, tag string) <-chan error {
 
 	fmt.Printf("%s: checking for existing container before running...\n", cc.ContainerName)
-	errChan := make(chan error)
+	errChan := make(chan error, 1)
 	// err is nil if it exists, else not nil if container does not exists
 	c, exists := cc.getContainer(dctx)
 	if exists {
 		fmt.Printf("Docker: %s container already exist\n", cc.ContainerName)
 		// is it running?
 		err := cc.Start(dctx, c.ID)
+		errChan <- err
 		if err != nil {
 			fmt.Printf("%s: unable to start from existing container...\n", cc.ContainerName)
-			errChan <- err
 			return errChan
 		}
 		// go cc.listenContainerState(dctx)
-		fmt.Println("RETURN FROM HERE DONT END CONTEXT")
 		return errChan
 	}
 	fmt.Printf("%s: creating container...\n", cc.ContainerName)
@@ -123,8 +122,8 @@ func (cc *Client) Run(dctx context.Context, imageName string, tag string) <-chan
 	fmt.Printf("%s: container exposed ports -> %+v\n", cc.ContainerName, cc.HostPorts)
 	// go cc.listenContainerState(dctx)
 
-	fmt.Println("RETURN FROM HERE DONT END CONTEXT")
-	return nil
+	errChan <- nil
+	return errChan
 }
 
 // TODO how to start already existing container?

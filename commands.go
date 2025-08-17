@@ -45,9 +45,9 @@ func startServices(pctx context.Context, commands [][]string) {
 		wg.Add(1)
 		go runningDockerService(ctx, &wg, contConfig, errChan)
 	}
-	fmt.Print("Waiting on all docker services to run")
+	fmt.Println("Waiting on all docker services to run")
 	wg.Wait()
-	fmt.Print("All Docker Services Running")
+	fmt.Println("All Docker Services Running")
 	for err := range errChan {
 		fmt.Println(err.Error())
 	}
@@ -82,24 +82,29 @@ func runningDockerService(ctx context.Context, wg *sync.WaitGroup, contConfig Do
 	cont := NewContainer(contConfig.Name, contConfig.HostPorts, contConfig.ContainerPorts, contConfig.ShmSize, contConfig.Env)
 
 	// cancellation for specific service
-	dctx := context.Background()
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second*1)
 	defer cancel()
 
 	select {
-	case err := <-cont.Run(dctx, contConfig.ImageName, contConfig.Tag):
-		fmt.Println("THIS WAS RETURNED BY CONT.RUN")
+	case err := <-cont.Run(ctx, contConfig.ImageName, contConfig.Tag):
+		fmt.Printf("%s: Successfuly started!\n", cont.ContainerName)
 		if err != nil {
 			errChan <- err
-			return
+			fmt.Printf("%s: Error: %s", contConfig.Name, err)
+			cancel()
 		}
+		return
 	case <-timeoutCtx.Done():
-		fmt.Printf("%s: Process timeout\n", cont.ContainerName)
+		fmt.Printf("%s: Failed to start!\n", cont.ContainerName)
+		fmt.Printf("%s: Process timedout\n", cont.ContainerName)
 		fmt.Printf("%s: Cause %s\n", cont.ContainerName, timeoutCtx.Err().Error())
 		return
 
 	}
-	// used for global cancellation for cleaning up all the services
+
+	// Handle parent context cancellation propagation
+	// Stop Docker Services when input "stop" is returned from the cli which cancels
+	// the parent context
 	select {
 	case <-ctx.Done():
 		fmt.Printf("Docker: shutting down %s container...\n", contConfig.Name)
