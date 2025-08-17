@@ -38,30 +38,12 @@ func startServices(pctx context.Context, commands [][]string) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	// TODO SOMETHING IS BLOCKING DOCKER SERVICE, COULD BE AFTER
-	// RABBITMQ has started or could be selenium is broken
-
-	for _, contConfig := range dockerContainerConf {
-		wg.Add(1)
-		go runningDockerService(ctx, &wg, contConfig, errChan)
-	}
-	fmt.Println("Waiting on all docker services to run")
-	wg.Wait()
-	fmt.Println("All Docker Services Running")
-	for err := range errChan {
-		fmt.Println(err.Error())
-	}
-	go func() {
-		for _, command := range commands {
-			cmd := exec.Command(command[1], command[2:]...)
-			go runningService(ctx, cmd, errChan, command[0])
-		}
-	}()
 
 	// main context listener
 	go func() {
 		fmt.Println("zensearch: spawning context listener")
 		select {
+		// TODO Might change this
 		case err := <-errChan:
 			fmt.Println(err.Error())
 			cancel()
@@ -72,6 +54,20 @@ func startServices(pctx context.Context, commands [][]string) {
 			fmt.Println("zensearch: cleaning up services...")
 		}
 
+	}()
+
+	for _, contConfig := range dockerContainerConf {
+		wg.Add(1)
+		go runningDockerService(ctx, &wg, contConfig, errChan)
+	}
+	fmt.Println("Waiting on all docker services to run")
+	wg.Wait()
+	fmt.Println("All Docker Services Running")
+	go func() {
+		for _, command := range commands {
+			cmd := exec.Command(command[1], command[2:]...)
+			go runningService(ctx, cmd, errChan, command[0])
+		}
 	}()
 
 }
@@ -89,15 +85,15 @@ func runningDockerService(ctx context.Context, wg *sync.WaitGroup, contConfig Do
 	case err := <-cont.Run(ctx, contConfig.ImageName, contConfig.Tag):
 		fmt.Printf("%s: Successfuly started!\n", cont.ContainerName)
 		if err != nil {
-			errChan <- err
 			fmt.Printf("%s: Error: %s", contConfig.Name, err)
-			cancel()
+			errChan <- err
+			return
 		}
-		return
 	case <-timeoutCtx.Done():
 		fmt.Printf("%s: Failed to start!\n", cont.ContainerName)
 		fmt.Printf("%s: Process timedout\n", cont.ContainerName)
 		fmt.Printf("%s: Cause %s\n", cont.ContainerName, timeoutCtx.Err().Error())
+		errChan <- timeoutCtx.Err()
 		return
 
 	}
