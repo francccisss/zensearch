@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"sync"
 	"syscall"
+	"time"
 )
 
 type StdError struct {
@@ -32,16 +33,28 @@ func (se *StdError) addError(value string) {
 // need to start containerized services first eg: selenium/rabbitmq
 func startServices(pctx context.Context, commands [][]string) {
 	fmt.Println("zensearch: Starting services...")
-	ctx, cancelFunc := context.WithCancel(pctx)
+	rbqCtx, cancel := context.WithTimeout(pctx, time.Second*5)
+	defer cancel()
+	selCtx, cancel := context.WithTimeout(pctx, time.Second*5)
 	errChan := make(chan error)
+	defer cancel()
 
+	ctxs := []context.Context{rbqCtx, selCtx}
 	var wg sync.WaitGroup
+	// TODO SOMETHING IS BLOCKING DOCKER SERVICE, COULD BE AFTER
+	// RABBITMQ has started or could be selenium is broken
 
-	for _, contConfig := range dockerContainerConf {
+	for i, contConfig := range dockerContainerConf {
 		wg.Add(1)
-		go runningDockerService(ctx, &wg, contConfig, errChan)
+		go runningDockerService(ctxs[i], &wg, contConfig, errChan)
 	}
+	fmt.Print("Waiting on all docker services to run")
 	wg.Wait()
+	fmt.Print("All Docker Services Running")
+	for err := range errChan {
+		fmt.Println(err.Error())
+	}
+	ctx, cancel := context.WithCancel(pctx)
 	go func() {
 		for _, command := range commands {
 			cmd := exec.Command(command[1], command[2:]...)
@@ -55,37 +68,38 @@ func startServices(pctx context.Context, commands [][]string) {
 		select {
 		case err := <-errChan:
 			fmt.Println(err.Error())
-			cancelFunc()
+			cancel()
 			fmt.Println("zensearch: cancelling all services...")
 			fmt.Println("zensearch: services cancelled")
 		case <-ctx.Done():
 			// TODO CLEAN UP SERVICES HERE
 			fmt.Println("zensearch: cleaning up services...")
 		}
+
 	}()
 
 }
 
 func runningDockerService(ctx context.Context, wg *sync.WaitGroup, contConfig DockerContainerConfig, errChan chan error) {
 	defer wg.Done()
-	dockerCtx := context.Background()
 
 	cont := NewContainer(contConfig.Name, contConfig.HostPorts, contConfig.ContainerPorts, contConfig.ShmSize, contConfig.Env)
 
-	go func() {
-		<-ctx.Done()
+	err := cont.Run(ctx, contConfig.ImageName, contConfig.Tag)
+	if err != nil {
+		errChan <- err
+		return
+	}
+	select {
+	case <-ctx.Done():
 		fmt.Printf("Docker: shutting down %s container...\n", contConfig.Name)
-		if err := cont.Stop(dockerCtx); err != nil {
+		if err := cont.Stop(ctx); err != nil {
 			fmt.Println(err)
 			return
 		}
 		fmt.Printf("Docker: %s container stopped\n", contConfig.Name)
-	}()
+	default:
 
-	err := cont.Run(dockerCtx, contConfig.ImageName, contConfig.Tag)
-	if err != nil {
-		errChan <- err
-		return
 	}
 }
 func runningService(ctx context.Context, cmd *exec.Cmd, errChan chan error, cmdName string) {
