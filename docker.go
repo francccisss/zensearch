@@ -67,6 +67,8 @@ func NewContainer(name string, hports HostPorts, cports ContainerPorts, shmsize 
 // the container (the port mapping is only done when the container first starts up)
 func (cc *Client) Run(dctx context.Context, imageName string, tag string) <-chan error {
 
+	// check architecture and OS
+
 	fmt.Printf("%s: checking for existing container before running...\n", cc.ContainerName)
 	errChan := make(chan error, 1)
 	// err is nil if it exists, else not nil if container does not exists

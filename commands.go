@@ -39,36 +39,36 @@ func startServices(pctx context.Context, commands [][]string) {
 
 	var wg sync.WaitGroup
 
-	// main context listener
 	go func() {
-		fmt.Println("zensearch: spawning context listener")
+		fmt.Println("zensearch: spawning service listener")
 		select {
-		// TODO Might change this
-		case err := <-errChan:
-			fmt.Println(err.Error())
-			cancel()
-			fmt.Println("zensearch: cancelling all services...")
-			fmt.Println("zensearch: services cancelled")
 		case <-ctx.Done():
-			// TODO CLEAN UP SERVICES HERE
-			fmt.Println("zensearch: cleaning up services...")
+			fmt.Println("zensearch: services cleaned up")
 		}
-
 	}()
-
 	for _, contConfig := range dockerContainerConf {
 		wg.Add(1)
 		go runningDockerService(ctx, &wg, contConfig, errChan)
 	}
+
 	fmt.Println("Waiting on all docker services to run")
+	err := <-errChan
+	if err != nil {
+		fmt.Printf("Docker: %s\n", err.Error())
+		cancel()
+		return
+	}
+
 	wg.Wait()
-	fmt.Println("All Docker Services Running")
+
 	go func() {
 		for _, command := range commands {
 			cmd := exec.Command(command[1], command[2:]...)
 			go runningService(ctx, cmd, errChan, command[0])
 		}
 	}()
+
+	fmt.Println("zensearch: services started")
 
 }
 
@@ -78,17 +78,17 @@ func runningDockerService(ctx context.Context, wg *sync.WaitGroup, contConfig Do
 	cont := NewContainer(contConfig.Name, contConfig.HostPorts, contConfig.ContainerPorts, contConfig.ShmSize, contConfig.Env)
 
 	// cancellation for specific service
-	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second*1)
+	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second*120)
 	defer cancel()
 
 	select {
 	case err := <-cont.Run(ctx, contConfig.ImageName, contConfig.Tag):
-		fmt.Printf("%s: Successfuly started!\n", cont.ContainerName)
 		if err != nil {
-			fmt.Printf("%s: Error: %s", contConfig.Name, err)
+			fmt.Printf("%s: Error: %s\n", contConfig.Name, err)
 			errChan <- err
 			return
 		}
+		fmt.Printf("%s: Successfuly started!\n", cont.ContainerName)
 	case <-timeoutCtx.Done():
 		fmt.Printf("%s: Failed to start!\n", cont.ContainerName)
 		fmt.Printf("%s: Process timedout\n", cont.ContainerName)
@@ -101,16 +101,18 @@ func runningDockerService(ctx context.Context, wg *sync.WaitGroup, contConfig Do
 	// Handle parent context cancellation propagation
 	// Stop Docker Services when input "stop" is returned from the cli which cancels
 	// the parent context
-	select {
-	case <-ctx.Done():
-		fmt.Printf("Docker: shutting down %s container...\n", contConfig.Name)
-		if err := cont.Stop(ctx); err != nil {
-			fmt.Println(err)
-			return
+	go func() {
+		select {
+		case <-ctx.Done():
+			fmt.Printf("Docker: shutting down %s container...\n", contConfig.Name)
+			if err := cont.Stop(ctx); err != nil {
+				fmt.Println(err)
+				return
+			}
+			fmt.Printf("Docker: %s container stopped\n", contConfig.Name)
 		}
-		fmt.Printf("Docker: %s container stopped\n", contConfig.Name)
 
-	}
+	}()
 }
 func runningService(ctx context.Context, cmd *exec.Cmd, errChan chan error, cmdName string) {
 	newStdErr := NewStdError(cmdName)
@@ -119,9 +121,13 @@ func runningService(ctx context.Context, cmd *exec.Cmd, errChan chan error, cmdN
 
 	go func() {
 		<-ctx.Done()
-		fmt.Printf("%s: shutting down process...\n", cmdName)
-		cmd.Process.Signal(syscall.SIGTERM)
-		fmt.Printf("%s: closed\n", cmdName)
+		fmt.Printf("%s: Shut down\n", cmdName)
+
+		if cmd.Process != nil {
+			fmt.Printf("%s: shutting down process...\n", cmdName)
+			cmd.Process.Signal(syscall.SIGTERM)
+			fmt.Printf("%s: closed\n", cmdName)
+		}
 	}()
 
 	if err != nil {

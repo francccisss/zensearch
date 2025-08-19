@@ -28,6 +28,7 @@ var npmInstall = [][]string{
 	{"database", "npm", "install", "database/"},
 }
 
+// NOTICE: Make sure every image is compatible with the host system, arm64, linux, windows
 var rabbitmqContConfig = DockerContainerConfig{
 	HostPorts:      HostPorts{"5672", "15672"},
 	ContainerPorts: ContainerPorts{{"5672", "5672"}, {"15672", "15672"}},
@@ -38,11 +39,11 @@ var rabbitmqContConfig = DockerContainerConfig{
 
 // TODO use options method for optional arguments still dont know how to do that
 var seleniumContConfig = DockerContainerConfig{
-	ImageName:      "selenium/standalone-chrome",
+	ImageName:      "selenium/standalone-chromium",
 	Tag:            "latest",
 	HostPorts:      HostPorts{"4444", "7900"},
 	ContainerPorts: ContainerPorts{{"4444", "4444"}, {"7900", "7900"}},
-	Name:           "zensearch-cli-selenium",
+	Name:           "zensearch-cli-selenium(chromium)",
 	ShmSize:        4 * 1024 * 1024 * 1024,
 	Env:            []string{"SE_NODE_MAX_SESSIONS=5"},
 }
@@ -64,11 +65,9 @@ loop:
 			ctx, cancel := context.WithCancel(context.Background())
 			cancelFunc = cancel
 			startServices(ctx, runCmds)
-			fmt.Println("zensearch: services started")
 			break
 		case "stop":
 			// send kill signal to each process
-			fmt.Printf("Stopping services...\n")
 			if cancelFunc != nil {
 				cancelFunc()
 			}
