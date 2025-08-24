@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	_ "io"
 	"log"
 	"os"
@@ -71,7 +72,10 @@ func (cc *Client) Run(dctx context.Context, imageName string, tag string) <-chan
 
 	fmt.Printf("%s: checking for existing container before running...\n", cc.ContainerName)
 	errChan := make(chan error, 1)
-	// err is nil if it exists, else not nil if container does not exists
+
+	// This getter only searches for a <zensearch> specific container
+	// eg: zensearch-rabbitmq, zensearch-mysql, zensearch-selenium-*
+
 	c, exists := cc.getContainer(dctx)
 	if exists {
 		fmt.Printf("Docker: %s container already exist\n", cc.ContainerName)
@@ -85,23 +89,23 @@ func (cc *Client) Run(dctx context.Context, imageName string, tag string) <-chan
 		// go cc.listenContainerState(dctx)
 		return errChan
 	}
-	fmt.Printf("%s: creating container...\n", cc.ContainerName)
+
+	fmt.Printf("%s: creating new container...\n", cc.ContainerName)
+	// Creates a new zensearch specific container from an existing image
 	imageNameWithTag := imageName + ":" + tag
 	fmt.Printf("%s: pulling %s image...\n", cc.ContainerName, imageNameWithTag)
-	_, err := cc.Client.ImagePull(dctx, imageName+":"+tag, image.PullOptions{})
+	reader, err := cc.Client.ImagePull(dctx, imageNameWithTag, image.PullOptions{})
+
 	if err != nil {
 		errChan <- err
 		return errChan
 	}
 
-	// print pulling image stdin
-	// go func() {
-	// 	_, err = io.Copy(os.Stdout, reader)
-	// 	if err != nil {
-	// 		fmt.Println(err.Error())
-	// 	}
-	// 	defer reader.Close()
-	// }()
+	_, err = io.Copy(os.Stdout, reader)
+	if err != nil {
+		fmt.Printf("%s: Reader ERROR: %s\n", cc.ContainerName, err.Error())
+	}
+	reader.Close()
 
 	err = cc.create(dctx, imageName, tag)
 	if err != nil {
@@ -117,6 +121,7 @@ func (cc *Client) Run(dctx context.Context, imageName string, tag string) <-chan
 		errChan <- err
 		return errChan
 	}
+
 	// dont know when it is completely finished, need to set a timer for other
 	// process that depends on rabbitmq
 
@@ -172,7 +177,7 @@ func (cc *Client) Stop(dctx context.Context) error {
 func (cc *Client) create(dctx context.Context, imageName string, tag string) error {
 	fmt.Printf("%s: creating container...\n", cc.ContainerName)
 	imageNameWithTag := imageName + ":" + tag
-	fmt.Println("%s: applying ports", cc.ContainerName)
+	fmt.Printf("%s: applying ports\n", cc.ContainerName)
 	hostPorts := map[nat.Port][]nat.PortBinding{}
 	for _, hostPort := range cc.HostPorts {
 		_, ok := hostPorts[nat.Port(fmt.Sprintf("%s/tcp", hostPort))]
@@ -190,8 +195,9 @@ func (cc *Client) create(dctx context.Context, imageName string, tag string) err
 		}
 	}
 
-	// grabs latest version of rabbitmq
 	fmt.Printf("Docker: creating container from %s image as %s \n", imageNameWithTag, cc.ContainerName)
+
+	// TODO ERROR from here for some reason
 	resp, err := cc.Client.ContainerCreate(dctx, &container.Config{
 		Image: imageNameWithTag,
 		// attaching container to process exec is on `-it`
@@ -209,7 +215,7 @@ func (cc *Client) create(dctx context.Context, imageName string, tag string) err
 			PortBindings: hostPorts}, nil, nil, cc.ContainerName)
 
 	if err != nil {
-		fmt.Printf("Docker: ERROR was not able to create %s container\n", cc.ContainerName)
+		fmt.Print("Invalid reference format error from here\n")
 		return err
 	}
 	fmt.Printf("Docker: %s's container ID %s\n", cc.ContainerName, resp.ID)
@@ -252,11 +258,11 @@ func (cc *Client) listenContainerState(dctx context.Context) {
 	}
 }
 
-// Returnes specific container using filter to isolate container name
-// used for checking duplicate containers
+// should check if a rabbitmq container already exists
 func (cc *Client) getContainer(dctx context.Context) (container.Summary, bool) {
 	filter := filters.NewArgs()
 	filter.Add("name", cc.ContainerName)
+	fmt.Println("WHAT %s", cc.ContainerName)
 
 	containers, err := cc.Client.ContainerList(dctx, container.ListOptions{Size: false, Filters: filter, All: true})
 	if err != nil {
