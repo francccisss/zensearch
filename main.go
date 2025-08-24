@@ -47,7 +47,7 @@ var seleniumContConfig = DockerContainerConfig{
 	ShmSize:        4 * 3072,
 	Env:            []string{"SE_NODE_MAX_SESSIONS=5"},
 }
-var dockerContainerConf = []DockerContainerConfig{seleniumContConfig} //,rabbitmqContConfig}
+var dockerContainerConf = []DockerContainerConfig{rabbitmqContConfig, seleniumContConfig}
 
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
@@ -68,17 +68,23 @@ loop:
 			break
 		case "stop":
 			// send kill signal to each process
+
+			fmt.Println("Stopping zensearch")
+			fmt.Println("Stopping services...")
 			if cancelFunc != nil {
 				cancelFunc()
 			}
+			fmt.Println("Zensearch stopped")
 			break
 		case "exit":
 			// send kill signal to each process
-			fmt.Printf("Input received %s:\n", input)
-			fmt.Printf("Stopping services...\n")
+			fmt.Println("exiting zensearch")
+			fmt.Println("Stopping services...")
 			if cancelFunc != nil {
 				cancelFunc()
+
 			}
+			fmt.Println("Zensearch Exitted")
 			break loop
 		case "build":
 			fmt.Printf("zensearch: Building...\n")

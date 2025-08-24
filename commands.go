@@ -35,28 +35,27 @@ func startServices(pctx context.Context, commands [][]string) {
 	fmt.Println("zensearch: Starting services...")
 	ctx, cancel := context.WithCancel(pctx)
 	errChan := make(chan error)
-	defer cancel()
 
 	var wg sync.WaitGroup
 
 	go func() {
-		fmt.Println("zensearch: spawning service listener")
-		select {
-		case <-ctx.Done():
-			fmt.Println("zensearch: services cleaned up")
+		fmt.Println("zensearch: error channel listener")
+		for {
+			select {
+			case err := <-errChan:
+				if err != nil {
+					fmt.Printf("Docker: %s\n", err.Error())
+					fmt.Println("CANCEL")
+					cancel()
+					return
+				}
+				continue
+			}
 		}
 	}()
 	for _, contConfig := range dockerContainerConf {
 		wg.Add(1)
 		go runningDockerService(ctx, &wg, contConfig, errChan)
-	}
-
-	fmt.Println("Waiting on all docker services to run")
-	err := <-errChan
-	if err != nil {
-		fmt.Printf("Docker: %s\n", err.Error())
-		cancel()
-		return
 	}
 
 	wg.Wait()
