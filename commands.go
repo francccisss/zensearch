@@ -83,9 +83,9 @@ func runningDockerService(ctx context.Context, wg *sync.WaitGroup, contConfig Do
 
 	select {
 	case err := <-cont.Run(ctx, contConfig.ImageName, contConfig.Tag):
+		errChan <- err
 		if err != nil {
 			fmt.Printf("%s: Error: %s\n", contConfig.Name, err)
-			errChan <- err
 			return
 		}
 		fmt.Printf("%s: Successfuly started!\n", cont.ContainerName)
