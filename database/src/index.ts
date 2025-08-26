@@ -3,6 +3,7 @@ import Database from "better-sqlite3";
 import rabbitmq from "./rabbitmq/index.js";
 import { readFile } from "fs";
 import { exit } from "node:process";
+import { readFileSync } from "node:fs";
 
 const wc = path.join(import.meta.dirname, "../../website_collection.db");
 const fq = path.join(import.meta.dirname, "../../frontier_queue.db");
@@ -50,17 +51,18 @@ function initDatabase(src: string): Database.Database {
 }
 
 async function execScripts(db: Database.Database | null, scriptPath: string) {
-  console.log("Execute sqlite script");
-  console.log(scriptPath);
+  console.log(`Executing sql script for ${scriptPath}`);
   if (db === null) {
     console.error("ERROR: database does not exist for %s", scriptPath);
     exit(1);
   }
-  readFile(scriptPath, "utf-8", (_, data) => {
-    const stmts = data
-      .split(";")
-      .map((stmt) => stmt.trim())
-      .filter((stmt) => stmt);
+
+  readFile(scriptPath, "utf-8", (err, data) => {
+    if (err !== null) {
+      console.log(err);
+      throw new Error(err.message);
+    }
+    const stmts = data.split(";").map((stmt) => stmt.trim());
     stmts.forEach((stmt) => {
       const firstLine = stmt.split("\n")[0];
       for (let i = 0; i < tables.length; i++) {
