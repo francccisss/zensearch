@@ -66,9 +66,7 @@ func startServices(pctx context.Context, commands [][]string) {
 			go runningService(ctx, cmd, errChan, command[0])
 		}
 	}()
-
 	fmt.Println("zensearch: services started")
-
 }
 
 func runningDockerService(ctx context.Context, wg *sync.WaitGroup, contConfig DockerContainerConfig, errChan chan error) {

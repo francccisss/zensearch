@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 )
 
 var errArr = [][]string{}
@@ -53,14 +54,34 @@ var seleniumContConfig = DockerContainerConfig{
 var dockerContainerConf = []DockerContainerConfig{rabbitmqContConfig, seleniumContConfig}
 
 func main() {
-	scanner := bufio.NewScanner(os.Stdin)
 	// for reassigning cancel func if input is start
-	var cancelFunc context.CancelFunc
+	var contextCancel context.CancelFunc
 	// TODO fix input field needs to be appended after every stdout
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	go ExitProcessSignal(sigChan, cancelFunc)
+	go CLILoop(contextCancel)
+	printErrors(&errArr)
+
+	// TODO: this does not look nice at all
+	<-sigChan
+	if contextCancel != nil {
+		contextCancel()
+	}
+	time.Sleep(time.Second * 3)
+	fmt.Println("Exit")
+}
+
+func printErrors(errArr *[][]string) {
+	for _, err := range *errArr {
+		fmt.Printf("%s: ERROR %s\n", err[0], err[1])
+	}
+	*errArr = nil
+}
+
+func CLILoop(contextCancel context.CancelFunc) {
+
+	scanner := bufio.NewScanner(os.Stdin)
 loop:
 	for {
 		fmt.Printf("zensearch> ")
@@ -70,7 +91,7 @@ loop:
 		switch input {
 		case "start":
 			ctx, cancel := context.WithCancel(context.Background())
-			cancelFunc = cancel
+			contextCancel = cancel
 			startServices(ctx, runCmds)
 			break
 		case "stop":
@@ -78,8 +99,8 @@ loop:
 
 			fmt.Println("Stopping zensearch")
 			fmt.Println("Stopping services...")
-			if cancelFunc != nil {
-				cancelFunc()
+			if contextCancel != nil {
+				contextCancel()
 			}
 			fmt.Println("Zensearch stopped")
 			break
@@ -87,8 +108,8 @@ loop:
 			// send kill signal to each process
 			fmt.Println("exiting zensearch")
 			fmt.Println("Stopping services...")
-			if cancelFunc != nil {
-				cancelFunc()
+			if contextCancel != nil {
+				contextCancel()
 
 			}
 			fmt.Println("Zensearch Exitted")
@@ -106,21 +127,5 @@ loop:
 		default:
 			break
 		}
-	}
-	printErrors(&errArr)
-	fmt.Println("Process stopped")
-}
-
-func printErrors(errArr *[][]string) {
-	for _, err := range *errArr {
-		fmt.Printf("%s: ERROR %s\n", err[0], err[1])
-	}
-	*errArr = nil
-}
-
-func ExitProcessSignal(signal chan os.Signal, cancel context.CancelFunc) {
-	<-signal
-	if cancel != nil {
-		cancel()
 	}
 }
