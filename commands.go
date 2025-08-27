@@ -104,7 +104,7 @@ func runningDockerService(ctx context.Context, wg *sync.WaitGroup, contConfig Do
 		select {
 		case <-ctx.Done():
 			fmt.Printf("Docker: shutting down %s container...\n", contConfig.Name)
-			if err := cont.Stop(ctx); err != nil {
+			if err := cont.Stop(context.Background()); err != nil {
 				fmt.Println(err)
 				return
 			}

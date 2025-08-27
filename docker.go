@@ -166,6 +166,7 @@ func (cc *Client) Stop(dctx context.Context) error {
 	fmt.Printf("%s: stopping container...\n", cc.ContainerName)
 	err := cc.Client.ContainerStop(dctx, cc.ContainerID, container.StopOptions{Signal: "SIGKILL"})
 	if err != nil {
+		fmt.Printf("%s: ERROR %s", cc.ContainerName, err)
 		return fmt.Errorf("Docker: ERROR Something went wrong, zensearch is unable to stop the container %s with ID of %s\n", cc.ContainerID[:8], cc.ContainerName)
 	}
 	fmt.Printf("%s: Successfully stopped with ID starting with %s\n", cc.ContainerName, cc.ContainerID[:8])
