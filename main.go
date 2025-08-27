@@ -5,7 +5,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 )
 
 var errArr = [][]string{}
@@ -29,6 +31,7 @@ var npmInstall = [][]string{
 }
 
 // NOTICE: Make sure every image is compatible with the host system, arm64, linux, windows
+
 var rabbitmqContConfig = DockerContainerConfig{
 	HostPorts:      HostPorts{"5672", "15672"},
 	ContainerPorts: ContainerPorts{{"5672", "5672"}, {"15672", "15672"}},
@@ -54,6 +57,10 @@ func main() {
 	// for reassigning cancel func if input is start
 	var cancelFunc context.CancelFunc
 	// TODO fix input field needs to be appended after every stdout
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	go ExitProcessSignal(sigChan, cancelFunc)
 loop:
 	for {
 		fmt.Printf("zensearch> ")
@@ -110,5 +117,10 @@ func printErrors(errArr *[][]string) {
 	}
 	*errArr = nil
 }
-func addError(name string, err error) {
+
+func ExitProcessSignal(signal chan os.Signal, cancel context.CancelFunc) {
+	<-signal
+	if cancel != nil {
+		cancel()
+	}
 }

@@ -68,16 +68,14 @@ func (pn *PageNavigator) isPathAllowed(path string) bool {
 	return true
 }
 
-/*
-using elapsed time from start to end of request in milliseconds and compressing
-it using log to smooth the values for increasing intervals for each requests
-such that it doesnt grow too much when multiplying intervals.
-
-multiplier values:
-  - 0 ignores all intervals
-  - 1 increases slowly but is still fast and might be blocked
-  - 2 sweet middleground
-*/
+// using elapsed time from start to end of request in milliseconds and compressing
+// it using log to smooth the values for increasing intervals for each requests
+// such that it doesnt grow too much when multiplying intervals.
+//
+// multiplier values:
+//   - 0 ignores all intervals
+//   - 1 increases slowly but is still fast and might be blocked
+//   - 2 sweet middleground
 func (pn *PageNavigator) requestDelay(multiplier int) {
 	max := 10000
 	base := int(math.Log10(float64(pn.mselapsed)))
@@ -96,12 +94,15 @@ func (pn *PageNavigator) requestDelay(multiplier int) {
 func (pn *PageNavigator) ProcessUrl(currentUrl string) error {
 
 	fmt.Printf("NOTIF: `%s` has popped from queue.\n", currentUrl)
-	pn.requestDelay(0)
+	pn.requestDelay(2)
 	err := pn.navigatePageWithRetries(MAX_RETRIES, currentUrl)
 	if err != nil {
 		fmt.Println(err.Error())
 		return err
 	}
+
+	// LET CONTENT LOAD
+	time.Sleep(time.Second * 5)
 
 	fmt.Println("NOTIF: Page set to visited.")
 
@@ -118,10 +119,8 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) error {
 		fmt.Println("ERROR: Unable to execute script fro extracting anchor tags, using fallback=empty array")
 	}
 
-	/*
-	   Type assertions from the script that returns an interface{} which is an array
-	   of filtered achor elements
-	*/
+	// Type assertions from the script that returns an interface{} which is an array
+	// of filtered achor elements
 
 	var links []interface{}
 	if linksInterface != nil {

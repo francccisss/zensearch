@@ -17,7 +17,7 @@ const (
 */
 
 func CreateClient() (*selenium.WebDriver, error) {
-	caps := selenium.Capabilities{"browserName": "chrome", "goog:ChromeOptions": map[string]interface{}{
+	caps := selenium.Capabilities{"browserName": "chromium", "goog:ChromeOptions": map[string]interface{}{
 		"args": []string{
 			"--headless",
 			"--remote-debugging-pipe",
