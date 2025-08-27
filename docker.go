@@ -86,7 +86,7 @@ func (cc *Client) Run(dctx context.Context, imageName string, tag string) <-chan
 			fmt.Printf("%s: unable to start from existing container...\n", cc.ContainerName)
 			return errChan
 		}
-		// go cc.listenContainerState(dctx)
+		go cc.listenContainerState(dctx)
 		fmt.Printf("%s: container exposed ports -> %+v\n", cc.ContainerName, cc.HostPorts)
 		return errChan
 	}
@@ -126,7 +126,7 @@ func (cc *Client) Run(dctx context.Context, imageName string, tag string) <-chan
 	// dont know when it is completely finished, need to set a timer for other
 	// process that depends on rabbitmq
 
-	// go cc.listenContainerState(dctx)
+	go cc.listenContainerState(dctx)
 	fmt.Printf("%s: container started!\n", cc.ContainerName)
 	fmt.Printf("%s: container exposed ports -> %+v\n", cc.ContainerName, cc.HostPorts)
 

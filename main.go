@@ -48,15 +48,14 @@ var seleniumContConfig = DockerContainerConfig{
 	HostPorts:      HostPorts{"4444", "7900"},
 	ContainerPorts: ContainerPorts{{"4444", "4444"}, {"7900", "7900"}},
 	Name:           "zensearch-cli-selenium-multi-arch",
-	ShmSize:        4 * 3072,
+	ShmSize:        2 * 1024 * 1024 * 1024,
 	Env:            []string{"SE_NODE_MAX_SESSIONS=5"},
 }
 var dockerContainerConf = []DockerContainerConfig{rabbitmqContConfig, seleniumContConfig}
 
 func main() {
-	// for reassigning cancel func if input is start
+	// for reassigning cancel func if services has started
 	var contextCancel context.CancelFunc
-	// TODO fix input field needs to be appended after every stdout
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
@@ -112,7 +111,7 @@ loop:
 				contextCancel()
 
 			}
-			fmt.Println("Zensearch Exitted")
+			fmt.Println("Exit")
 			break loop
 		case "build":
 			fmt.Printf("zensearch: Building...\n")
