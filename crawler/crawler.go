@@ -1,11 +1,11 @@
 package main
 
 import (
+	frontier "crawler/frontier_queue"
 	"crawler/internal/rabbitmq"
 	"crawler/internal/types"
 	webdriver "crawler/internal/webdriver"
 	utilities "crawler/utilities"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -36,8 +36,9 @@ type Spawner struct {
 }
 
 type Crawler struct {
-	URL string
-	WD  *selenium.WebDriver
+	URL           string
+	WD            *selenium.WebDriver
+	FrontierQueue frontier.FrontierQueue
 }
 
 type DequeuedUrl struct {
@@ -54,9 +55,10 @@ const (
 
 type ThreadToken struct{}
 
-func NewCrawler(entryPoint string) (*Crawler, error) {
+func NewCrawler(entryPoint string, fq frontier.FrontierQueue) (*Crawler, error) {
 	c := &Crawler{
-		URL: entryPoint,
+		URL:           entryPoint,
+		FrontierQueue: fq,
 	}
 	wd, err := webdriver.CreateClient()
 	if err != nil {
@@ -68,28 +70,16 @@ func NewCrawler(entryPoint string) (*Crawler, error) {
 	return c, nil
 }
 
-func NewSpawner(threadpool int, URLs []string) *Spawner {
-	return &Spawner{
-		ThreadPool: threadpool,
-		URLs:       URLs,
-	}
-}
-
-func (s *Spawner) SpawnCrawlers() {
-	// Holds results of each crawled url
-	crawlResultsChan := make(chan types.CrawlResult, len(s.URLs))
-
-	// A semaphore to limit threads used
-	threadSlot := make(chan struct{}, s.ThreadPool)
-
-	// create parent context and pass to Crawl method
+func SpawnCrawlers(URLs []string) {
+	crawlResultsChan := make(chan types.CrawlResult, len(URLs))
+	threadSlot := make(chan struct{}, 5)
 
 	var wg sync.WaitGroup
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for _, entryPoint := range s.URLs {
+		for _, entryPoint := range URLs {
 			wg.Add(1)
 			threadSlot <- ThreadToken{}
 			fmt.Printf("NOTIF: Thread token insert\n")
@@ -99,32 +89,33 @@ func (s *Spawner) SpawnCrawlers() {
 					<-threadSlot
 					wg.Done()
 				}()
-				crawler, err := NewCrawler(entryPoint)
+				fq := frontier.New()
+				crawler, err := NewCrawler(entryPoint, fq)
 				if err != nil {
 					fmt.Printf(err.Error())
 					fmt.Printf("NOTIF: Thread token release due to error.\n")
 					return
 				}
 				err = crawler.Crawl()
-				if err != nil {
-					fmt.Println(err.Error())
-					errMessageStatus := CrawlMessageStatus{
-						IsSuccess: false,
-						URLSeed:   entryPoint,
-						Message:   err.Error(),
-					}
-					SendCrawlMessageStatus(errMessageStatus)
-					return
-				}
-
+				// if err != nil {
+				// 	fmt.Println(err.Error())
+				// 	errMessageStatus := CrawlMessageStatus{
+				// 		IsSuccess: false,
+				// 		URLSeed:   entryPoint,
+				// 		Message:   err.Error(),
+				// 	}
+				// 	SendCrawlMessageStatus(errMessageStatus)
+				// 	return
+				// }
+				//
 				(*crawler.WD).Quit()
-
-				messageStatus := CrawlMessageStatus{
-					IsSuccess: true,
-					Message:   "Succesfully indexed and stored webpages",
-					URLSeed:   entryPoint,
-				}
-				SendCrawlMessageStatus(messageStatus)
+				//
+				// messageStatus := CrawlMessageStatus{
+				// 	IsSuccess: true,
+				// 	Message:   "Succesfully indexed and stored webpages",
+				// 	URLSeed:   entryPoint,
+				// }
+				// SendCrawlMessageStatus(messageStatus)
 				fmt.Printf("NOTIF: Thread Token release\n")
 			}()
 		}
@@ -161,6 +152,7 @@ func (c Crawler) Crawl() error {
 		DisallowedPaths: disallowedPaths,
 		IndexedWebpages: make([]types.IndexedWebpage, 0, 50),
 		Hostname:        hostname,
+		fq:              &c.FrontierQueue,
 	}
 
 	/*
@@ -173,8 +165,8 @@ func (c Crawler) Crawl() error {
 		c.URL += "/"
 	}
 
-	dqUrlChan := make(chan DequeuedUrl)
-	go ListenDequeuedUrl(dqUrlChan)
+	dqUrlChan := c.FrontierQueue.GetChann()
+	go c.FrontierQueue.ListenDequeuedUrl()
 
 	// check queue length, means that if it is > 0, then there are pending
 	// nodes from the previous session, so if it > 0, we continue from
@@ -184,7 +176,7 @@ func (c Crawler) Crawl() error {
 	// so crawler does not have to check if the current url has already
 	// been visited by it.
 
-	queueLength, err := GetQueueLength(hostname)
+	queueLength, err := c.FrontierQueue.Len(hostname)
 	if err != nil {
 		fmt.Println(err)
 		return err
@@ -192,13 +184,13 @@ func (c Crawler) Crawl() error {
 
 	if queueLength == 0 {
 		fmt.Println("CRAWLER TEST: QUEUE IS EMPTY")
-		ex := ExtractedUrls{
+		ex := frontier.ExtractedUrls{
 			Domain: hostname,
 			Nodes:  []string{c.URL},
 		}
 		fmt.Printf("CRAWLER TEST: HOSTNAME OF SEED %s\n", hostname)
 		// Sends the URL seed to the frontier queue
-		err = EnqueueUrls(ex)
+		err = c.FrontierQueue.Enqueue(ex)
 		if err != nil {
 			// Error for when crawler is not able to crawl and index the seed URL.
 			fmt.Printf("ERROR: unable to store Urls to database service %s\n", c.URL)
@@ -208,7 +200,8 @@ func (c Crawler) Crawl() error {
 	}
 
 	fmt.Println("CRAWLER TEST: DEQUEUEING")
-	err = DequeueUrl(hostname)
+
+	err = c.FrontierQueue.Dequeue(hostname)
 	if err != nil {
 		fmt.Println(err)
 		return err
@@ -245,7 +238,7 @@ func (c Crawler) Crawl() error {
 
 		// if queue is empty it should return an object with blanked url string
 		// and a length of 0 and sets the current node to is_visited
-		err := DequeueUrl(hostname)
+		err := c.FrontierQueue.Dequeue(hostname)
 		if err != nil {
 			fmt.Println(err)
 			return err
@@ -289,114 +282,4 @@ func SendIndexedWebpage(result types.Result) error {
 		return nil
 	}
 
-}
-
-// Dequeues the url in the current queue, the domain corresponds to the
-// crawler's current running job from a URL seed
-func DequeueUrl(domain string) error {
-
-	chann, err := rabbitmq.GetChannel("frontierChannel")
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-
-	err = chann.Publish("",
-		rabbitmq.CRAWLER_DB_DEQUEUE_URL_QUEUE,
-		false, false,
-		amqp091.Publishing{
-			Body:    []byte(domain),
-			ReplyTo: rabbitmq.DB_CRAWLER_DEQUEUE_URL_CBQ,
-		})
-
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-
-	return nil
-}
-
-func ListenDequeuedUrl(dqChan chan DequeuedUrl) {
-	fmt.Println("Listening to dequeued url")
-
-	chann, err := rabbitmq.GetChannel("frontierChannel")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	msg, err := chann.Consume(rabbitmq.DB_CRAWLER_DEQUEUE_URL_CBQ, "", false, false, false, false, nil)
-
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	for chanMsg := range msg {
-		dq := &DequeuedUrl{}
-		fmt.Println("CRAWLER TEST: received dequeued URL")
-		err = json.Unmarshal(chanMsg.Body, dq)
-		if err != nil {
-			fmt.Println("ERROR: unable to unmarshal dequeued url")
-			fmt.Println(err.Error())
-			return
-		}
-		chann.Ack(chanMsg.DeliveryTag, false)
-		dqChan <- *dq
-	}
-}
-
-func EnqueueUrls(exUrls ExtractedUrls) error {
-
-	fmt.Printf("CRAWLER TEST: ENQUEUING %+d URLS\n", len(exUrls.Nodes))
-	const CRAWLER_DB_STOREURLS_QUEUE = "crawler_db_storeurls_queue"
-	chann, err := rabbitmq.GetChannel("frontierChannel")
-	if err != nil {
-		return err
-	}
-
-	b, err := json.Marshal(exUrls)
-	if err != nil {
-		return err
-	}
-	err = chann.Publish("", CRAWLER_DB_STOREURLS_QUEUE, false, false, amqp091.Publishing{
-		ContentType: "application/json",
-		Body:        b,
-	})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func GetQueueLength(hostname string) (uint32, error) {
-	fmt.Printf("CRAWLER TEST: GETTING QUEUE LENGTH FOR %s\n", hostname)
-	const CRAWLER_DB_GET_LEN_QUEUE = "crawler_db_len_queue"
-	chann, err := rabbitmq.GetChannel("frontierChannel")
-	if err != nil {
-		return 0, err
-	}
-	chann.QueueDeclare(CRAWLER_DB_GET_LEN_QUEUE, false, false, false, false, nil)
-	chann.QueueDeclare("get_queue_len_queue", false, false, false, false, nil)
-
-	err = chann.Publish("", CRAWLER_DB_GET_LEN_QUEUE, false, false, amqp091.Publishing{
-		ContentType: "application/json",
-		Body:        []byte(hostname),
-		ReplyTo:     "get_queue_len_queue",
-	})
-	if err != nil {
-		return 0, err
-	}
-
-	lenMsg, err := chann.Consume("get_queue_len_queue", "", false, false, false, false, nil)
-
-	msg := <-lenMsg
-
-	queueLen := binary.LittleEndian.Uint32(msg.Body)
-
-	fmt.Printf("CRAWLER TEST: BODY BUF = %v\n", msg.Body)
-	fmt.Printf("CRAWLER TEST: CURRENT QUEUE LEN: %d\n", queueLen)
-	chann.Ack(msg.DeliveryTag, false)
-
-	return queueLen, nil
 }

@@ -71,7 +71,12 @@ func main() {
 	expressChannel.QueueDeclare(rabbitmq.CRAWLER_EXPRESS_CBQ, false, false, false, false, nil)
 	rabbitmq.SetNewChannel("expressChannel", expressChannel)
 
+	frontierChannel.QueueDeclare("crawler_db_storeurls_queue", false, false, false, false, nil)
 	frontierChannel.QueueDeclare("db_crawler_dequeue_url_cbq", false, false, false, false, nil)
+
+	frontierChannel.QueueDeclare("crawler_db_len_queue", false, false, false, false, nil)
+	frontierChannel.QueueDeclare("get_queue_len_queue", false, false, false, false, nil)
+
 	rabbitmq.SetNewChannel("frontierChannel", frontierChannel)
 
 	expressMsg, err := expressChannel.Consume(rabbitmq.EXPRESS_CRAWLER_QUEUE, "", false, false, false, false, nil)
@@ -89,8 +94,7 @@ func handleIncomingUrls(msg amqp.Delivery, chann *amqp.Channel) {
 	defer chann.Ack(msg.DeliveryTag, false)
 	webpageIndex := parseIncomingData(msg.Body)
 	fmt.Printf("Docs: %+v\n", webpageIndex.Docs)
-	spawner := NewSpawner(10, webpageIndex.Docs)
-	go spawner.SpawnCrawlers()
+	go SpawnCrawlers(webpageIndex.Docs)
 }
 
 func parseIncomingData(data []byte) CrawlList {
