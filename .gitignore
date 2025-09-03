@@ -6,6 +6,7 @@ todo.md
 *.bin
 *.out
 *.exe
+.env
 zensearch-bin
 crawler-bin
 search-engine-bin
