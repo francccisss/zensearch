@@ -173,7 +173,7 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) error {
 			CrawlResult: types.CrawlResult{
 				URLSeed:     pn.Hostname,
 				Message:     "Successfully indexed and stored webpages",
-				CrawlStatus: CRAWL_SUCCESS,
+				CrawlStatus: 1,
 			},
 			Webpage: indexedWebpage,
 		}
@@ -221,7 +221,7 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) error {
 		CrawlResult: types.CrawlResult{
 			URLSeed:     pn.Hostname,
 			Message:     "Successfully indexed and stored webpages",
-			CrawlStatus: CRAWL_SUCCESS,
+			CrawlStatus: 1,
 		},
 		Webpage: indexedWebpage,
 	}

@@ -54,7 +54,7 @@ func TestCrawlerIndexing(t *testing.T) {
 	rabbitmq.SetNewChannel("frontierChannel", frontierChannel)
 	defer frontierChannel.Close()
 
-	seeds := []string{"https://gobyexample.com/"}
+	seeds := []string{"https://javascript.info/"}
 	fmt.Printf("Crawling seeds: %+v\n", seeds)
 	SpawnCrawlers(seeds)
 	sm <- struct{}{}

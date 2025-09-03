@@ -46,15 +46,6 @@ type DequeuedUrl struct {
 	Url              string
 }
 
-var indexedList map[string]types.IndexedWebpage
-
-const (
-	CRAWL_FAIL    = 1
-	CRAWL_SUCCESS = 0
-)
-
-type ThreadToken struct{}
-
 func NewCrawler(entryPoint string, fq frontier.FrontierQueue) (*Crawler, error) {
 	c := &Crawler{
 		URL:           entryPoint,
@@ -72,54 +63,42 @@ func NewCrawler(entryPoint string, fq frontier.FrontierQueue) (*Crawler, error) 
 
 func SpawnCrawlers(URLs []string) {
 	crawlResultsChan := make(chan types.CrawlResult, len(URLs))
-	threadSlot := make(chan struct{}, 5)
 
 	var wg sync.WaitGroup
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for _, entryPoint := range URLs {
-			wg.Add(1)
-			threadSlot <- ThreadToken{}
-			fmt.Printf("NOTIF: Thread token insert\n")
-			go func() {
-
-				defer func() {
-					<-threadSlot
-					wg.Done()
-				}()
-				fq := frontier.New()
-				crawler, err := NewCrawler(entryPoint, fq)
-				if err != nil {
-					fmt.Printf(err.Error())
-					fmt.Printf("NOTIF: Thread token release due to error.\n")
-					return
-				}
-				err = crawler.Crawl()
-				// if err != nil {
-				// 	fmt.Println(err.Error())
-				// 	errMessageStatus := CrawlMessageStatus{
-				// 		IsSuccess: false,
-				// 		URLSeed:   entryPoint,
-				// 		Message:   err.Error(),
-				// 	}
-				// 	SendCrawlMessageStatus(errMessageStatus)
-				// 	return
-				// }
-				//
+	for _, entryPoint := range URLs {
+		wg.Add(1)
+		go func() {
+			fq := frontier.New()
+			crawler, err := NewCrawler(entryPoint, fq)
+			if err != nil {
+				fmt.Printf(err.Error())
+				fmt.Printf("NOTIF: Thread token release due to error.\n")
+				return
+			}
+			defer func() {
+				wg.Done()
 				(*crawler.WD).Quit()
-				//
-				// messageStatus := CrawlMessageStatus{
-				// 	IsSuccess: true,
-				// 	Message:   "Succesfully indexed and stored webpages",
-				// 	URLSeed:   entryPoint,
-				// }
-				// SendCrawlMessageStatus(messageStatus)
-				fmt.Printf("NOTIF: Thread Token release\n")
 			}()
-		}
-	}()
+			err = crawler.Crawl()
+			messageStatus := CrawlMessageStatus{
+				IsSuccess: true,
+				Message:   "Succesfully indexed and stored webpages",
+				URLSeed:   entryPoint,
+			}
+			if err != nil {
+				messageStatus = CrawlMessageStatus{
+					IsSuccess: false,
+					URLSeed:   entryPoint,
+					Message:   err.Error(),
+				}
+				fmt.Println(err.Error())
+			}
+
+			SendCrawlMessageStatus(messageStatus)
+			fmt.Printf("NOTIF: Thread Token release\n")
+		}()
+	}
 
 	fmt.Printf("NOTIF: Wait for crawlers\n")
 	wg.Wait()
