@@ -1,34 +1,28 @@
 import path from "path";
-import Database from "better-sqlite3";
 import rabbitmq from "./rabbitmq/index.js";
-import { readFile } from "fs";
+import mysql from "mysql2/promise";
+import "dotenv/config";
 import { exit } from "node:process";
 import { readFileSync } from "node:fs";
 
-const wc = path.join(import.meta.dirname, "../../website_collection.db");
-const fq = path.join(import.meta.dirname, "../../frontier_queue.db");
-const websitesDB = initDatabase(wc);
-const frontierQueueDB = initDatabase(fq);
 const cumulativeAckCount = 1000;
 
-const tables = [
-  "known_sites",
-  "indexed_sites",
-  "webpages",
-  "visited_nodes", // Dont move this before node
-  "nodes",
-  "queues",
-];
+const poolOption: mysql.PoolOptions = {
+  user: process.env.DB_USER,
+  password: process.env.DB_PASS,
+  database: process.env.DB_NAME,
+  host: process.env.DB_HOST,
+  multipleStatements: false,
+};
+
 await (async (): Promise<void> => {
   try {
+    const db = mysql.createPool(poolOption);
     await execScripts(
-      websitesDB,
-      path.join(import.meta.dirname, "./db_utils/websites.init.sql"),
+      db,
+      path.join(import.meta.dirname, "./db_utils/db.init.sql"),
     );
-    await execScripts(
-      frontierQueueDB,
-      path.join(import.meta.dirname, "./db_utils/frontier_queue.sql"),
-    );
+    return;
 
     console.log("Notif: tables created");
     console.log("Starting database server");
@@ -36,51 +30,45 @@ await (async (): Promise<void> => {
     const databaseChannel = await connection.createChannel();
     const frontierChannel = await connection.createChannel();
     console.log("Channel Created");
-    databaseChannel.prefetch(cumulativeAckCount, false);
-    rabbitmq.webpageHandler(websitesDB, databaseChannel);
-    rabbitmq.frontierQueueHandler(frontierQueueDB, frontierChannel);
+    // databaseChannel.prefetch(cumulativeAckCount, false);
+    // rabbitmq.webpageHandler(db, databaseChannel);
+    // rabbitmq.frontierQueueHandler(db, frontierChannel);
   } catch (err) {
     const error = err as Error;
-    console.error(error.message);
+    console.error(error);
+    exit(1);
   }
 })();
 
-function initDatabase(src: string): Database.Database {
-  const db = new Database(src);
-  return db;
-}
-
-async function execScripts(db: Database.Database | null, scriptPath: string) {
+async function execScripts(
+  db: mysql.Pool | null,
+  scriptPath: string,
+): Promise<void> {
   console.log(`Executing sql script for ${scriptPath}`);
   if (db === null) {
     console.error("ERROR: database does not exist for %s", scriptPath);
     exit(1);
   }
 
-  readFile(scriptPath, "utf-8", (err, data) => {
-    if (err !== null) {
-      console.log(err);
-      throw new Error(err.message);
-    }
-    const stmts = data.split(";").map((stmt) => stmt.trim());
-    stmts.forEach((stmt) => {
-      const firstLine = stmt.split("\n")[0];
-      for (let i = 0; i < tables.length; i++) {
-        const tableName = tables[i];
-        if (firstLine.includes(tableName)) {
-          console.log(tableName);
-          const checkTableStmt = db.prepare(
-            `SELECT name FROM sqlite_master WHERE type='table' AND name=? ;`,
-          );
-          const result = checkTableStmt.get([tableName]);
-          if (result == undefined) {
-            console.log("Notif: Creating table for %s", tableName);
-            db.exec(stmt);
-            break;
+  const f = readFileSync(scriptPath, "utf-8");
+  // TODO: Make sure each table that references a table needs to be triggered right after the
+  // referenced table has already been created
+  try {
+    f.split(";")
+      .filter((t) => t.trim())
+      .forEach(async (t) => {
+        try {
+          await db.execute(t);
+        } catch (e: any) {
+          if (e.message.includes("exists")) {
+            console.log("skipping duplicate");
+            return;
           }
-          console.log("Notif:  Table already exists for %s", tableName);
+          console.error(e);
+          throw new Error(e);
         }
-      }
-    });
-  });
+      });
+  } catch (e: any) {
+    throw new Error(e);
+  }
 }
