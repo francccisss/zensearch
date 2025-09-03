@@ -45,13 +45,5 @@ type DequeuedUrl struct {
 	Url              string
 }
 
-type FrontierQueue interface {
-	Enqueue()
-	ListenDequeuedUrl()
-	Dequeue(root string)
-	Len()
-	GetChan() chan DequeuedUrl
-}
-
 func (cr CrawlResult) sendResults()   {}
 func (ir IndexedResult) sendResults() {}
