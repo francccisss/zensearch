@@ -15,14 +15,13 @@ const poolOption: mysql.PoolOptions = {
   multipleStatements: false,
 };
 
-await (async (): Promise<void> => {
+export async function init(): Promise<void> {
   try {
     const db = mysql.createPool(poolOption);
     await execScripts(
       db,
       path.join(import.meta.dirname, "./db_utils/db.init.sql"),
     );
-    return;
 
     console.log("Notif: tables created");
     console.log("Starting database server");
@@ -30,17 +29,17 @@ await (async (): Promise<void> => {
     const databaseChannel = await connection.createChannel();
     const frontierChannel = await connection.createChannel();
     console.log("Channel Created");
-    // databaseChannel.prefetch(cumulativeAckCount, false);
-    // rabbitmq.webpageHandler(db, databaseChannel);
-    // rabbitmq.frontierQueueHandler(db, frontierChannel);
+    databaseChannel.prefetch(cumulativeAckCount, false);
+    rabbitmq.webpageHandler(db, databaseChannel);
+    rabbitmq.frontierQueueHandler(db, frontierChannel);
   } catch (err) {
     const error = err as Error;
     console.error(error);
     exit(1);
   }
-})();
+}
 
-async function execScripts(
+export async function execScripts(
   db: mysql.Pool | null,
   scriptPath: string,
 ): Promise<void> {

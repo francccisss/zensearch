@@ -1,6 +1,6 @@
 import amqp from "amqplib";
-import sql from "../database.js";
-import Database from "better-sqlite3";
+import database from "../database.js";
+import mysql from "mysql2/promise";
 import type {
   DequeuedUrl,
   IndexedWebpage,
@@ -14,7 +14,6 @@ import {
   EXPRESS_DB_CHECK_QUEUE,
   SENGINE_DB_REQUEST_QUEUE,
 } from "./routing_keys.js";
-import database from "../database.js";
 
 export async function establishConnection(
   retries: number,
@@ -45,10 +44,7 @@ export async function establishConnection(
   messages coming from different context eg: database and search
 */
 
-async function webpageHandler(
-  db: Database.Database,
-  databaseChannel: amqp.Channel,
-) {
+async function webpageHandler(pool: mysql.Pool, databaseChannel: amqp.Channel) {
   // EXPRESS SERVER ROUTING KEYS
   // routing key used by express server to check existing webpages.
 
@@ -76,7 +72,7 @@ async function webpageHandler(
     const deserializeData: IndexedWebpage = JSON.parse(decodedData);
     try {
       databaseChannel.ack(data);
-      database.saveWebpage(db, deserializeData);
+      database.saveWebpage(pool, deserializeData);
       console.log("Storing data");
       databaseChannel.sendToQueue(
         data.properties.replyTo,
@@ -138,8 +134,8 @@ async function webpageHandler(
       const crawlList: { Docs: Array<string> } = JSON.parse(
         data.content.toString(),
       );
-      const unindexedWebsites = sql.checkAlreadyIndexedWebpage(
-        db,
+      const unindexedWebsites = database.checkAlreadyIndexedWebpage(
+        pool,
         crawlList.Docs,
       );
 
@@ -174,7 +170,7 @@ async function webpageHandler(
   databaseChannel.consume(SENGINE_DB_REQUEST_QUEUE, async (data) => {
     if (data === null) throw new Error("No data was pushed.");
     try {
-      const dataQuery: Webpage[] = await sql.queryWebpages(db);
+      const dataQuery: Webpage[] = await database.queryWebpages(pool);
       console.log({ searchEngineMessage: data.content.toString() });
 
       databaseChannel.ack(data);
@@ -203,7 +199,7 @@ async function webpageHandler(
 }
 
 async function frontierQueueHandler(
-  db: Database.Database,
+  pool: mysql.Pool,
   frontierChannel: amqp.Channel,
 ) {
   const CRAWLER_DB_DEQUEUE_URL_QUEUE = "crawler_db_dequeue_url_queue";
@@ -245,7 +241,7 @@ async function frontierQueueHandler(
         console.log("DATABASE TEST: DEQUEUEING");
         const domain = msg.content.toString();
         const { length, url, inProgressNode, message } = database.dequeueURL(
-          db,
+          pool,
           domain,
         );
 
@@ -265,13 +261,13 @@ async function frontierQueueHandler(
         console.log(inProgressNode);
         // node can be null if queue is empty
         if (inProgressNode !== null) {
-          database.setNodeToVisited(db, inProgressNode);
+          database.setNodeToVisited(pool, inProgressNode);
           console.log("Node updated to visited, remove in_progress node.");
         }
 
         if (inProgressNode == null && length == 0) {
           console.log("DATABASE TEST: REMOVED QUEUE");
-          database.removeQueue(db, domain);
+          database.removeQueue(pool, domain);
         }
       } catch (err) {
         console.log(err);
@@ -288,7 +284,7 @@ async function frontierQueueHandler(
         }
         const URLs: URLs = JSON.parse(msg.content.toString());
         console.log("DATABASE TEST: URLS ", URLs);
-        database.enqueueUrls(db, URLs);
+        database.enqueueUrls(pool, URLs);
         frontierChannel.ack(msg);
       } catch (err) {
         // i dont know what to do with this yet
@@ -306,7 +302,7 @@ async function frontierQueueHandler(
         }
         frontierChannel.ack(msg);
         const hostname = msg.content.toString();
-        const queueLen = database.getCurrentQueueLen(db, hostname);
+        const queueLen = database.getCurrentQueueLen(pool, hostname);
 
         const queueLenBuf = Buffer.alloc(4);
         queueLenBuf.writeIntLE(queueLen, 0, 4);

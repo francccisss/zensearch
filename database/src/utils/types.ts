@@ -39,7 +39,7 @@ export type Segment = {
 };
 
 export type URLs = {
-  Domain: string;
+  Root: string;
   Nodes: Array<string>;
 };
 
