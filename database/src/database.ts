@@ -231,12 +231,6 @@ async function checkNodeExists(
   const nodeRow = query as unknown as Array<Node>;
   return nodeRow.length > 0 ? true : false;
 }
-//
-// function clearURLs(pool: mysql.Pool | mysql.Connection, q: FrontierQueue) {
-//   console.log(q);
-//   console.log("Storing URLS in FrontierQueue");
-//   console.log(pool);
-// }
 
 // What is dequeued is considered a Visited Node
 // root is used to identify the queue that is in-used by the crawler
@@ -258,11 +252,10 @@ async function dequeueURL(
     const [queue] = queueQuery as unknown as Array<FrontierQueue | undefined>;
 
     if (queue === undefined) {
-      console.log("Domain does not exist = `%s`", queue);
       return {
         length: 0,
         url: "",
-        message: `Domain does not exist = '${queue}'`,
+        message: `Queue does not exist = '${root}'`,
         inProgressNode: null,
       };
     }
@@ -310,12 +303,6 @@ async function dequeueURL(
     const [nodeCount] = nodeCountQuery as unknown as Array<{
       [key: string]: any;
     }>;
-    console.log(nodeCount);
-
-    // TODO FIX THIS, FOREIGN KEY CONSTRAINT, NODES RELYING ON REMOVED QUEUE
-    // RETURNS ERROR, THE NODE WHERE ITS STATUS IS 'PENDING' STILL EXISTS
-    // IN THE QUEUE, NEED TO MAKE SURE THE NODE IS REMOVED AFTER DEQUEUE IS CALLED
-    // AND ONLY THEN WILL THE QUEUE BE REMOVED AS WELL
 
     console.log("Update node=%s to 'in_progess'", inProgressNode.id);
 
@@ -332,18 +319,21 @@ async function dequeueURL(
   }
 }
 
-// only set once an ack has been received
+// TODO: Change this when a user has sent the dequeued url
+// when a user sends an enqueue to the specific queue, then we know that the
+// indexing was successful
+
 async function setNodeToVisited(
   pool: mysql.Pool | mysql.Connection,
   node: Node,
 ) {
   try {
     await pool.beginTransaction();
-    await pool.execute("DELETE FROM nodes WHERE nodes.id = ?", [node.id]);
     await pool.execute(
       "INSERT INTO visited_nodes (node_url, queue_id) VALUES (?, ?)",
       [node.url, node.queue_id],
     );
+    await pool.execute("DELETE FROM nodes WHERE nodes.id = ?", [node.id]);
     await pool.commit();
   } catch (err) {
     console.error("Error: Unable to set node as visited");
@@ -351,39 +341,35 @@ async function setNodeToVisited(
   }
 }
 
-// function removeQueue(pool: mysql.Pool | mysql.Connection, domain: string) {
-//   try {
-//    await pool.prepare("DELETE FROM queues WHERE queues.domain = ?").run(domain);
-//   } catch (err) {
-//     console.error("ERROR: Unable to remove queue");
-//   }
-// }
-//
-// function getCurrentQueueLen(pool: mysql.Pool | mysql.Connection, domain: string): number {
-//   const nodes =await pool
-//     .prepare(
-//       "SELECT * FROM (SELECT * FROM queues WHERE domain = ?) AS cq, nodes WHERE cq.id = nodes.queue_id",
-//     )
-//     .all(domain) as Array<Node>;
-//
-//   // if doesnt exist, just return 0, because the crawler will enqueue
-//   // a new url and set its corresponding queue to be used
-//   if (nodes == undefined) return 0;
-//   console.log(nodes);
-//
-//   return nodes.length;
-// }
-//
+async function removeQueue(pool: mysql.Pool | mysql.Connection, root: string) {
+  try {
+    await pool.execute("DELETE FROM queues WHERE queues.domain = ?", [root]);
+  } catch (e: any) {
+    console.error("ERROR: Unable to remove queue");
+    throw new Error(e);
+  }
+}
+
+async function getCurrentQueueLen(
+  pool: mysql.Pool | mysql.Connection,
+  domain: string,
+): Promise<number> {
+  const [nodes] = await pool.execute(
+    "SELECT * FROM (SELECT * FROM queues WHERE root = ?) AS cq, nodes WHERE cq.id = nodes.queue_id",
+    [domain],
+  );
+  return (nodes as unknown as Array<Node>).length;
+}
+
 export default {
   saveWebpage,
   checkNodeVisited,
   checkIndexedWebpage,
   queryWebpages,
   enqueueUrls,
-  // clearURLs,
   dequeueURL,
   setNodeToVisited,
-  // getCurrentQueueLen,
-  // removeQueue,
+  getCurrentQueueLen,
+  removeQueue,
   checkNodeExists,
 };

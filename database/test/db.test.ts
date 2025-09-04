@@ -127,14 +127,7 @@ test.suite("Webpage indexing", async () => {
     }
   });
 
-  test.test("Check if websites have already been indexed", async (t) => {
-    try {
-      const l = await dbInterface.checkIndexedWebpage(db, [
-        "https://youtube.com",
-        "https://exudos.ai",
-        "https://fedex.com",
-      ]);
-      t.assert.equal(3, l.length, "Not equal");
+  test.test("Check if websites .l");
     } catch (e: any) {
       console.error(e);
       t.assert.fail(e);
@@ -168,9 +161,7 @@ test.suite("Frontier Queue", { only: true }, async () => {
     try {
       const dequeued = await dbInterface.dequeueURL(db, "domain.com");
       console.log(dequeued);
-      await db.execute("DELETE FROM nodes WHERE id = ?", [
-        dequeued.inProgressNode!.id,
-      ]);
+      await dbInterface.setNodeToVisited(db, dequeued.inProgressNode!);
     } catch (e: any) {
       t.assert.fail(e);
     } finally {
