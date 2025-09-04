@@ -219,111 +219,137 @@ async function checkNodeVisited(
   const q = query as unknown as Array<any>;
   return q.length > 0 ? true : false;
 }
-//
 
-//
-// function checkNodeExists(pool: mysql.Pool | mysql.Connection, url: string): boolean {
-//   return await pool.prepare("SELECT * FROM nodes WHERE nodes.url = ?").get(url) ===
-//     undefined
-//     ? false
-//     : true;
-// }
+async function checkNodeExists(
+  pool: mysql.Pool | mysql.Connection,
+  url: string,
+): Promise<boolean> {
+  const [query] = await pool.execute(
+    "SELECT * FROM nodes WHERE nodes.url = ?",
+    [url],
+  );
+  const nodeRow = query as unknown as Array<Node>;
+  return nodeRow.length > 0 ? true : false;
+}
 //
 // function clearURLs(pool: mysql.Pool | mysql.Connection, q: FrontierQueue) {
 //   console.log(q);
 //   console.log("Storing URLS in FrontierQueue");
 //   console.log(pool);
 // }
-//
-// // What is dequeued is considered a Visited Node
-// // Qdomain is used to identify the queue that is in-used by the crawler
-// function dequeueURL(
-//  pool: mysql.Pool | mysql.Connection,
-//   Qdomain: string,
-// ): {
-//   length: number;
-//   url: string;
-//   message: string;
-//   inProgressNode: Node | null;
-// } {
-//   try {
-//     const stmt =await pool.prepare("SELECT * FROM queues WHERE domain = ?");
-//     let domain = stmt.get(Qdomain) as FrontierQueue | undefined;
-//     if (domain === undefined) {
-//       console.log("Domain does not exist = `%s`", Qdomain);
-//       return {
-//         length: 0,
-//         url: "",
-//         message: `Domain does not exist = '${Qdomain}'`,
-//         inProgressNode: null,
-//       };
-//     }
-//
-//     // used for continuing if the crawler crashes for some reason
-//     // if the node was not sent to the crawler
-//     // if the database fails
-//     let inProgressNode =await pool
-//       .prepare("SELECT * from nodes WHERE status = 'in_progress'")
-//       .get() as Node;
-//
-//     if (inProgressNode == undefined) {
-//       const nextNode =await pool
-//         .prepare(
-//           "SELECT * FROM nodes WHERE status = 'pending' ORDER BY id LIMIT 1",
-//         )
-//         .get() as Node;
-//
-//       if (nextNode === undefined) {
-//         return {
-//           length: 0,
-//           url: "",
-//           message: `Frontier queue for ${domain.domain} is empty.`,
-//           inProgressNode: null,
-//         };
-//       }
-//
-//      await pool
-//         .prepare("UPDATE nodes SET status = 'in_progress' WHERE id = ?")
-//         .run(nextNode.id);
-//       nextNode.status = "in_progress"; // just so i dont get confused when logging it
-//       inProgressNode = nextNode;
-//     }
-//
-//     const nodeCount =await pool.prepare("SELECT COUNT(*) from nodes").get();
-//
-//     // TODO FIX THIS, FOREIGN KEY CONSTRAINT, NODES RELYING ON REMOVED QUEUE
-//     // RETURNS ERROR, THE NODE WHERE ITS STATUS IS 'PENDING' STILL EXISTS
-//     // IN THE QUEUE, NEED TO MAKE SURE THE NODE IS REMOVED AFTER DEQUEUE IS CALLED
-//     // AND ONLY THEN WILL THE QUEUE BE REMOVED AS WELL
-//
-//     console.log("Update node=%s to 'in_progess'", inProgressNode.id);
-//
-//     return {
-//       length: Object.values(nodeCount as { [key: string]: any })[0] as number,
-//       url: inProgressNode.url,
-//       message: "",
-//       inProgressNode: inProgressNode,
-//     };
-//   } catch (e) {
-//     const err = e as Error;
-//     return { length: 0, url: "", message: err.message, inProgressNode: null };
-//   }
-// }
-//
-// // only set once an ack has been received
-// function setNodeToVisited(pool: mysql.Pool | mysql.Connection, node: Node) {
-//   try {
-//    await pool.transaction(() => {
-//      await pool.prepare("DELETE FROM nodes WHERE nodes.id = ?").run(node.id);
-//      await pool
-//         .prepare("INSERT INTO visited_nodes (node_url, queue_id) VALUES (?, ?)")
-//         .run(node.url, node.queue_id);
-//     })();
-//   } catch (err) {
-//     console.error("Error: Unable to set node as visited");
-//     console.error(err);
-//   }
-// }
+
+// What is dequeued is considered a Visited Node
+// root is used to identify the queue that is in-used by the crawler
+async function dequeueURL(
+  pool: mysql.Pool | mysql.Connection,
+  root: string,
+): Promise<{
+  length: number;
+  url: string;
+  message: string;
+  inProgressNode: Node | null;
+}> {
+  try {
+    const [queueQuery] = await pool.execute(
+      "SELECT * FROM queues WHERE root = ?",
+      [root],
+    );
+
+    const [queue] = queueQuery as unknown as Array<FrontierQueue | undefined>;
+
+    if (queue === undefined) {
+      console.log("Domain does not exist = `%s`", queue);
+      return {
+        length: 0,
+        url: "",
+        message: `Domain does not exist = '${queue}'`,
+        inProgressNode: null,
+      };
+    }
+
+    // used for continuing if the crawler crashes for some reason
+    // if the node was not sent to the crawler
+    // if the database fails
+
+    const [inProgressNodeQuery] = await pool.execute(
+      "SELECT * from nodes WHERE status = 'in_progress' AND queue_id = ?",
+      [queue.id],
+    );
+    let [inProgressNode] = inProgressNodeQuery as unknown as Array<Node>;
+
+    if (inProgressNode === undefined) {
+      const [nextNodeQuery] = await pool.execute(
+        "SELECT * FROM nodes WHERE status = 'pending' and queue_id = ? ORDER BY id LIMIT 1",
+        [queue.id],
+      );
+      const [nextNode] = nextNodeQuery as unknown as Array<Node | undefined>;
+
+      if (nextNode === undefined) {
+        return {
+          length: 0,
+          url: "",
+          message: `Frontier queue for ${queue.root} is empty.`,
+          inProgressNode: null,
+        };
+      }
+
+      await pool.execute(
+        "UPDATE nodes SET status = 'in_progress' WHERE id = ? AND queue_id = ?",
+        [nextNode.id, queue.id],
+      );
+      nextNode.status = "in_progress"; // just so i dont get confused when logging it
+      inProgressNode = nextNode;
+    }
+
+    // WTF IS THIS SHIITTIAISFAS
+    const [nodeCountQuery] = await pool.execute(
+      "SELECT COUNT(*) from nodes WHERE queue_id = ?",
+      [queue.id],
+    );
+
+    const [nodeCount] = nodeCountQuery as unknown as Array<{
+      [key: string]: any;
+    }>;
+    console.log(nodeCount);
+
+    // TODO FIX THIS, FOREIGN KEY CONSTRAINT, NODES RELYING ON REMOVED QUEUE
+    // RETURNS ERROR, THE NODE WHERE ITS STATUS IS 'PENDING' STILL EXISTS
+    // IN THE QUEUE, NEED TO MAKE SURE THE NODE IS REMOVED AFTER DEQUEUE IS CALLED
+    // AND ONLY THEN WILL THE QUEUE BE REMOVED AS WELL
+
+    console.log("Update node=%s to 'in_progess'", inProgressNode.id);
+
+    return {
+      length: Object.values(nodeCount as { [key: string]: any })[0] as number,
+      url: inProgressNode.url,
+      message: "",
+      inProgressNode: inProgressNode,
+    };
+  } catch (e) {
+    const err = e as Error;
+    console.error(err);
+    return { length: 0, url: "", message: err.message, inProgressNode: null };
+  }
+}
+
+// only set once an ack has been received
+async function setNodeToVisited(
+  pool: mysql.Pool | mysql.Connection,
+  node: Node,
+) {
+  try {
+    await pool.beginTransaction();
+    await pool.execute("DELETE FROM nodes WHERE nodes.id = ?", [node.id]);
+    await pool.execute(
+      "INSERT INTO visited_nodes (node_url, queue_id) VALUES (?, ?)",
+      [node.url, node.queue_id],
+    );
+    await pool.commit();
+  } catch (err) {
+    console.error("Error: Unable to set node as visited");
+    console.error(err);
+  }
+}
 
 // function removeQueue(pool: mysql.Pool | mysql.Connection, domain: string) {
 //   try {
@@ -350,14 +376,14 @@ async function checkNodeVisited(
 //
 export default {
   saveWebpage,
-  // checkNodeVisited,
+  checkNodeVisited,
   checkIndexedWebpage,
   queryWebpages,
   enqueueUrls,
   // clearURLs,
-  // dequeueURL,
-  // setNodeToVisited,
+  dequeueURL,
+  setNodeToVisited,
   // getCurrentQueueLen,
   // removeQueue,
-  // checkNodeExists,
+  checkNodeExists,
 };

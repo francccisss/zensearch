@@ -162,6 +162,17 @@ test.suite("Frontier Queue", { only: true }, async () => {
       await dbInterface.enqueueUrls(db, urls);
     } catch (e: any) {
       t.assert.fail(e);
+    }
+  });
+  test.test("Dequeueing Nodes", { only: true }, async (t) => {
+    try {
+      const dequeued = await dbInterface.dequeueURL(db, "domain.com");
+      console.log(dequeued);
+      await db.execute("DELETE FROM nodes WHERE id = ?", [
+        dequeued.inProgressNode!.id,
+      ]);
+    } catch (e: any) {
+      t.assert.fail(e);
     } finally {
       await db.end();
     }
