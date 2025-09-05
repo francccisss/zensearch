@@ -1,6 +1,6 @@
 CREATE TABLE indexed_sites (
     id CHAR(60) PRIMARY KEY,
-    primary_url VARCHAR(600) NOT NULL UNIQUE
+    hostname VARCHAR(600) NOT NULL UNIQUE
 );
 
 CREATE TABLE webpages (
@@ -15,7 +15,7 @@ CREATE TABLE webpages (
 
 CREATE TABLE queues (
   id CHAR(60) PRIMARY KEY,
-  domain VARCHAR(600) NOT NULL UNIQUE
+  root VARCHAR(600) NOT NULL UNIQUE
 );
 
 CREATE TABLE nodes (

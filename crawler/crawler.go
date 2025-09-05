@@ -164,8 +164,8 @@ func (c Crawler) Crawl() error {
 	if queueLength == 0 {
 		fmt.Println("CRAWLER TEST: QUEUE IS EMPTY")
 		ex := frontier.ExtractedUrls{
-			Domain: hostname,
-			Nodes:  []string{c.URL},
+			Root:  hostname,
+			Nodes: []string{c.URL},
 		}
 		fmt.Printf("CRAWLER TEST: HOSTNAME OF SEED %s\n", hostname)
 		// Sends the URL seed to the frontier queue
@@ -242,6 +242,9 @@ func SendIndexedWebpage(result types.Result) error {
 	}
 
 	returnChan := make(chan amqp091.Return)
+
+	// TODO: USE REPLYTO Queue to notify the express server of what is going on
+	// currently this there is no consumer for this queue
 	err = chann.Publish("",
 		rabbitmq.CRAWLER_DB_INDEXING_QUEUE,
 		false, false,

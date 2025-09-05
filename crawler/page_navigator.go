@@ -91,7 +91,7 @@ func (pn *PageNavigator) requestDelay(multiplier int) {
 func (pn *PageNavigator) ProcessUrl(currentUrl string) error {
 
 	fmt.Printf("NOTIF: `%s` has popped from queue.\n", currentUrl)
-	pn.requestDelay(2)
+	// pn.requestDelay(2)
 	err := pn.navigatePageWithRetries(MAX_RETRIES, currentUrl)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -189,8 +189,8 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) error {
 	}
 
 	ex := frontier.ExtractedUrls{
-		Domain: pn.Hostname,
-		Nodes:  pn.Urls,
+		Root:  pn.Hostname,
+		Nodes: pn.Urls,
 	}
 
 	// Empty urls

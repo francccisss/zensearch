@@ -232,8 +232,6 @@ async function checkNodeExists(
   return nodeRow.length > 0 ? true : false;
 }
 
-// What is dequeued is considered a Visited Node
-// root is used to identify the queue that is in-used by the crawler
 async function dequeueURL(
   pool: mysql.Pool | mysql.Connection,
   root: string,
@@ -260,7 +258,8 @@ async function dequeueURL(
       };
     }
 
-    // used for continuing if the crawler crashes for some reason
+    // USED FOR RESUMING
+    // if the crawler crashes for some reason
     // if the node was not sent to the crawler
     // if the database fails
 
@@ -328,22 +327,24 @@ async function setNodeToVisited(
   node: Node,
 ) {
   try {
-    await pool.beginTransaction();
+    await pool.query("START TRANSACTION");
     await pool.execute(
       "INSERT INTO visited_nodes (node_url, queue_id) VALUES (?, ?)",
       [node.url, node.queue_id],
     );
     await pool.execute("DELETE FROM nodes WHERE nodes.id = ?", [node.id]);
-    await pool.commit();
-  } catch (err) {
+
+    await pool.query("COMMIT");
+  } catch (e: any) {
+    await pool.query("ROLLBACK");
     console.error("Error: Unable to set node as visited");
-    console.error(err);
+    throw new Error(e);
   }
 }
 
 async function removeQueue(pool: mysql.Pool | mysql.Connection, root: string) {
   try {
-    await pool.execute("DELETE FROM queues WHERE queues.domain = ?", [root]);
+    await pool.execute("DELETE FROM queues WHERE queues.root = ?", [root]);
   } catch (e: any) {
     console.error("ERROR: Unable to remove queue");
     throw new Error(e);
@@ -352,11 +353,11 @@ async function removeQueue(pool: mysql.Pool | mysql.Connection, root: string) {
 
 async function getCurrentQueueLen(
   pool: mysql.Pool | mysql.Connection,
-  domain: string,
+  root: string,
 ): Promise<number> {
   const [nodes] = await pool.execute(
     "SELECT * FROM (SELECT * FROM queues WHERE root = ?) AS cq, nodes WHERE cq.id = nodes.queue_id",
-    [domain],
+    [root],
   );
   return (nodes as unknown as Array<Node>).length;
 }

@@ -27,8 +27,8 @@ type Queue struct {
 }
 
 type ExtractedUrls struct {
-	Domain string
-	Nodes  []string
+	Root  string
+	Nodes []string
 }
 
 func New() FrontierQueue {

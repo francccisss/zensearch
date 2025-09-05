@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"crawler/internal/rabbitmq"
 	"fmt"
 	"testing"
+
+	"github.com/rabbitmq/amqp091-go"
 )
 
 func TestCrawlerIndexing(t *testing.T) {
@@ -38,6 +41,7 @@ func TestCrawlerIndexing(t *testing.T) {
 	}
 
 	dbChannel.QueueDeclare(rabbitmq.DB_CRAWLER_INDEXING_CBQ, false, false, false, false, nil)
+	dbChannel.QueueDeclare(rabbitmq.CRAWLER_DB_INDEXING_QUEUE, false, false, false, false, nil)
 
 	frontierChannel.QueueDeclare("crawler_db_storeurls_queue", false, false, false, false, nil)
 	frontierChannel.QueueDeclare("crawler_db_len_queue", false, false, false, false, nil)
@@ -48,6 +52,31 @@ func TestCrawlerIndexing(t *testing.T) {
 		fmt.Printf("Unable to assert queue=%s\n", "db_crawler_dequeue_url_cbq")
 		t.Fatal(err)
 	}
+
+	go func() {
+
+		chann, err := dbChannel.Consume(rabbitmq.DB_CRAWLER_INDEXING_CBQ, "", false, false, false, false, amqp091.Table{})
+		if err != nil {
+			fmt.Print(err.Error())
+			t.Fail()
+		}
+
+		for c := range chann {
+
+			var r bytes.Buffer
+			_, err := r.Write(c.Body)
+			if err != nil {
+				fmt.Print(err.Error())
+				t.Fail()
+			}
+
+			// reads into b buffer
+			buf := make([]byte, 1024)
+			r.Read(buf)
+			fmt.Printf("Read from write %s\n", string(buf))
+		}
+
+	}()
 
 	rabbitmq.SetNewChannel("dbChannel", dbChannel)
 	defer dbChannel.Close()

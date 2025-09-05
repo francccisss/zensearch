@@ -15,7 +15,7 @@ const poolOption: mysql.PoolOptions = {
   multipleStatements: false,
 };
 
-export async function init(): Promise<void> {
+await (async function init(): Promise<void> {
   try {
     const db = mysql.createPool(poolOption);
     await execScripts(
@@ -37,7 +37,7 @@ export async function init(): Promise<void> {
     console.error(error);
     exit(1);
   }
-}
+})();
 
 export async function execScripts(
   db: mysql.Pool | null,

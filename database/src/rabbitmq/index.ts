@@ -77,6 +77,9 @@ async function webpageHandler(
       dbInterfaceChannel.ack(data);
       await dbInterface.saveWebpage(pool, deserializeData);
       console.log("Storing data");
+
+      // todo: use replyto queue to notify the express server of what is going on
+      // currently this there is no consumer for this queue
       dbInterfaceChannel.sendToQueue(
         data.properties.replyTo,
         Buffer.from(
@@ -89,10 +92,11 @@ async function webpageHandler(
       );
     } catch (err) {
       const error = err as Error;
-      console.error("ERROR: %s", error.message);
       console.error("ERROR: %s", error);
       console.log("Sending back response to crawler");
       console.log(deserializeData);
+      // TODO: USE REPLYTO Queue to notify the express server of what is going on
+      // currently this there is no consumer for this queue
       dbInterfaceChannel.sendToQueue(
         data.properties.replyTo,
         Buffer.from(
@@ -103,6 +107,7 @@ async function webpageHandler(
           }),
         ),
       );
+      throw Error(error.message);
     }
   });
 
