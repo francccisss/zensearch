@@ -8,6 +8,7 @@ todo.md
 *.exe
 .env
 *.db
+zensearch
 zensearch-bin
 crawler-bin
 search-engine-bin
