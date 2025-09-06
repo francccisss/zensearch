@@ -176,6 +176,9 @@ func (c Crawler) Crawl() error {
 			fmt.Println(err.Error())
 			return err
 		}
+
+		// concurrency issue xd
+		time.Sleep(time.Second * 3)
 	}
 
 	fmt.Println("CRAWLER TEST: DEQUEUEING")

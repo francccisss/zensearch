@@ -1,4 +1,3 @@
-
 CREATE TABLE indexed_sites (
     id CHAR(60) PRIMARY KEY,
     hostname VARCHAR(600) NOT NULL UNIQUE
@@ -8,7 +7,7 @@ CREATE TABLE webpages (
     id CHAR(60) PRIMARY KEY,
     url VARCHAR(600) NOT NULL UNIQUE,
     title TEXT,
-    contents TEXT,
+    contents LONGTEXT,
     parent CHAR(60), 
     FOREIGN KEY (parent) REFERENCES indexed_sites(id)
 );
@@ -24,6 +23,7 @@ CREATE TABLE nodes (
   url VARCHAR(600) NOT NULL UNIQUE,
   status CHAR(20) DEFAULT 'pending',
   queue_id CHAR(60),
+  date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (queue_id) REFERENCES queues(id) ON DELETE CASCADE
 );
 

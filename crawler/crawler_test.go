@@ -73,6 +73,7 @@ func TestCrawlerIndexing(t *testing.T) {
 			// reads into b buffer
 			buf := make([]byte, 1024)
 			r.Read(buf)
+			dbChannel.Ack(c.DeliveryTag, true)
 			fmt.Printf("Read from write %s\n", string(buf))
 		}
 
@@ -83,7 +84,8 @@ func TestCrawlerIndexing(t *testing.T) {
 	rabbitmq.SetNewChannel("frontierChannel", frontierChannel)
 	defer frontierChannel.Close()
 
-	seeds := []string{"https://javascript.info/"}
+	// seeds := []string{"https://javascript.info/"}
+	seeds := []string{"https://gobyexample.com/"}
 	fmt.Printf("Crawling seeds: %+v\n", seeds)
 	SpawnCrawlers(seeds)
 	sm <- struct{}{}

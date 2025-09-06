@@ -23,6 +23,7 @@ CREATE TABLE nodes (
   url VARCHAR(600) NOT NULL UNIQUE,
   status CHAR(20) DEFAULT 'pending',
   queue_id CHAR(60),
+  date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (queue_id) REFERENCES queues(id) ON DELETE CASCADE
 );
 

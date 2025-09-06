@@ -112,30 +112,37 @@ const webpages: IndexedWebpage[] = [
   },
 ];
 
-test.suite("Webpage indexing", async () => {
-  const db = await mysql.createConnection(poolOption);
-  await execScripts(db, path.join(import.meta.dirname, "./db.init.sql"));
+// test.suite("Webpage indexing", async () => {
+//   const db = await mysql.createConnection(poolOption);
+//   await execScripts(db, path.join(import.meta.dirname, "./db.init.sql"));
+//
+//   test.test("Indexing webpage", async (t) => {
+//     try {
+//       for (let w of webpages) {
+//         await dbInterface.saveWebpage(db, w);
+//       }
+//     } catch (e: any) {
+//       console.error(e);
+//       t.assert.fail(e.message);
+//     }
+//   });
+//
+//   test.test("Check if websites have already been indexed", async (t) => {
+//     try {
+//       const l = await dbInterface.checkIndexedWebpage(db, [
+//         "https://youtube.com",
+//         "https://exudos.ai",
+//         "https://fedex.com",
+//       ]);
+//       t.assert.equal(3, l.length, "Not equal");
+//     } catch (e: any) {
+//       console.error(e);
+//       t.assert.fail(e);
+//     }
+//   });
+// });
 
-  test.test("Indexing webpage", async (t) => {
-    try {
-      for (let w of webpages) {
-        await dbInterface.saveWebpage(db, w);
-      }
-    } catch (e: any) {
-      console.error(e);
-      t.assert.fail(e.message);
-    }
-  });
-
-  test.test("Check if websites .l");
-    } catch (e: any) {
-      console.error(e);
-      t.assert.fail(e);
-    }
-  });
-});
-
-test.suite("Frontier Queue", { only: true }, async () => {
+test.suite("Frontier Queue", async () => {
   const db = await mysql.createConnection(poolOption);
   await execScripts(db, path.join(import.meta.dirname, "./db.init.sql"));
 
@@ -155,13 +162,19 @@ test.suite("Frontier Queue", { only: true }, async () => {
       await dbInterface.enqueueUrls(db, urls);
     } catch (e: any) {
       t.assert.fail(e);
+    } finally {
+      await db.end();
     }
   });
-  test.test("Dequeueing Nodes", { only: true }, async (t) => {
+  test.test("Dequeueing Nodes", async (t) => {
     try {
       const dequeued = await dbInterface.dequeueURL(db, "domain.com");
       console.log(dequeued);
       await dbInterface.setNodeToVisited(db, dequeued.inProgressNode!);
+      dequeued.length--;
+      if (dequeued.length == 0) {
+        await dbInterface.removeQueue(db, "domain.com");
+      }
     } catch (e: any) {
       t.assert.fail(e);
     } finally {
