@@ -7,7 +7,7 @@ CREATE TABLE webpages (
     id CHAR(60) PRIMARY KEY,
     url VARCHAR(600) NOT NULL UNIQUE,
     title TEXT,
-    contents TEXT,
+    contents LONGTEXT,
     parent CHAR(60), 
     FOREIGN KEY (parent) REFERENCES indexed_sites(id)
 );

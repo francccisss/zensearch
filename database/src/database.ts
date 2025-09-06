@@ -131,15 +131,14 @@ async function checkIndexedWebpage(
   return tmp;
 }
 
+// Enqueueing does not need to check if there exists a row that has already been indexed
+// since the crawler checks the queue length first before actually sending the
+// starting URL to be crawled, so it does not make sense for the crawler to call
+// dequeue on a queue that does not exist.
+//
+// All of the above is a check to make sure that we dont crawl when the starting URL has already
+// been indexed and will not be enqueued
 async function enqueueUrls(pool: mysql.Pool | mysql.Connection, Urls: URLs) {
-  const [indexedSiteQuery] = await pool.execute(
-    "SELECT * FROM indexed_sites WHERE hostname = ?",
-    [Urls.Root],
-  );
-  const [indexedSite] = indexedSiteQuery as unknown as Array<
-    IndexedSite | undefined
-  >;
-
   const [queueQuery] = await pool.execute(
     "SELECT * FROM queues WHERE root = ?",
     [Urls.Root],
@@ -147,14 +146,6 @@ async function enqueueUrls(pool: mysql.Pool | mysql.Connection, Urls: URLs) {
   let queue = (queueQuery as unknown as Array<FrontierQueue>)[0] as
     | FrontierQueue
     | undefined;
-
-  // A queue is CREATED BEFORE saveWebpage is even called
-  // since the crawler needs to DEQUEUE a url in the frontier QUEUE
-  // before it navigates the webpage and will only save if there IS a QUEUE
-  if (indexedSite !== undefined && queue == undefined) {
-    console.log("Page fully indexed");
-    return;
-  }
 
   if (queue === undefined) {
     console.log(
@@ -271,7 +262,7 @@ async function dequeueURL(
 
     if (inProgressNode === undefined) {
       const [nextNodeQuery] = await pool.execute(
-        "SELECT * FROM nodes WHERE status = 'pending' and queue_id = ? ORDER BY id LIMIT 1",
+        "SELECT * FROM nodes WHERE status = 'pending' and queue_id = ? ORDER BY date_created LIMIT 1",
         [queue.id],
       );
       const [nextNode] = nextNodeQuery as unknown as Array<Node | undefined>;
