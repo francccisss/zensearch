@@ -13,38 +13,46 @@ import (
 )
 
 func TestWithExistingContainer(t *testing.T) {
+
+	newDockerClient, err := NewDockerClient()
+	if err != nil {
+		t.Fatalf("[TEST]: Existing Containers Test - %s\n", err)
+	}
 	ctx := context.Background()
 
-	scont := NewContainer("zensearch-cli-selenium", seleniumContConfig.HostPorts, seleniumContConfig.ContainerPorts)
-	err := scont.Run(ctx, "selenium/standalone-chrome", "latest")
+	scont := NewDockerContainer(SeleniumContConfig, &newDockerClient)
+
+	err = <-scont.Run(ctx, "selenium/standalone-chrome", "latest")
+
+	defer scont.Stop(ctx)
+
 	if err != nil {
 		fmt.Println(err)
 		t.FailNow()
 	}
+
 	v := make(chan int)
+
 	<-v
 }
 func TestNoContainer(t *testing.T) {
 
-	var cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	dockerClient, err := NewDockerClient()
 	ctx := context.Background()
 	fmt.Printf("Docker: connecting client to docker daemon...\n")
 	if err != nil {
 		log.Panic(err.Error())
 	}
-	clientContainer := ClientContainer{
-		Client:         cli,
-		ContainerName:  "zensearch-cli-rabbitmq",
-		HostPorts:      HostPorts{"5672", "15672"},
-		ContainerPorts: ContainerPorts{{"5672", "5672"}, {"15672", "15672"}}}
-	defer killCont(ctx, clientContainer)
+	dockerContainer := NewDockerContainer(RabbitmqContConfig, &dockerClient)
 
-	err = clientContainer.Start(ctx, "")
+	defer killCont(ctx, dockerContainer)
+
+	err = dockerContainer.Start(ctx, "")
 	if err != nil {
 		fmt.Println(err.Error())
 	}
 
-	err = clientContainer.Stop(ctx)
+	err = dockerContainer.Stop(ctx)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
@@ -60,12 +68,12 @@ func TestContainerStopAndStart(t *testing.T) {
 	if err != nil {
 		log.Panic(err.Error())
 	}
-	clientContainer := ClientContainer{
+	dockerContainer := ClientContainer{
 		Client:         cli,
 		ContainerName:  "zensearch-cli-rabbitmq",
 		HostPorts:      HostPorts{"5672", "15672"},
 		ContainerPorts: ContainerPorts{{"5672", "5672"}, {"15672", "15672"}}}
-	defer killCont(ctx, clientContainer)
+	defer killCont(ctx, dockerContainer)
 	defer cli.Close()
 
 	var wg sync.WaitGroup
@@ -74,7 +82,7 @@ func TestContainerStopAndStart(t *testing.T) {
 	go func() {
 		fmt.Println("Starting container")
 		defer wg.Done()
-		err := clientContainer.Run(ctx, "rabbitmq", "4.0-management")
+		err := dockerContainer.Run(ctx, "rabbitmq", "4.0-management")
 		if err != nil {
 			panic(err)
 		}
@@ -84,7 +92,7 @@ func TestContainerStopAndStart(t *testing.T) {
 	wg.Wait()
 	fmt.Println("Docker: Done sleeping, stopping container now...")
 
-	err = clientContainer.Stop(ctx)
+	err = dockerContainer.Stop(ctx)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
@@ -93,7 +101,7 @@ func TestContainerStopAndStart(t *testing.T) {
 	time.Sleep(time.Second * 4)
 	fmt.Println("Docker: Done sleeping starting container")
 
-	err = clientContainer.Start(ctx, "")
+	err = dockerContainer.Start(ctx, "")
 	if err != nil {
 		fmt.Println(err.Error())
 	}
@@ -106,7 +114,7 @@ func TestDockerStop(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	// ctx := context.Background()
 
-	cont := NewContainer(dockerContainerConf[0].Name, dockerContainerConf[0].HostPorts, dockerContainerConf[0].ContainerPorts)
+	cont := NewDockerContainer(RabbitmqContConfig)
 	cont.Run(context.Background(), "rabbitmq", "4.0-management")
 
 	sleepTime := 2
@@ -123,7 +131,8 @@ func TestDockerStop(t *testing.T) {
 
 }
 
-func killCont(ctx context.Context, cc ClientContainer) {
+func killCont(ctx context.Context, cc Container) {
+	cc.Stop()
 	err := cc.Client.ContainerRemove(ctx, cc.ContainerID, container.RemoveOptions{Force: true})
 	if err != nil {
 		fmt.Println("Docker: ERROR unable to kill and remove container")
