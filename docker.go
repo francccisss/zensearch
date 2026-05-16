@@ -14,10 +14,14 @@ import (
 	"github.com/docker/go-connections/nat"
 )
 
+type ContainerNameOption int
+
+type ContainerName string
+
 type DockerContainerConfig struct {
 	ImageName string
 	Tag       string
-	Name      string
+	Name      ContainerName
 	HostPorts
 	ContainerPorts
 	ShmSize int64
@@ -33,11 +37,11 @@ type DockerContainer struct {
 	*client.Client
 	HostPorts
 	ContainerPorts
-	ContainerName string
-	ContainerID   string
-	ShmSize       int64
-	Env           []string
-	Tag           string
+	ContainerName
+	ContainerID string
+	ShmSize     int64
+	Env         []string
+	Tag         string
 }
 
 type DockerImage struct {
@@ -47,8 +51,9 @@ type DockerImage struct {
 
 type DockerManager struct {
 	Client     *client.Client
-	Containers map[string]*DockerContainer
+	Containers *map[ContainerName]*DockerContainer
 	Images     map[string]*DockerImage
+	Host       string
 }
 
 // host is the current socket used by dockerd to communicate with the client
@@ -57,14 +62,16 @@ func NewDockerManager(Host string) (DockerManager, error) {
 	if err != nil {
 		return DockerManager{}, nil
 	}
+	dcmap := make(map[ContainerName]*DockerContainer, 2)
 	return DockerManager{
 		Client:     cl,
-		Containers: make(map[string]*DockerContainer, 2),
+		Containers: &dcmap,
 		Images:     make(map[string]*DockerImage, 2),
+		Host:       Host,
 	}, nil
 }
 
-func (dm *DockerManager) NewDockerContainer(contConfig DockerContainerConfig) Container {
+func (dm *DockerManager) NewDockerContainer(contConfig DockerContainerConfig) {
 	fmt.Printf("[New Docker Container NOTICE]: Creating new docker container for %s\n", contConfig.Name)
 	newDockerContainer := &DockerContainer{
 		Client:         dm.Client,
@@ -75,20 +82,17 @@ func (dm *DockerManager) NewDockerContainer(contConfig DockerContainerConfig) Co
 		Env:            contConfig.Env,
 		Tag:            contConfig.Tag,
 	}
-	dm.Containers[newDockerContainer.ContainerID] = newDockerContainer
-	return newDockerContainer
+	(*dm.Containers)[newDockerContainer.ContainerName] = newDockerContainer
 }
 
-type Container interface {
+type ContainerManager interface {
 	Run(dctx context.Context, imageName string, imageTag string) <-chan error
 	Create(dctx context.Context, imageName string, tag string) error
 	Start(dctx context.Context, containerID string) error
 	Stop(dctx context.Context) error
 	GetContainer(dctx context.Context) (container.Summary, bool)
 	listenContainerState(dctx context.Context)
-	GetName() string
-	GetID() string
-	GetTag() string
+	RemoveContainer(ctx context.Context, containerName ContainerName)
 }
 
 // Run() pulls an image from the docker registry given the container configuration
@@ -109,61 +113,48 @@ func (dm *DockerManager) PullImage(ctx context.Context, ref string, tag string) 
 	return nil
 }
 
-func (dc *DockerContainer) GetName() string {
-	return dc.ContainerName
-}
-
-func (dc *DockerContainer) GetID() string {
-	return dc.ContainerID
-}
-
-func (dc *DockerContainer) GetTag() string {
-	return dc.Tag
-}
-
-// TODO: Separate container creation from Run to that run can just run an existing container
-// by being provided with an ID
-
-// Runs and existing container, if it doesnt then it creates the container from
-// dockerConfig and then runs the container afterwards
-func (dc *DockerContainer) Run(dctx context.Context, imageName string, imageTag string) <-chan error {
+func (dm *DockerManager) Run(dctx context.Context, containerName ContainerName, imageName string, tag string) <-chan error {
 
 	// check architecture and OS
-
-	fmt.Printf("%s: checking for existing container before running...\n", dc.ContainerName)
+	fmt.Printf("[Docker]: checking for existing container before running...\n")
 	errChan := make(chan error, 1)
 
-	// This getter only searches for a <zensearch> specific container
-	// eg: zensearch-rabbitmq, zensearch-mysql, zensearch-selenium-*
+	dockerContainer, ok := (*dm.Containers)[containerName]
+	if !ok {
+		errChan <- fmt.Errorf("[Docker]: ERROR - '%s Container does not exist'", containerName)
+		return errChan
+	}
 
-	c, exists := dc.GetContainer(dctx)
-	fmt.Printf("%s: Checking if container exists\n", dc.ContainerName)
+	c, exists := dm.GetContainer(dctx, containerName)
+	fmt.Printf("[Docker]: Checking if %s container exists\n", containerName)
 	if exists {
-		fmt.Printf("Docker: %s container already exist\n", dc.ContainerName)
-		err := dc.Start(dctx, c.ID)
+		fmt.Printf("[Docker]: %s container already exist\n", containerName)
+		err := dm.Start(dctx, c.ID)
 		// can be nil
 		errChan <- err
 		if err != nil {
-			fmt.Printf("%s: unable to start from existing container...\n", dc.ContainerName)
+			fmt.Printf("%s: unable to start from existing container...\n", containerName)
 			return errChan
 		}
-		go dc.listenContainerState(dctx)
-		fmt.Printf("%s: container exposed ports -> %+v\n", dc.ContainerName, dc.HostPorts)
-		return errChan
+		go dm.listenContainerState(dctx, containerName)
+		fmt.Printf("%s: container exposed ports -> %+v\n", containerName, dockerContainer.HostPorts)
+		return nil
 	}
 
-	fmt.Printf("%s: creating new container...\n", dc.ContainerName)
-	err := dc.Create(dctx, imageName, imageTag)
+	fmt.Printf("[Docker]: %s Container does not exist\n", containerName)
+
+	fmt.Printf("%s: creating new container...\n", containerName)
+	err := dm.Create(dctx, containerName, imageName, tag)
 	if err != nil {
-		fmt.Printf("%s: Unable to create container\n", dc.ContainerName)
+		fmt.Printf("%s: Unable to create container\n", containerName)
 		errChan <- err
 		return errChan
 	}
 
-	fmt.Printf("%s: starting container...\n", dc.ContainerName)
+	fmt.Printf("%s: starting container...\n", containerName)
 
-	if err := dc.Client.ContainerStart(dctx, dc.ContainerID, container.StartOptions{}); err != nil {
-		fmt.Printf("%s: Unable to start container\n", dc.ContainerName)
+	if err := dm.Client.ContainerStart(dctx, dockerContainer.ContainerID, container.StartOptions{}); err != nil {
+		fmt.Printf("%s: Unable to start container\n", containerName)
 		errChan <- err
 		return errChan
 	}
@@ -171,9 +162,9 @@ func (dc *DockerContainer) Run(dctx context.Context, imageName string, imageTag 
 	// dont know when it is completely finished, need to set a timer for other
 	// process that depends on rabbitmq
 
-	go dc.listenContainerState(dctx)
-	fmt.Printf("%s: container started!\n", dc.ContainerName)
-	fmt.Printf("%s: container exposed ports -> %+v\n", dc.ContainerName, dc.HostPorts)
+	go dm.listenContainerState(dctx, containerName)
+	fmt.Printf("%s: container started!\n", containerName)
+	fmt.Printf("%s: container exposed ports -> %+v\n", containerName, dockerContainer.HostPorts)
 
 	errChan <- nil
 	return errChan
@@ -182,48 +173,50 @@ func (dc *DockerContainer) Run(dctx context.Context, imageName string, imageTag 
 // TODO how to start already existing container?
 // which means a container not created programmatically in here
 // but instead passing in an existing ContainerID in the user's docker container list
-func (dc *DockerContainer) Start(dctx context.Context, containerID string) error {
+func (dm *DockerManager) Start(dctx context.Context, containerID string) error {
 
-	fmt.Printf("%s: starting container...\n", dc.ContainerName)
-	if containerID != "" {
-		dc.ContainerID = containerID
-		fmt.Printf("%s: assigning container ID for container\n", dc.ContainerName)
+	fmt.Printf("%s: starting container...\n", containerID)
+	if containerID == "" {
+		return fmt.Errorf("[Docker]: ERROR current container does not have an associated ContainerID which means the container does not exist, instead run the Run() function to create and run a new container from an image\n")
 	}
-	if dc.ContainerID == "" {
-		return fmt.Errorf("%s: ERROR current container does not have an associated ContainerID which means the container does not exist, instead run the Run() function to create and run a new container from an image\n", dc.ContainerName)
-	}
-
-	err := dc.Client.ContainerStart(dctx, dc.ContainerID, container.StartOptions{})
+	err := dm.Client.ContainerStart(dctx, containerID, container.StartOptions{})
 	if err != nil {
-		fmt.Printf("%s: Unable to start the container", dc.ContainerName)
 		return err
 	}
-	fmt.Printf("%s: container started!\n", dc.ContainerName)
+	fmt.Println("[Docker]: container started!")
 
 	return nil
 }
 
 // TODO POINTER NOT BEING UPDATED WHEN USING EXISTING CONTAINER
-func (dc *DockerContainer) Stop(dctx context.Context) error {
-	fmt.Printf("Docker: Stopping %s container...\n", dc.ContainerName)
-	err := dc.Client.ContainerStop(dctx, dc.ContainerID, container.StopOptions{Signal: "SIGKILL"})
-	if err != nil {
-		fmt.Printf("Docker: ERROR - %s container - '%s'\n", dc.ContainerName, err)
-		return fmt.Errorf("Docker: ERROR Something went wrong, zensearch is unable to stop the container %s with ID of %s\n", dc.ContainerID[:8], dc.ContainerName)
+func (dm *DockerManager) Stop(dctx context.Context, containerName ContainerName) error {
+	dockerContainer, ok := (*dm.Containers)[containerName]
+	if !ok {
+		return fmt.Errorf("[Docker]: ERROR - '%s Container does not exist'", containerName)
 	}
-	fmt.Printf("%s: Successfully stopped with ID starting with %s\n", dc.ContainerName, dc.ContainerID[:8])
+
+	fmt.Printf("Docker: Stopping %s container...\n", containerName)
+	err := dm.Client.ContainerStop(dctx, dockerContainer.ContainerID, container.StopOptions{Signal: "SIGKILL"})
+	if err != nil {
+		fmt.Printf("Docker: ERROR - %s container - '%s'\n", containerName, err)
+		return fmt.Errorf("Docker: ERROR Something went wrong, zensearch is unable to stop the container %s with ID of %s\n", dockerContainer.ContainerID[:8], containerName)
+	}
+	fmt.Printf("%s: Successfully stopped with ID starting with %s\n", containerName, dockerContainer.ContainerID[:8])
 	return nil
 }
 
-// Creates a new container and updates the cc's ContainerID field is successful
-// else will panic dont use separately from Run() because port mapping is only initialized
-// on container startup and not on creation... i dont know why
-func (dc *DockerContainer) Create(dctx context.Context, imageName string, tag string) error {
-	fmt.Printf("%s: creating container...\n", dc.ContainerName)
+func (dm *DockerManager) Create(dctx context.Context, containerName ContainerName, imageName string, tag string) error {
+
+	dockerContainer, ok := (*dm.Containers)[containerName]
+	if !ok {
+		return fmt.Errorf("[Docker]: ERROR - '%s Container does not exist'", containerName)
+	}
+
+	fmt.Printf("%s: creating container...\n", containerName)
 	imageNameWithTag := imageName + ":" + tag
-	fmt.Printf("%s: applying ports\n", dc.ContainerName)
+	fmt.Printf("%s: applying ports\n", containerName)
 	hostPorts := map[nat.Port][]nat.PortBinding{}
-	for _, hostPort := range dc.HostPorts {
+	for _, hostPort := range dockerContainer.HostPorts {
 		_, ok := hostPorts[nat.Port(fmt.Sprintf("%s/tcp", hostPort))]
 		if !ok {
 			ports := hostPorts[nat.Port(fmt.Sprintf("%s/tcp", hostPort))]
@@ -232,48 +225,54 @@ func (dc *DockerContainer) Create(dctx context.Context, imageName string, tag st
 		}
 	}
 	containerPorts := map[nat.Port]struct{}{}
-	for _, contPort := range dc.ContainerPorts {
+	for _, contPort := range dockerContainer.ContainerPorts {
 		_, ok := hostPorts[nat.Port(fmt.Sprintf("%s/tcp", contPort[0]))]
 		if !ok {
 			containerPorts[nat.Port(fmt.Sprintf("%s/tcp", contPort[0]))] = struct{}{}
 		}
 	}
 
-	fmt.Printf("Docker: creating container from %s image as %s \n", imageNameWithTag, dc.ContainerName)
+	fmt.Printf("Docker: creating container from %s image as %s \n", imageNameWithTag, containerName)
 
 	// TODO ERROR from here for some reason
-	resp, err := dc.Client.ContainerCreate(dctx, &container.Config{
+	resp, err := dm.Client.ContainerCreate(dctx, &container.Config{
 		Image: imageNameWithTag,
 		// attaching container to process exec is on `-it`
 		AttachStdin:  true,
 		AttachStdout: true,
 		AttachStderr: true,
 		ExposedPorts: containerPorts,
-		Env:          dc.Env,
+		Env:          dockerContainer.Env,
 	},
 		&container.HostConfig{
-			ShmSize: dc.ShmSize,
+			ShmSize: dockerContainer.ShmSize,
+			// TODO PASS IN MANAGER HOST SOCKET
 			Binds: []string{
-				"/var/run/docker.sock:/var/run/docker.sock",
+				fmt.Sprintf("%s:/var/run/docker.sock", dm.Host),
 			},
-			PortBindings: hostPorts}, nil, nil, dc.ContainerName)
+			PortBindings: hostPorts}, nil, nil, string(containerName))
 
 	if err != nil {
 		fmt.Print("Invalid reference format error from here\n")
 		return err
 	}
-	fmt.Printf("Docker: %s's container ID %s\n", dc.ContainerName, resp.ID)
-	dc.ContainerID = resp.ID
+	fmt.Printf("Docker: %s's container ID %s\n", containerName, resp.ID)
+	dockerContainer.ContainerID = resp.ID
 	return nil
 }
 
-// TODO figure out what to do with this
-func (dc *DockerContainer) listenContainerState(dctx context.Context) {
-	fmt.Printf("\n%s: waiting for container status...\n", dc.ContainerName)
-	statusCh, errCh := dc.Client.ContainerWait(dctx, dc.ContainerID, container.WaitConditionNotRunning)
+func (dm *DockerManager) listenContainerState(dctx context.Context, containerName ContainerName) {
+	dockerContainer, ok := (*dm.Containers)[containerName]
+	if !ok {
+		fmt.Printf("[Docker]: ERROR - '%s Container does not exist'", containerName)
+		return
+	}
+
+	fmt.Printf("\n%s: waiting for container status...\n", containerName)
+	statusCh, errCh := dm.Client.ContainerWait(dctx, dockerContainer.ContainerID, container.WaitConditionNotRunning)
 	// Listening to stdout of container
 	go func() {
-		out, err := dc.Client.ContainerLogs(dctx, dc.ContainerID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
+		out, err := dm.Client.ContainerLogs(dctx, dockerContainer.ContainerID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
 
 		if err != nil {
 			fmt.Println(err.Error())
@@ -289,35 +288,50 @@ func (dc *DockerContainer) listenContainerState(dctx context.Context) {
 
 	select {
 	case err := <-errCh:
-		fmt.Printf("%s: closing container\n", dc.ContainerName)
-		fmt.Printf("%s: cause for closing container: %s\n", dc.ContainerName, err.Error())
+		fmt.Printf("%s: closing container\n", containerName)
+		fmt.Printf("%s: cause for closing container: %s\n", containerName, err.Error())
 		return
 	case s := <-statusCh:
-		fmt.Printf("Container %s status:\n", dc.ContainerName)
+		fmt.Printf("Container %s status:\n", containerName)
 		if s.Error != nil {
 			fmt.Println(s.Error)
 			return
 		}
-		fmt.Printf("Docker: %s container closed gracefully\n", dc.ContainerName)
+		fmt.Printf("Docker: %s container closed gracefully\n", containerName)
 	}
 }
 
 // should check if a rabbitmq container already exists
-func (dc *DockerContainer) GetContainer(dctx context.Context) (container.Summary, bool) {
+func (dm *DockerManager) GetContainer(dctx context.Context, containerName ContainerName) (container.Summary, bool) {
 	filter := filters.NewArgs()
-	filter.Add("name", dc.ContainerName)
-	fmt.Println("WHAT ", dc.ContainerName)
-
-	containers, err := dc.Client.ContainerList(dctx, container.ListOptions{Size: false, Filters: filter, All: true})
+	filter.Add("name", string(containerName))
+	containers, err := dm.Client.ContainerList(dctx, container.ListOptions{Size: false, Filters: filter, All: true})
 	if err != nil {
 		fmt.Println("Docker: ERROR Unable to get list of containers")
 		return container.Summary{}, false
 	}
 	if len(containers) == 0 {
-		fmt.Printf("Docker: container %s does not exist\n", dc.ContainerName)
+		fmt.Printf("Docker: container %s does not exist\n", containerName)
 		return container.Summary{}, false
 	}
 	fmt.Println(containers[0].ID)
 	return containers[0], true
 
+}
+
+func (dm *DockerManager) RemoveContainer(ctx context.Context, containerName ContainerName) error {
+
+	dockerContainer, ok := (*dm.Containers)[containerName]
+	err := dm.Stop(ctx, containerName)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("[Docker]: ERROR - '%s Container does not exist'", containerName)
+	}
+	err = dm.Client.ContainerRemove(ctx, dockerContainer.ContainerID, container.RemoveOptions{Force: true})
+	if err != nil {
+		return err
+	}
+	return nil
 }

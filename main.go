@@ -92,7 +92,6 @@ loop:
 			ctx, cancel := context.WithCancel(context.Background())
 			contextCancel = cancel
 			startServices(ctx, runCmds)
-			break
 		case "stop":
 			// send kill signal to each process
 
@@ -102,7 +101,6 @@ loop:
 				contextCancel()
 			}
 			fmt.Println("Zensearch stopped")
-			break
 		case "exit":
 			// send kill signal to each process
 			fmt.Println("exiting zensearch")
@@ -116,15 +114,11 @@ loop:
 		case "build":
 			fmt.Printf("zensearch: Building...\n")
 			runCommands(buildCmds, &errArr)
-			break
 		case "node-install":
 			fmt.Printf("zensearch: installing node dependencies...\n")
 			runCommands(npmInstall, &errArr)
-			break
-		case "help":
-			help()
 		default:
-			break
+			help()
 		}
 	}
 }

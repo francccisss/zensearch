@@ -40,7 +40,7 @@ func (se *StdError) addError(value string) {
 
 func startServices(pctx context.Context, commands [][]string) {
 	const DOCKER_DESKTOP_HOST = "unix:///home/$USER/.docker/desktop/docker.sock"
-	dockerClient, err := NewDockerClient(DOCKER_DESKTOP_HOST)
+	dockerMan, err := NewDockerManager(DOCKER_DESKTOP_HOST)
 	if err != nil {
 		log.Fatalf("[Start Service ERROR]: '%s'", err)
 	}
@@ -64,7 +64,7 @@ func startServices(pctx context.Context, commands [][]string) {
 	}()
 	for _, contConfig := range dockerContainerConf {
 		wg.Add(1)
-		go runningDockerService(ctx, &dockerClient, &wg, contConfig, errChan)
+		go runningDockerService(ctx, &dockerMan, &wg, contConfig, errChan)
 	}
 
 	wg.Wait()
@@ -78,28 +78,27 @@ func startServices(pctx context.Context, commands [][]string) {
 	fmt.Println("zensearch: services started")
 }
 
-func runningDockerService(ctx context.Context, dockerClient *DockerClient, wg *sync.WaitGroup, contConfig DockerContainerConfig, errChan chan error) {
+func runningDockerService(ctx context.Context, dockerMan *DockerManager, wg *sync.WaitGroup, contConfig DockerContainerConfig, errChan chan error) {
 	defer wg.Done()
 
-	dockerContainer := NewDockerContainer(contConfig, dockerClient)
+	dockerMan.NewDockerContainer(contConfig)
 
 	// cancellation for specific service
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second*120)
 	defer cancel()
-	containerName := dockerContainer.GetName()
 
 	select {
-	case err := <-dockerContainer.Run(ctx, contConfig.ImageName, contConfig.Tag):
+	case err := <-dockerMan.Run(ctx, contConfig.Name, contConfig.ImageName, contConfig.Tag):
 		errChan <- err
 		if err != nil {
 			fmt.Printf("%s: Error: %s\n", contConfig.Name, err)
 			return
 		}
-		fmt.Printf("%s: Successfuly started!\n", containerName)
+		fmt.Printf("%s: Successfuly started!\n", contConfig.Name)
 	case <-timeoutCtx.Done():
-		fmt.Printf("%s: Failed to start!\n", containerName)
-		fmt.Printf("%s: Process timedout\n", containerName)
-		fmt.Printf("%s: Cause %s\n", containerName, timeoutCtx.Err().Error())
+		fmt.Printf("%s: Failed to start!\n", contConfig.Name)
+		fmt.Printf("%s: Process timedout\n", contConfig.Name)
+		fmt.Printf("%s: Cause %s\n", contConfig.Name, timeoutCtx.Err().Error())
 		errChan <- timeoutCtx.Err()
 		return
 
@@ -111,7 +110,7 @@ func runningDockerService(ctx context.Context, dockerClient *DockerClient, wg *s
 	go func() {
 		<-ctx.Done()
 		fmt.Printf("Docker: shutting down %s container...\n", contConfig.Name)
-		if err := dockerContainer.Stop(context.Background()); err != nil {
+		if err := dockerMan.Stop(context.Background(), contConfig.Name); err != nil {
 			fmt.Println(err)
 			return
 		}
