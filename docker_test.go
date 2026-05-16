@@ -8,9 +8,11 @@ import (
 	"time"
 )
 
+const DOCKER_DESKTOP_HOST = "unix:///home/francois/.docker/desktop/docker.sock"
+
 func TestWithExistingContainer(t *testing.T) {
 
-	newDockerClient, err := NewDockerClient()
+	newDockerClient, err := NewDockerClient(DOCKER_DESKTOP_HOST)
 	if err != nil {
 		t.Fatalf("[TEST]: Existing Containers Test - %s\n", err)
 	}
@@ -19,25 +21,21 @@ func TestWithExistingContainer(t *testing.T) {
 	err = newDockerClient.PullImage(ctx, SeleniumConfig.ImageName, SeleniumConfig.Tag)
 
 	if err != nil {
-		t.Fatalf("[TEST]: Existing Containers Test - %s\n", err)
+		t.Fatalf("[TEST]: Pulling Docker Image - %s\n", err)
 	}
 	scont := NewDockerContainer(SeleniumConfig, &newDockerClient)
 
-	err = <-scont.Run(ctx, "selenium/standalone-chrome", "latest")
+	err = <-scont.Run(ctx, SeleniumConfig.ImageName, SeleniumConfig.Tag)
 
 	defer scont.Stop(ctx)
 
 	if err != nil {
 		t.Fatalf("[TEST]: Existing Containers Test - %s\n", err)
 	}
-
-	v := make(chan int)
-
-	<-v
 }
 func TestNoContainer(t *testing.T) {
 
-	dockerClient, err := NewDockerClient()
+	dockerClient, err := NewDockerClient(DOCKER_DESKTOP_HOST)
 	ctx := context.Background()
 	fmt.Printf("Docker: connecting client to docker daemon...\n")
 	if err != nil {
@@ -64,7 +62,7 @@ func TestContainerStopAndStart(t *testing.T) {
 
 	ctx := context.Background()
 
-	dockerClient, err := NewDockerClient()
+	dockerClient, err := NewDockerClient(DOCKER_DESKTOP_HOST)
 	if err != nil {
 		t.Fatalf("[TEST]: Stop and Start - %s\n", err)
 	}
@@ -110,7 +108,7 @@ func TestDockerStop(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	// ctx := context.Background()
 
-	dockerClient, err := NewDockerClient()
+	dockerClient, err := NewDockerClient(DOCKER_DESKTOP_HOST)
 
 	if err != nil {
 		t.Fatalf("[TEST]: Docker Stop - %s\n", err)

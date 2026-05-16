@@ -47,7 +47,7 @@ var SeleniumConfig = DockerContainerConfig{
 	Tag:            "latest",
 	HostPorts:      HostPorts{"4444", "7900"},
 	ContainerPorts: ContainerPorts{{"4444", "4444"}, {"7900", "7900"}},
-	Name:           "zensearch-cli-selenium-multi-arch",
+	Name:           "zensearch-cli-selenium",
 	ShmSize:        2 * 1024 * 1024 * 1024,
 	Env:            []string{"SE_NODE_MAX_SESSIONS=5"},
 }

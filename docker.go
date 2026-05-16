@@ -27,18 +27,6 @@ type DockerContainerConfig struct {
 type HostPorts []string
 type ContainerPorts [][]string
 
-type Container interface {
-	Run(dctx context.Context, imageName string, tag string) <-chan error
-	Create(dctx context.Context, imageName string, tag string) error
-	Start(dctx context.Context, containerID string) error
-	Stop(dctx context.Context) error
-	GetContainer(dctx context.Context) (container.Summary, bool)
-	listenContainerState(dctx context.Context)
-	GetName() string
-	GetID() string
-	GetTag() string
-}
-
 type DockerClient struct {
 	Client *client.Client
 }
@@ -56,8 +44,8 @@ type DockerContainer struct {
 	Tag           string
 }
 
-func NewDockerClient() (DockerClient, error) {
-	cl, err := client.NewClientWithOpts(client.FromEnv)
+func NewDockerClient(dockerHost string) (DockerClient, error) {
+	cl, err := client.NewClientWithOpts(client.FromEnv, client.WithHost(dockerHost))
 	if err != nil {
 		return DockerClient{}, nil
 	}
@@ -76,6 +64,18 @@ func NewDockerContainer(contConfig DockerContainerConfig, dockerClient *DockerCl
 		Env:            contConfig.Env,
 		Tag:            contConfig.Tag,
 	}
+}
+
+type Container interface {
+	Run(dctx context.Context, imageName string, imageTag string) <-chan error
+	Create(dctx context.Context, imageName string, tag string) error
+	Start(dctx context.Context, containerID string) error
+	Stop(dctx context.Context) error
+	GetContainer(dctx context.Context) (container.Summary, bool)
+	listenContainerState(dctx context.Context)
+	GetName() string
+	GetID() string
+	GetTag() string
 }
 
 // Run() pulls an image from the docker registry given the container configuration
@@ -113,7 +113,7 @@ func (dc *DockerContainer) GetTag() string {
 
 // Runs and existing container, if it doesnt then it creates the container from
 // dockerConfig and then runs the container afterwards
-func (dc *DockerContainer) Run(dctx context.Context, imageName string, tag string) <-chan error {
+func (dc *DockerContainer) Run(dctx context.Context, imageName string, imageTag string) <-chan error {
 
 	// check architecture and OS
 
@@ -124,6 +124,7 @@ func (dc *DockerContainer) Run(dctx context.Context, imageName string, tag strin
 	// eg: zensearch-rabbitmq, zensearch-mysql, zensearch-selenium-*
 
 	c, exists := dc.GetContainer(dctx)
+	fmt.Printf("%s: Checking if container exists\n", dc.ContainerName)
 	if exists {
 		fmt.Printf("Docker: %s container already exist\n", dc.ContainerName)
 		err := dc.Start(dctx, c.ID)
@@ -139,7 +140,7 @@ func (dc *DockerContainer) Run(dctx context.Context, imageName string, tag strin
 	}
 
 	fmt.Printf("%s: creating new container...\n", dc.ContainerName)
-	err := dc.Create(dctx, imageName, tag)
+	err := dc.Create(dctx, imageName, imageTag)
 	if err != nil {
 		fmt.Printf("%s: Unable to create container\n", dc.ContainerName)
 		errChan <- err

@@ -34,8 +34,13 @@ func (se *StdError) addError(value string) {
 // need to start containerized services first eg: selenium/rabbitmq
 // tail each docker container service until reading from
 // stdin returns a <name> started successfully
+
+// TODO: make it so that if users can use either docker desktop or just dockerd
+// so that they configure the location of the host to their dockerd socket path
+
 func startServices(pctx context.Context, commands [][]string) {
-	dockerClient, err := NewDockerClient()
+	const DOCKER_DESKTOP_HOST = "unix:///home/$USER/.docker/desktop/docker.sock"
+	dockerClient, err := NewDockerClient(DOCKER_DESKTOP_HOST)
 	if err != nil {
 		log.Fatalf("[Start Service ERROR]: '%s'", err)
 	}
