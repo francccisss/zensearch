@@ -10,8 +10,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-
-	"github.com/docker/docker/client"
 )
 
 type StdError struct {
@@ -37,10 +35,7 @@ func (se *StdError) addError(value string) {
 // tail each docker container service until reading from
 // stdin returns a <name> started successfully
 func startServices(pctx context.Context, commands [][]string) {
-	client, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	dc := DockerClient{
-		Client: client,
-	}
+	dockerClient, err := NewDockerClient()
 	if err != nil {
 		log.Fatalf("[Start Service ERROR]: '%s'", err)
 	}
@@ -52,22 +47,19 @@ func startServices(pctx context.Context, commands [][]string) {
 
 	go func() {
 		fmt.Println("zensearch: error channel listener")
-		for {
-			select {
-			case err := <-errChan:
-				if err != nil {
-					fmt.Printf("Docker: %s\n", err.Error())
-					fmt.Println("CANCEL")
-					cancel()
-					return
-				}
-				continue
+		for err := range errChan {
+			if err != nil {
+				fmt.Printf("Docker: %s\n", err.Error())
+				fmt.Println("CANCEL")
+				cancel()
+				return
 			}
+			continue
 		}
 	}()
 	for _, contConfig := range dockerContainerConf {
 		wg.Add(1)
-		go runningDockerService(ctx, dc, &wg, contConfig, errChan)
+		go runningDockerService(ctx, &dockerClient, &wg, contConfig, errChan)
 	}
 
 	wg.Wait()
@@ -81,27 +73,28 @@ func startServices(pctx context.Context, commands [][]string) {
 	fmt.Println("zensearch: services started")
 }
 
-func runningDockerService(ctx context.Context, dockerClient DockerClient, wg *sync.WaitGroup, contConfig DockerContainerConfig, errChan chan error) {
+func runningDockerService(ctx context.Context, dockerClient *DockerClient, wg *sync.WaitGroup, contConfig DockerContainerConfig, errChan chan error) {
 	defer wg.Done()
 
-	dockerContainer := NewDockerContainer(contConfig)
+	dockerContainer := NewDockerContainer(contConfig, dockerClient)
 
 	// cancellation for specific service
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second*120)
 	defer cancel()
+	containerName := dockerContainer.GetName()
 
 	select {
-	case err := <-dockerClient.Run(ctx, dockerContainer, contConfig.ImageName, contConfig.Tag):
+	case err := <-dockerContainer.Run(ctx, contConfig.ImageName, contConfig.Tag):
 		errChan <- err
 		if err != nil {
 			fmt.Printf("%s: Error: %s\n", contConfig.Name, err)
 			return
 		}
-		fmt.Printf("%s: Successfuly started!\n", dockerContainer.ContainerName)
+		fmt.Printf("%s: Successfuly started!\n", containerName)
 	case <-timeoutCtx.Done():
-		fmt.Printf("%s: Failed to start!\n", dockerContainer.ContainerName)
-		fmt.Printf("%s: Process timedout\n", dockerContainer.ContainerName)
-		fmt.Printf("%s: Cause %s\n", dockerContainer.ContainerName, timeoutCtx.Err().Error())
+		fmt.Printf("%s: Failed to start!\n", containerName)
+		fmt.Printf("%s: Process timedout\n", containerName)
+		fmt.Printf("%s: Cause %s\n", containerName, timeoutCtx.Err().Error())
 		errChan <- timeoutCtx.Err()
 		return
 
@@ -111,15 +104,13 @@ func runningDockerService(ctx context.Context, dockerClient DockerClient, wg *sy
 	// Stop Docker Services when input "stop" is returned from the cli which cancels
 	// the parent context
 	go func() {
-		select {
-		case <-ctx.Done():
-			fmt.Printf("Docker: shutting down %s container...\n", contConfig.Name)
-			if err := dockerClient.Stop(context.Background(), dockerContainer); err != nil {
-				fmt.Println(err)
-				return
-			}
-			fmt.Printf("Docker: %s container stopped\n", contConfig.Name)
+		<-ctx.Done()
+		fmt.Printf("Docker: shutting down %s container...\n", contConfig.Name)
+		if err := dockerContainer.Stop(context.Background()); err != nil {
+			fmt.Println(err)
+			return
 		}
+		fmt.Printf("Docker: %s container stopped\n", contConfig.Name)
 
 	}()
 }
@@ -173,7 +164,6 @@ func runningService(ctx context.Context, cmd *exec.Cmd, errChan chan error, cmdN
 
 func runCommands(commands [][]string, errArr *[][]string) {
 
-	fmt.Println("NOTICE FOR DATABASE SERVICE: make sure you have sqlite3 installed on your system!")
 	for _, command := range commands {
 		cmd := exec.Command(command[1], command[2:]...)
 		stdErr, err := cmd.StderrPipe()
@@ -185,7 +175,6 @@ func runCommands(commands [][]string, errArr *[][]string) {
 			switch e := err.(type) {
 			case *exec.Error:
 				fmt.Println("failed executing:", err)
-				break
 			case *exec.ExitError:
 				readStdErr, err := io.ReadAll(stdErr)
 				if err != nil {
@@ -201,9 +190,10 @@ func runCommands(commands [][]string, errArr *[][]string) {
 		}
 
 		for _, str := range command {
-			if str == "install" {
+			switch str {
+			case "install":
 				fmt.Printf("%s: installing dependencies for %s service...\n", command[0], command[0])
-			} else if str == "build" {
+			case "build":
 				fmt.Printf("%s: building %s service...\n", command[0], command[0])
 			}
 		}
@@ -214,9 +204,10 @@ func runCommands(commands [][]string, errArr *[][]string) {
 		cmd.Wait()
 
 		for _, str := range command {
-			if str == "install" {
+			switch str {
+			case "install":
 				fmt.Printf("%s: dependencies successfully installed\n", command[0])
-			} else if str == "build" {
+			case "build":
 				fmt.Printf("%s: build successful\n", command[0])
 			}
 		}
@@ -235,9 +226,6 @@ Usage:
 - "build" for building services
 - "node-install" installing node specific dependencies dependencies
 
-For database handling, for now you can use the system installed sqlite3 for manipulating your database located in the '/database/website_collection.db' if you know how to use sqlite3 then you know what to do, but for others please read the sqlite3 docs :D
-
-`)
-	fmt.Println("")
+\n`)
 
 }

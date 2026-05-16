@@ -33,7 +33,7 @@ var npmInstall = [][]string{
 
 // NOTICE: Make sure every image is compatible with the host system, arm64, linux, windows
 
-var RabbitmqContConfig = DockerContainerConfig{
+var RabbitmqConfig = DockerContainerConfig{
 	HostPorts:      HostPorts{"5672", "15672"},
 	ContainerPorts: ContainerPorts{{"5672", "5672"}, {"15672", "15672"}},
 	Name:           "zensearch-cli-rabbitmq",
@@ -42,7 +42,7 @@ var RabbitmqContConfig = DockerContainerConfig{
 }
 
 // TODO use options method for optional arguments still dont know how to do that
-var SeleniumContConfig = DockerContainerConfig{
+var SeleniumConfig = DockerContainerConfig{
 	ImageName:      "selenium/standalone-chromium",
 	Tag:            "latest",
 	HostPorts:      HostPorts{"4444", "7900"},
@@ -51,7 +51,7 @@ var SeleniumContConfig = DockerContainerConfig{
 	ShmSize:        2 * 1024 * 1024 * 1024,
 	Env:            []string{"SE_NODE_MAX_SESSIONS=5"},
 }
-var dockerContainerConf = []DockerContainerConfig{RabbitmqContConfig, SeleniumContConfig}
+var dockerContainerConf = []DockerContainerConfig{RabbitmqConfig, SeleniumConfig}
 
 func main() {
 	// for reassigning cancel func if services has started

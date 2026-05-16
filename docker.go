@@ -34,6 +34,9 @@ type Container interface {
 	Stop(dctx context.Context) error
 	GetContainer(dctx context.Context) (container.Summary, bool)
 	listenContainerState(dctx context.Context)
+	GetName() string
+	GetID() string
+	GetTag() string
 }
 
 type DockerClient struct {
@@ -50,10 +53,11 @@ type DockerContainer struct {
 	ContainerID   string
 	ShmSize       int64
 	Env           []string
+	Tag           string
 }
 
 func NewDockerClient() (DockerClient, error) {
-	cl, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	cl, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		return DockerClient{}, nil
 	}
@@ -70,9 +74,45 @@ func NewDockerContainer(contConfig DockerContainerConfig, dockerClient *DockerCl
 		ContainerPorts: contConfig.ContainerPorts,
 		ShmSize:        contConfig.ShmSize,
 		Env:            contConfig.Env,
+		Tag:            contConfig.Tag,
 	}
 }
 
+// Run() pulls an image from the docker registry given the container configuration
+// created with NewDockerContainer,
+
+func (dClient *DockerClient) PullImage(ctx context.Context, ref string, tag string) error {
+	refStr := ref + ":" + tag
+	reader, err := dClient.Client.ImagePull(ctx, refStr, image.PullOptions{})
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(os.Stdout, reader)
+	if err != nil {
+		return err
+	}
+	reader.Close()
+	fmt.Printf("[Docker]: Pulled %s image from docker registry\n", refStr)
+	return nil
+}
+
+func (dc *DockerContainer) GetName() string {
+	return dc.ContainerName
+}
+
+func (dc *DockerContainer) GetID() string {
+	return dc.ContainerID
+}
+
+func (dc *DockerContainer) GetTag() string {
+	return dc.Tag
+}
+
+// TODO: Separate container creation from Run to that run can just run an existing container
+// by being provided with an ID
+
+// Runs and existing container, if it doesnt then it creates the container from
+// dockerConfig and then runs the container afterwards
 func (dc *DockerContainer) Run(dctx context.Context, imageName string, tag string) <-chan error {
 
 	// check architecture and OS
@@ -86,8 +126,8 @@ func (dc *DockerContainer) Run(dctx context.Context, imageName string, tag strin
 	c, exists := dc.GetContainer(dctx)
 	if exists {
 		fmt.Printf("Docker: %s container already exist\n", dc.ContainerName)
-		// is it running?
 		err := dc.Start(dctx, c.ID)
+		// can be nil
 		errChan <- err
 		if err != nil {
 			fmt.Printf("%s: unable to start from existing container...\n", dc.ContainerName)
@@ -99,23 +139,7 @@ func (dc *DockerContainer) Run(dctx context.Context, imageName string, tag strin
 	}
 
 	fmt.Printf("%s: creating new container...\n", dc.ContainerName)
-	// Creates a new zensearch specific container from an existing image
-	imageNameWithTag := imageName + ":" + tag
-	fmt.Printf("%s: pulling %s image...\n", dc.ContainerName, imageNameWithTag)
-	reader, err := dc.Client.ImagePull(dctx, imageNameWithTag, image.PullOptions{})
-
-	if err != nil {
-		errChan <- err
-		return errChan
-	}
-
-	_, err = io.Copy(os.Stdout, reader)
-	if err != nil {
-		fmt.Printf("%s: Reader ERROR: %s\n", dc.ContainerName, err.Error())
-	}
-	reader.Close()
-
-	err = dc.Create(dctx, imageName, tag)
+	err := dc.Create(dctx, imageName, tag)
 	if err != nil {
 		fmt.Printf("%s: Unable to create container\n", dc.ContainerName)
 		errChan <- err
@@ -241,7 +265,7 @@ func (dc *DockerContainer) listenContainerState(dctx context.Context) {
 		out, err := dc.Client.ContainerLogs(dctx, dc.ContainerID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
 
 		if err != nil {
-			fmt.Errorf(err.Error())
+			fmt.Println(err.Error())
 			<-dctx.Done()
 			return
 		}
@@ -271,7 +295,7 @@ func (dc *DockerContainer) listenContainerState(dctx context.Context) {
 func (dc *DockerContainer) GetContainer(dctx context.Context) (container.Summary, bool) {
 	filter := filters.NewArgs()
 	filter.Add("name", dc.ContainerName)
-	fmt.Println("WHAT %s", dc.ContainerName)
+	fmt.Println("WHAT ", dc.ContainerName)
 
 	containers, err := dc.Client.ContainerList(dctx, container.ListOptions{Size: false, Filters: filter, All: true})
 	if err != nil {

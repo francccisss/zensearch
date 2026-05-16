@@ -1,0 +1,24 @@
+name: go ci
+
+on:
+  push:
+    branches: [rewrite/docker-config]
+  pull_request:
+    branches: [rewrite/docker]
+
+jobs:
+  tests:
+    name: Docker Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Go
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.26.0"
+
+      - name: Run Docker Tests
+        run: go test ./docker_test.go

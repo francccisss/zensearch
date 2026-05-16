@@ -3,13 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/client"
 )
 
 func TestWithExistingContainer(t *testing.T) {
@@ -20,15 +16,19 @@ func TestWithExistingContainer(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	scont := NewDockerContainer(SeleniumContConfig, &newDockerClient)
+	err = newDockerClient.PullImage(ctx, SeleniumConfig.ImageName, SeleniumConfig.Tag)
+
+	if err != nil {
+		t.Fatalf("[TEST]: Existing Containers Test - %s\n", err)
+	}
+	scont := NewDockerContainer(SeleniumConfig, &newDockerClient)
 
 	err = <-scont.Run(ctx, "selenium/standalone-chrome", "latest")
 
 	defer scont.Stop(ctx)
 
 	if err != nil {
-		fmt.Println(err)
-		t.FailNow()
+		t.Fatalf("[TEST]: Existing Containers Test - %s\n", err)
 	}
 
 	v := make(chan int)
@@ -41,20 +41,21 @@ func TestNoContainer(t *testing.T) {
 	ctx := context.Background()
 	fmt.Printf("Docker: connecting client to docker daemon...\n")
 	if err != nil {
-		log.Panic(err.Error())
+		t.Fatalf("[TEST]: No Containers Test - %s\n", err)
 	}
-	dockerContainer := NewDockerContainer(RabbitmqContConfig, &dockerClient)
+	dockerContainer := NewDockerContainer(RabbitmqConfig, &dockerClient)
 
 	defer killCont(ctx, dockerContainer)
 
 	err = dockerContainer.Start(ctx, "")
+
 	if err != nil {
-		fmt.Println(err.Error())
+		t.Fatalf("[TEST]: No Containers Test - %s\n", err)
 	}
 
 	err = dockerContainer.Stop(ctx)
 	if err != nil {
-		fmt.Println(err.Error())
+		t.Fatalf("[TEST]: No Containers Test - %s\n", err)
 	}
 
 }
@@ -63,18 +64,13 @@ func TestContainerStopAndStart(t *testing.T) {
 
 	ctx := context.Background()
 
-	var cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	fmt.Printf("Docker: connecting client to docker daemon...\n")
+	dockerClient, err := NewDockerClient()
 	if err != nil {
-		log.Panic(err.Error())
+		t.Fatalf("[TEST]: Stop and Start - %s\n", err)
 	}
-	dockerContainer := ClientContainer{
-		Client:         cli,
-		ContainerName:  "zensearch-cli-rabbitmq",
-		HostPorts:      HostPorts{"5672", "15672"},
-		ContainerPorts: ContainerPorts{{"5672", "5672"}, {"15672", "15672"}}}
+	dockerContainer := NewDockerContainer(RabbitmqConfig, &dockerClient)
 	defer killCont(ctx, dockerContainer)
-	defer cli.Close()
+	defer dockerClient.Client.Close()
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -82,9 +78,9 @@ func TestContainerStopAndStart(t *testing.T) {
 	go func() {
 		fmt.Println("Starting container")
 		defer wg.Done()
-		err := dockerContainer.Run(ctx, "rabbitmq", "4.0-management")
+		err := <-dockerContainer.Run(ctx, "rabbitmq", "4.0-management")
 		if err != nil {
-			panic(err)
+			t.Errorf("[TEST]: Stop and Start - %s\n", err)
 		}
 	}()
 
@@ -94,7 +90,7 @@ func TestContainerStopAndStart(t *testing.T) {
 
 	err = dockerContainer.Stop(ctx)
 	if err != nil {
-		fmt.Println(err.Error())
+		t.Fatalf("[TEST]: Stop and Start - %s\n", err)
 	}
 
 	fmt.Println("Docker: Sleeping for 2 seconds before starting")
@@ -103,7 +99,7 @@ func TestContainerStopAndStart(t *testing.T) {
 
 	err = dockerContainer.Start(ctx, "")
 	if err != nil {
-		fmt.Println(err.Error())
+		t.Fatalf("[TEST]: Stop and Start - %s\n", err)
 	}
 }
 
@@ -114,7 +110,12 @@ func TestDockerStop(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	// ctx := context.Background()
 
-	cont := NewDockerContainer(RabbitmqContConfig)
+	dockerClient, err := NewDockerClient()
+
+	if err != nil {
+		t.Fatalf("[TEST]: Docker Stop - %s\n", err)
+	}
+	cont := NewDockerContainer(RabbitmqConfig, &dockerClient)
 	cont.Run(context.Background(), "rabbitmq", "4.0-management")
 
 	sleepTime := 2
@@ -132,10 +133,9 @@ func TestDockerStop(t *testing.T) {
 }
 
 func killCont(ctx context.Context, cc Container) {
-	cc.Stop()
-	err := cc.Client.ContainerRemove(ctx, cc.ContainerID, container.RemoveOptions{Force: true})
+	err := cc.Stop(ctx)
 	if err != nil {
-		fmt.Println("Docker: ERROR unable to kill and remove container")
+		fmt.Println("Docker: ERROR unable to stop container")
 	}
 	fmt.Println("Docker: test ending removing container")
 }
