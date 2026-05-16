@@ -27,14 +27,10 @@ type DockerContainerConfig struct {
 type HostPorts []string
 type ContainerPorts [][]string
 
-type DockerClient struct {
-	Client *client.Client
-}
-
 // TODO write context purpose of dtx
 
 type DockerContainer struct {
-	*DockerClient
+	*client.Client
 	HostPorts
 	ContainerPorts
 	ContainerName string
@@ -44,19 +40,34 @@ type DockerContainer struct {
 	Tag           string
 }
 
-func NewDockerClient(dockerHost string) (DockerClient, error) {
-	cl, err := client.NewClientWithOpts(client.FromEnv, client.WithHost(dockerHost))
-	if err != nil {
-		return DockerClient{}, nil
-	}
-	return DockerClient{cl}, nil
-
+type DockerImage struct {
+	ImageName string
+	Tag       string
 }
 
-func NewDockerContainer(contConfig DockerContainerConfig, dockerClient *DockerClient) Container {
+type DockerManager struct {
+	Client     *client.Client
+	Containers map[string]*DockerContainer
+	Images     map[string]*DockerImage
+}
+
+// host is the current socket used by dockerd to communicate with the client
+func NewDockerManager(Host string) (DockerManager, error) {
+	cl, err := client.NewClientWithOpts(client.FromEnv, client.WithHost(Host))
+	if err != nil {
+		return DockerManager{}, nil
+	}
+	return DockerManager{
+		Client:     cl,
+		Containers: make(map[string]*DockerContainer, 2),
+		Images:     make(map[string]*DockerImage, 2),
+	}, nil
+}
+
+func (dm *DockerManager) NewDockerContainer(contConfig DockerContainerConfig) Container {
 	fmt.Printf("[New Docker Container NOTICE]: Creating new docker container for %s\n", contConfig.Name)
-	return &DockerContainer{
-		DockerClient:   dockerClient,
+	newDockerContainer := &DockerContainer{
+		Client:         dm.Client,
 		ContainerName:  contConfig.Name,
 		HostPorts:      contConfig.HostPorts,
 		ContainerPorts: contConfig.ContainerPorts,
@@ -64,6 +75,8 @@ func NewDockerContainer(contConfig DockerContainerConfig, dockerClient *DockerCl
 		Env:            contConfig.Env,
 		Tag:            contConfig.Tag,
 	}
+	dm.Containers[newDockerContainer.ContainerID] = newDockerContainer
+	return newDockerContainer
 }
 
 type Container interface {
@@ -81,9 +94,9 @@ type Container interface {
 // Run() pulls an image from the docker registry given the container configuration
 // created with NewDockerContainer,
 
-func (dClient *DockerClient) PullImage(ctx context.Context, ref string, tag string) error {
+func (dm *DockerManager) PullImage(ctx context.Context, ref string, tag string) error {
 	refStr := ref + ":" + tag
-	reader, err := dClient.Client.ImagePull(ctx, refStr, image.PullOptions{})
+	reader, err := dm.Client.ImagePull(ctx, refStr, image.PullOptions{})
 	if err != nil {
 		return err
 	}
@@ -192,13 +205,10 @@ func (dc *DockerContainer) Start(dctx context.Context, containerID string) error
 
 // TODO POINTER NOT BEING UPDATED WHEN USING EXISTING CONTAINER
 func (dc *DockerContainer) Stop(dctx context.Context) error {
-	if dc.ContainerID == "" {
-		return fmt.Errorf("%s: ERROR there's nothing to stop because the container does not exist\n", dc.ContainerName)
-	}
-	fmt.Printf("%s: stopping container...\n", dc.ContainerName)
+	fmt.Printf("Docker: Stopping %s container...\n", dc.ContainerName)
 	err := dc.Client.ContainerStop(dctx, dc.ContainerID, container.StopOptions{Signal: "SIGKILL"})
 	if err != nil {
-		fmt.Printf("%s: ERROR %s", dc.ContainerName, err)
+		fmt.Printf("Docker: ERROR - %s container - '%s'\n", dc.ContainerName, err)
 		return fmt.Errorf("Docker: ERROR Something went wrong, zensearch is unable to stop the container %s with ID of %s\n", dc.ContainerID[:8], dc.ContainerName)
 	}
 	fmt.Printf("%s: Successfully stopped with ID starting with %s\n", dc.ContainerName, dc.ContainerID[:8])
