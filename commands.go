@@ -17,12 +17,12 @@ type StdError struct {
 	value string
 }
 
-func NewStdError(src string) StdError {
+func NewError(src string) StdError {
 	return StdError{src: src}
 }
 
 func (se StdError) Error() string {
-	return fmt.Sprintf("%s: ERROR %s", se.src, se.value)
+	return fmt.Sprintf("[ZENSEARCH]: ERROR FROM - %s - '%s'", se.src, se.value)
 }
 
 func (se *StdError) addError(value string) {
@@ -47,13 +47,13 @@ func startServices(pctx context.Context, commands [][]string) {
 	ctx, cancel := context.WithCancel(pctx)
 	defer cancel()
 
-	errChan := make(chan error)
-
 	var wg sync.WaitGroup
 
 	fmt.Println("[DOCKER]: Starting up Docker Services")
 	for _, contConfig := range dockerContainerConf {
-		wg.Go(func() { runningDockerService(ctx, &dockerMan, contConfig, errChan) })
+		wg.Go(func() {
+			runningDockerService(ctx, &dockerMan, contConfig)
+		})
 	}
 
 	wg.Wait()
@@ -62,82 +62,76 @@ func startServices(pctx context.Context, commands [][]string) {
 	for _, command := range commands {
 		wg.Go(func() {
 			cmd := exec.Command(command[1], command[2:]...)
-			runningService(ctx, cmd, errChan, command[0])
+			runningService(ctx, cmd, command[0])
 		})
 	}
 	fmt.Println("[ZENSEARCH]: services started")
 }
 
-func runningDockerService(ctx context.Context, dockerMan *DockerManager, contConfig DockerContainerConfig, errChan chan error) {
+func runningDockerService(ctx context.Context, dockerMan *DockerManager, contConfig DockerContainerConfig) {
+	newErr := NewError(string(contConfig.Name))
 
 	dockerMan.NewDockerContainer(contConfig)
 
+	err := dockerMan.PullImage(ctx, contConfig.ImageName, contConfig.Tag)
+	if err != nil {
+		newErr.addError(err.Error())
+		panic(newErr.Error)
+	}
 	// cancellation for specific service
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second*120)
 	defer cancel()
-
-	select {
-	case err := <-dockerMan.Run(ctx, contConfig.Name, contConfig.ImageName, contConfig.Tag):
-		errChan <- err
-		if err != nil {
-			errChan <- err
-		}
-		fmt.Printf("[DOCKER]: %s Container Successfuly started!\n", contConfig.Name)
-	case <-timeoutCtx.Done():
-		if timeoutCtx.Err() == context.DeadlineExceeded {
-			fmt.Printf("[DOCKER]: Failed to start %s!\n", contConfig.Name)
-			fmt.Printf("[DOCKER]: %s Container timedout\n", contConfig.Name)
-			errChan <- timeoutCtx.Err()
-		}
-	}
 	go func() {
 		<-ctx.Done()
-		fmt.Printf("[DOCKER]: shutting down %s container...\n", contConfig.Name)
 		if err := dockerMan.Stop(context.Background(), contConfig.Name); err != nil {
-			fmt.Println(err)
+			newErr.addError(err.Error())
+			fmt.Println(newErr.Error())
 			return
 		}
 		fmt.Printf("[DOCKER]: %s container stopped\n", contConfig.Name)
 	}()
 
+	select {
+	case err := <-dockerMan.Run(ctx, contConfig.Name, contConfig.ImageName, contConfig.Tag):
+		if err != nil {
+			newErr.addError(err.Error())
+			panic(newErr.Error)
+		}
+		fmt.Printf("[DOCKER]: %s Container Successfuly started!\n", contConfig.Name)
+	case <-timeoutCtx.Done():
+		if timeoutCtx.Err() == context.DeadlineExceeded {
+			newErr.addError(timeoutCtx.Err().Error())
+			fmt.Printf("[DOCKER]: Failed to start %s!\n", contConfig.Name)
+			fmt.Printf("[DOCKER]: %s Container timedout\n", contConfig.Name)
+			panic(newErr.Error)
+		}
+	}
+
 }
-func runningService(ctx context.Context, cmd *exec.Cmd, errChan chan error, cmdName string) {
-	newStdErr := NewStdError(cmdName)
+func runningService(ctx context.Context, cmd *exec.Cmd, cmdName string) {
+	newStdErr := NewError(cmdName)
 	stdout, err := cmd.StdoutPipe()
 	stderr, err := cmd.StderrPipe()
-
-	go func() {
-		<-ctx.Done()
-		fmt.Printf("%s: Shut down\n", cmdName)
-
-		if cmd.Process != nil {
-			fmt.Printf("%s: shutting down process...\n", cmdName)
-			cmd.Process.Signal(syscall.SIGTERM)
-			fmt.Printf("%s: closed\n", cmdName)
-		}
-	}()
 
 	if err != nil {
 		fmt.Printf("[ZENSEARCH]: ERROR unable to set up stdout for process %s\n", cmdName)
 		newStdErr.addError(err.Error())
-		errChan <- newStdErr
-		return
+		panic(newStdErr.Error())
 	}
 	err = cmd.Start()
 	if err != nil {
 		fmt.Printf("[ZENSEARCH]: ERROR unable to start process %s\n", cmdName)
 		newStdErr.addError(err.Error())
-		errChan <- newStdErr
-		return
+		panic(newStdErr.Error())
 	}
 	// for handling stderr
 	go func() {
 		readErrors, err := io.ReadAll(stderr)
 		if err != nil {
-			fmt.Printf("[ZENSEARCH]: ERROR unable to read errors from process %s\n", cmdName)
+			panic(newStdErr.Error())
 		}
 		newStdErr.addError(string(readErrors))
-		errChan <- newStdErr
+		panic(newStdErr.Error())
 	}()
 
 	io.Copy(os.Stdout, stdout)
@@ -145,11 +139,21 @@ func runningService(ctx context.Context, cmd *exec.Cmd, errChan chan error, cmdN
 	err = cmd.Wait()
 	if err != nil {
 		newStdErr.addError(err.Error())
-		errChan <- newStdErr
+		panic(newStdErr.Error())
+	}
+
+	<-ctx.Done()
+	fmt.Printf("%s: Shut down\n", cmdName)
+
+	if cmd.Process != nil {
+		fmt.Printf("[ZENSEARCH]: %s - shutting down process...\n", cmdName)
+		_ = cmd.Process.Signal(syscall.SIGTERM)
+		fmt.Printf("[ZENSEARCH]: %s - closed\n", cmdName)
 	}
 }
 
-func runCommands(commands [][]string, errArr *[][]string) {
+func runCommands(commands [][]string) {
+	newError := NewError("RUN COMMANDS")
 
 	for _, command := range commands {
 		cmd := exec.Command(command[1], command[2:]...)
@@ -158,10 +162,10 @@ func runCommands(commands [][]string, errArr *[][]string) {
 		err := cmd.Start()
 		io.Copy(os.Stdout, stdOut)
 		if err != nil {
+			newError.addError(err.Error())
 			fmt.Println("Error: cannot run command")
 			switch e := err.(type) {
 			case *exec.Error:
-				fmt.Println("failed executing:", err)
 			case *exec.ExitError:
 				readStdErr, err := io.ReadAll(stdErr)
 				if err != nil {
@@ -169,9 +173,8 @@ func runCommands(commands [][]string, errArr *[][]string) {
 				}
 				fmt.Println("command exit rc =", e.ExitCode())
 				fmt.Printf("%s> %s\n", command[0], string(readStdErr))
-			default:
-				panic(err)
 			}
+			panic(newError.Error)
 		}
 
 		for _, str := range command {
@@ -182,12 +185,7 @@ func runCommands(commands [][]string, errArr *[][]string) {
 				fmt.Printf("%s: building %s service...\n", command[0], command[0])
 			}
 		}
-		if err != nil {
-			fmt.Println(err.Error())
-			*errArr = append(*errArr, []string{command[0], err.Error()})
-		}
 		cmd.Wait()
-
 		for _, str := range command {
 			switch str {
 			case "install":

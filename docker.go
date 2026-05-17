@@ -162,7 +162,7 @@ func (dm *DockerManager) Run(dctx context.Context, containerName ContainerName, 
 	// dont know when it is completely finished, need to set a timer for other
 	// process that depends on rabbitmq
 
-	go dm.listenContainerState(dctx, containerName)
+	// go dm.listenContainerState(dctx, containerName)
 	fmt.Printf("[DOCKER]: %s Container started!\n", containerName)
 	fmt.Printf("[DOCKER]: %s Container exposed ports -> %+v\n", containerName, dockerContainer.HostPorts)
 

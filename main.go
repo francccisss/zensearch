@@ -13,7 +13,6 @@ import (
 	"github.com/docker/go-connections/nat"
 )
 
-var errArr = [][]string{}
 var runCmds = [][]string{
 	{"express", "node", "./express-server/dist/index.js"},
 	{"database", "node", "./database/dist/index.js"},
@@ -62,10 +61,9 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	go CLILoop(contextCancel)
-	printErrors(&errArr)
 
-	// TODO: this does not look nice at all
 	<-sigChan
+	contextCancel()
 
 	time.Sleep(time.Second * 3)
 	fmt.Println("Exit")
@@ -83,7 +81,7 @@ func CLILoop(contextCancel context.CancelFunc) {
 	scanner := bufio.NewScanner(os.Stdin)
 loop:
 	for {
-		fmt.Printf("zensearch> ")
+		fmt.Printf("zensearch > ")
 		scanner.Scan()
 		text := scanner.Text()
 		input := strings.Trim(text, " ")
@@ -107,16 +105,15 @@ loop:
 			fmt.Println("Stopping services...")
 			if contextCancel != nil {
 				contextCancel()
-
 			}
 			fmt.Println("Exit")
 			break loop
 		case "build":
 			fmt.Printf("zensearch: Building...\n")
-			runCommands(buildCmds, &errArr)
+			runCommands(buildCmds)
 		case "node-install":
 			fmt.Printf("zensearch: installing node dependencies...\n")
-			runCommands(npmInstall, &errArr)
+			runCommands(npmInstall)
 		default:
 			help()
 		}

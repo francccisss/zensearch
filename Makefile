@@ -8,6 +8,11 @@ check: lint_check format_check sec_check
 	@echo "Running checks"
 
 ifdef GO_FILES
+
+build: main.go
+	go build -o zensearch
+
+
 go_build:  
 	go build -o zensearch 
 	cd ./crawler/ && go build -o crawler-bin 
