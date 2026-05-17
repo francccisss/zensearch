@@ -39,8 +39,7 @@ func (se *StdError) addError(value string) {
 // so that they configure the location of the host to their dockerd socket path
 
 func startServices(pctx context.Context, commands [][]string) {
-	const DOCKER_DESKTOP_HOST = "unix:///home/$USER/.docker/desktop/docker.sock"
-	dockerMan, err := NewDockerManager(DOCKER_DESKTOP_HOST)
+	dockerMan, err := NewDockerManager()
 	if err != nil {
 		log.Fatalf("[Start Service ERROR]: '%s'", err)
 	}
@@ -170,9 +169,9 @@ func runCommands(commands [][]string, errArr *[][]string) {
 
 	for _, command := range commands {
 		cmd := exec.Command(command[1], command[2:]...)
-		stdErr, err := cmd.StderrPipe()
-		stdOut, err := cmd.StdoutPipe()
-		err = cmd.Start()
+		stdErr, _ := cmd.StderrPipe()
+		stdOut, _ := cmd.StdoutPipe()
+		err := cmd.Start()
 		io.Copy(os.Stdout, stdOut)
 		if err != nil {
 			fmt.Println("Error: cannot run command")
@@ -186,11 +185,9 @@ func runCommands(commands [][]string, errArr *[][]string) {
 				}
 				fmt.Println("command exit rc =", e.ExitCode())
 				fmt.Printf("%s> %s\n", command[0], string(readStdErr))
-				panic(err)
 			default:
 				panic(err)
 			}
-			*errArr = append(*errArr, []string{command[0], err.Error()})
 		}
 
 		for _, str := range command {
