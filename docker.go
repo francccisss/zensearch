@@ -199,7 +199,7 @@ func (dm *DockerManager) Create(dctx context.Context, containerName ContainerNam
 	}
 
 	sum, exists := dm.GetContainerID(dctx, dockerContainer.ContainerName)
-	if !exists {
+	if exists {
 		dockerContainer.ContainerID = sum.ID
 		fmt.Printf("[Docker]: %s container already exist\n", dockerContainer.ContainerID)
 		return nil
