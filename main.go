@@ -9,6 +9,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/docker/go-connections/nat"
 )
 
 var errArr = [][]string{}
@@ -34,8 +36,8 @@ var npmInstall = [][]string{
 // NOTICE: Make sure every image is compatible with the host system, arm64, linux, windows
 
 var RabbitmqConfig = DockerContainerConfig{
-	HostPorts:      HostPorts{"5672", "15672"},
-	ContainerPorts: ContainerPorts{{"5672", "5672"}, {"15672", "15672"}},
+	HostPorts:      HostPorts{"5672/tcp", "15672/tcp"},
+	ContainerPorts: nat.PortSet{"5672/tcp": struct{}{}, "15672/tcp": struct{}{}},
 	Name:           "zensearch-cli-rabbitmq",
 	ImageName:      "rabbitmq",
 	Tag:            "4.0-management",
@@ -45,8 +47,8 @@ var RabbitmqConfig = DockerContainerConfig{
 var SeleniumConfig = DockerContainerConfig{
 	ImageName:      "selenium/standalone-chromium",
 	Tag:            "latest",
-	HostPorts:      HostPorts{"4444", "7900"},
-	ContainerPorts: ContainerPorts{{"4444", "4444"}, {"7900", "7900"}},
+	HostPorts:      HostPorts{"4444/tcp", "7900/tcp"},
+	ContainerPorts: nat.PortSet{"4444/tcp": struct{}{}, "7900/tcp": struct{}{}},
 	Name:           "zensearch-cli-selenium",
 	ShmSize:        2 * 1024 * 1024 * 1024,
 	Env:            []string{"SE_NODE_MAX_SESSIONS=5"},
@@ -64,9 +66,7 @@ func main() {
 
 	// TODO: this does not look nice at all
 	<-sigChan
-	if contextCancel != nil {
-		contextCancel()
-	}
+
 	time.Sleep(time.Second * 3)
 	fmt.Println("Exit")
 }

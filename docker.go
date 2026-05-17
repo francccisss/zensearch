@@ -23,20 +23,19 @@ type DockerContainerConfig struct {
 	Tag       string
 	Name      ContainerName
 	HostPorts
-	ContainerPorts
-	ShmSize int64
-	Env     []string
+	ContainerPorts nat.PortSet
+	ShmSize        int64
+	Env            []string
 }
 
-type HostPorts []string
-type ContainerPorts [][]string
+type HostPorts []nat.Port
 
 // TODO write context purpose of dtx
 
 type DockerContainer struct {
 	*client.Client
 	HostPorts
-	ContainerPorts
+	ContainerPorts nat.PortSet
 	ContainerName
 	ContainerID string
 	ShmSize     int64
@@ -84,14 +83,6 @@ func (dm *DockerManager) NewDockerContainer(contConfig DockerContainerConfig) {
 		Tag:            contConfig.Tag,
 		ContainerID:    "",
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	sum, exists := dm.GetContainerID(ctx, newDockerContainer.ContainerName)
-	if !exists {
-		(*dm.Containers)[newDockerContainer.ContainerName] = newDockerContainer
-		return
-	}
-	newDockerContainer.ContainerID = sum.ID
 	(*dm.Containers)[newDockerContainer.ContainerName] = newDockerContainer
 }
 
@@ -137,28 +128,6 @@ func (dm *DockerManager) Run(dctx context.Context, containerName ContainerName, 
 		errChan <- fmt.Errorf("[Docker]: ERROR - '%s Container does not exist'", containerName)
 		return errChan
 	}
-
-	c, exists := dm.GetContainerID(dctx, containerName)
-	fmt.Printf("[Docker]: Checking if %s container exists\n", containerName)
-	if exists {
-		fmt.Printf("[Docker]: %s container already exist\n", containerName)
-		// update containerID to the already existing container
-		dockerContainer.ContainerID = c.ID
-		err := dm.Start(dctx, c.ID)
-		// can be nil
-		errChan <- err
-		if err != nil {
-			fmt.Printf("%s: unable to start from existing container...\n", containerName)
-			return errChan
-		}
-		go dm.listenContainerState(dctx, containerName)
-		fmt.Printf("%s: container exposed ports -> %+v\n", containerName, dockerContainer.HostPorts)
-		return nil
-	}
-
-	fmt.Printf("[Docker]: %s Container does not exist\n", containerName)
-
-	fmt.Printf("%s: creating new container...\n", containerName)
 	err := dm.Create(dctx, containerName, imageName, tag)
 	if err != nil {
 		fmt.Printf("%s: Unable to create container\n", containerName)
@@ -223,41 +192,37 @@ func (dm *DockerManager) Stop(dctx context.Context, containerName ContainerName)
 
 func (dm *DockerManager) Create(dctx context.Context, containerName ContainerName, imageName string, tag string) error {
 
+	fmt.Printf("[Docker]: Checking if %s container exists first\n", containerName)
 	dockerContainer, ok := (*dm.Containers)[containerName]
 	if !ok {
 		return fmt.Errorf("[Docker]: ERROR - '%s Container does not exist'", containerName)
 	}
 
-	fmt.Printf("%s: creating container...\n", containerName)
-	imageNameWithTag := imageName + ":" + tag
-	fmt.Printf("%s: applying ports\n", containerName)
-	hostPorts := map[nat.Port][]nat.PortBinding{}
-	for _, hostPort := range dockerContainer.HostPorts {
-		_, ok := hostPorts[nat.Port(fmt.Sprintf("%s/tcp", hostPort))]
-		if !ok {
-			ports := hostPorts[nat.Port(fmt.Sprintf("%s/tcp", hostPort))]
-			hostPorts[nat.Port(fmt.Sprintf("%s/tcp", hostPort))] = append(ports, nat.PortBinding{HostIP: "0.0.0.0", HostPort: hostPort})
-			ports = hostPorts[nat.Port(fmt.Sprintf("%s/tcp", hostPort))]
-		}
+	sum, exists := dm.GetContainerID(dctx, dockerContainer.ContainerName)
+	if !exists {
+		dockerContainer.ContainerID = sum.ID
+		fmt.Printf("[Docker]: %s container already exist\n", dockerContainer.ContainerID)
+		return nil
 	}
-	containerPorts := map[nat.Port]struct{}{}
-	for _, contPort := range dockerContainer.ContainerPorts {
-		_, ok := hostPorts[nat.Port(fmt.Sprintf("%s/tcp", contPort[0]))]
-		if !ok {
-			containerPorts[nat.Port(fmt.Sprintf("%s/tcp", contPort[0]))] = struct{}{}
-		}
+
+	fmt.Printf("[Docker]: Creating %s container...\n", containerName)
+	imageNameWithTag := imageName + ":" + tag
+	fmt.Printf("[Docker]: Applying ports for %s\n", containerName)
+	hostPorts := make(map[nat.Port][]nat.PortBinding)
+	for _, hostPort := range dockerContainer.HostPorts {
+		hostPorts[hostPort] = append(hostPorts[hostPort], nat.PortBinding{HostIP: "0.0.0.0", HostPort: string(hostPort)})
 	}
 
 	fmt.Printf("Docker: creating container from %s image as %s \n", imageNameWithTag, containerName)
 
-	// TODO ERROR from here for some reason
+	// TODO dont include the env and shmsize for rabbitmq
 	resp, err := dm.Client.ContainerCreate(dctx, &container.Config{
 		Image: imageNameWithTag,
 		// attaching container to process exec is on `-it`
 		AttachStdin:  true,
 		AttachStdout: true,
 		AttachStderr: true,
-		ExposedPorts: containerPorts,
+		ExposedPorts: dockerContainer.ContainerPorts,
 		Env:          dockerContainer.Env,
 	},
 		&container.HostConfig{
