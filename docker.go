@@ -264,7 +264,7 @@ func (dm *DockerManager) listenContainerState(dctx context.Context, containerNam
 		panic(fmt.Sprintf("[DOCKER]: ERROR - '%s Container does not exist'", containerName))
 	}
 
-	fmt.Printf("[DOCKER]: waiting for %s's status\n", containerName)
+	fmt.Printf("[DOCKER]: Waiting for %s's status\n", containerName)
 	statusCh, errCh := dm.Client.ContainerWait(dctx, dockerContainer.ContainerID, container.WaitConditionNotRunning)
 	// reading from go routine errors
 	IOErrCh := make(chan error, 1)

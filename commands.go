@@ -43,42 +43,32 @@ func startServices(pctx context.Context, commands [][]string) {
 	if err != nil {
 		log.Fatalf("[Start Service ERROR]: '%s'", err)
 	}
-	fmt.Println("zensearch: Starting services...")
+	fmt.Println("[ZENSEARCH]: Starting services...")
 	ctx, cancel := context.WithCancel(pctx)
+	defer cancel()
+
 	errChan := make(chan error)
 
 	var wg sync.WaitGroup
 
-	go func() {
-		fmt.Println("zensearch: error channel listener")
-		for err := range errChan {
-			if err != nil {
-				fmt.Printf("Docker: %s\n", err.Error())
-				fmt.Println("CANCEL")
-				cancel()
-				return
-			}
-			continue
-		}
-	}()
+	fmt.Println("[DOCKER]: Starting up Docker Services")
 	for _, contConfig := range dockerContainerConf {
-		wg.Add(1)
-		go runningDockerService(ctx, &dockerMan, &wg, contConfig, errChan)
+		wg.Go(func() { runningDockerService(ctx, &dockerMan, contConfig, errChan) })
 	}
 
 	wg.Wait()
 
-	go func() {
-		for _, command := range commands {
+	fmt.Println("[DOCKER]: Starting up Express & DB Services")
+	for _, command := range commands {
+		wg.Go(func() {
 			cmd := exec.Command(command[1], command[2:]...)
-			go runningService(ctx, cmd, errChan, command[0])
-		}
-	}()
-	fmt.Println("zensearch: services started")
+			runningService(ctx, cmd, errChan, command[0])
+		})
+	}
+	fmt.Println("[ZENSEARCH]: services started")
 }
 
-func runningDockerService(ctx context.Context, dockerMan *DockerManager, wg *sync.WaitGroup, contConfig DockerContainerConfig, errChan chan error) {
-	defer wg.Done()
+func runningDockerService(ctx context.Context, dockerMan *DockerManager, contConfig DockerContainerConfig, errChan chan error) {
 
 	dockerMan.NewDockerContainer(contConfig)
 
@@ -90,32 +80,26 @@ func runningDockerService(ctx context.Context, dockerMan *DockerManager, wg *syn
 	case err := <-dockerMan.Run(ctx, contConfig.Name, contConfig.ImageName, contConfig.Tag):
 		errChan <- err
 		if err != nil {
-			fmt.Printf("%s: Error: %s\n", contConfig.Name, err)
-			return
+			errChan <- err
 		}
-		fmt.Printf("%s: Successfuly started!\n", contConfig.Name)
+		fmt.Printf("[DOCKER]: %s Container Successfuly started!\n", contConfig.Name)
 	case <-timeoutCtx.Done():
-		fmt.Printf("%s: Failed to start!\n", contConfig.Name)
-		fmt.Printf("%s: Process timedout\n", contConfig.Name)
-		fmt.Printf("%s: Cause %s\n", contConfig.Name, timeoutCtx.Err().Error())
-		errChan <- timeoutCtx.Err()
-		return
-
+		if timeoutCtx.Err() == context.DeadlineExceeded {
+			fmt.Printf("[DOCKER]: Failed to start %s!\n", contConfig.Name)
+			fmt.Printf("[DOCKER]: %s Container timedout\n", contConfig.Name)
+			errChan <- timeoutCtx.Err()
+		}
 	}
-
-	// Handle parent context cancellation propagation
-	// Stop Docker Services when input "stop" is returned from the cli which cancels
-	// the parent context
 	go func() {
 		<-ctx.Done()
-		fmt.Printf("Docker: shutting down %s container...\n", contConfig.Name)
+		fmt.Printf("[DOCKER]: shutting down %s container...\n", contConfig.Name)
 		if err := dockerMan.Stop(context.Background(), contConfig.Name); err != nil {
 			fmt.Println(err)
 			return
 		}
-		fmt.Printf("Docker: %s container stopped\n", contConfig.Name)
-
+		fmt.Printf("[DOCKER]: %s container stopped\n", contConfig.Name)
 	}()
+
 }
 func runningService(ctx context.Context, cmd *exec.Cmd, errChan chan error, cmdName string) {
 	newStdErr := NewStdError(cmdName)
@@ -134,14 +118,14 @@ func runningService(ctx context.Context, cmd *exec.Cmd, errChan chan error, cmdN
 	}()
 
 	if err != nil {
-		fmt.Printf("zensearch: ERROR unable to set up stdout for process %s\n", cmdName)
+		fmt.Printf("[ZENSEARCH]: ERROR unable to set up stdout for process %s\n", cmdName)
 		newStdErr.addError(err.Error())
 		errChan <- newStdErr
 		return
 	}
 	err = cmd.Start()
 	if err != nil {
-		fmt.Printf("zensearch: ERROR unable to start process %s\n", cmdName)
+		fmt.Printf("[ZENSEARCH]: ERROR unable to start process %s\n", cmdName)
 		newStdErr.addError(err.Error())
 		errChan <- newStdErr
 		return
@@ -150,7 +134,7 @@ func runningService(ctx context.Context, cmd *exec.Cmd, errChan chan error, cmdN
 	go func() {
 		readErrors, err := io.ReadAll(stderr)
 		if err != nil {
-			fmt.Printf("zensearch: ERROR unable to read errors from process %s\n", cmdName)
+			fmt.Printf("[ZENSEARCH]: ERROR unable to read errors from process %s\n", cmdName)
 		}
 		newStdErr.addError(string(readErrors))
 		errChan <- newStdErr
