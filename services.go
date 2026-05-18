@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"sync"
@@ -33,9 +32,11 @@ func (se *StdError) addError(value string) {
 // TODO: make it so that if users can use either docker desktop or just dockerd
 // so that they configure the location of the host to their dockerd socket path
 func startServices(pctx context.Context, commandsList [][]string) {
+	newerr := NewError("Service Initialization")
 	dockerMan, err := NewDockerManager()
 	if err != nil {
-		log.Fatalf("[Start Service ERROR]: '%s'", err)
+		newerr.addError(err.Error())
+		panic(newerr.Error())
 	}
 	fmt.Println("[ZENSEARCH]: Starting services...")
 
@@ -121,16 +122,20 @@ func runningService(ctx context.Context, commands []string) {
 	}
 	// for handling stderr
 	go func() {
+
 		scanner := bufio.NewScanner(stderr)
+		// dont need to handle EOF since cmd.Wait already waits and cleans up resources and then exits the function if
+		// io.EOF is encountered which can be a cause from an exit process
 		for scanner.Scan() {
-			fmt.Printf("[ZENSEARCH]: ERROR FROM %s - '%s'", cmdName, scanner.Text())
+			fmt.Printf("[ZENSEARCH]: STDERR FROM %s - '%s'\n", cmdName, scanner.Text())
 		}
+
 	}()
 
 	go func() {
 		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {
-			fmt.Printf("[ZENSEARCH]: %s - '%s'", cmdName, scanner.Text())
+			fmt.Printf("[ZENSEARCH]: %s - '%s'\n", cmdName, scanner.Text())
 		}
 	}()
 
@@ -144,7 +149,13 @@ func runningService(ctx context.Context, commands []string) {
 	}()
 
 	err = cmd.Wait()
-	if err != nil {
+	switch e := err.(type) {
+	case *exec.ExitError:
+		status := e.ProcessState.Sys().(syscall.WaitStatus)
+		if status.Signaled() {
+			fmt.Printf("[ZENSEARCH]: Process received '%s' signal\n", status.Signal())
+			return
+		}
 		newStdErr.addError(err.Error())
 		panic(newStdErr.Error())
 	}

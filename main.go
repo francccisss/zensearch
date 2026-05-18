@@ -16,8 +16,8 @@ import (
 var runCmds = [][]string{
 	{"express", "node", "./express-server/dist/index.js"},
 	{"database", "node", "./database/dist/index.js"},
-	{"crawler", "./crawler/crawler-bin"},
-	{"search-engine", "./search-engine/search-engine-bin"},
+	// {"crawler", "./crawler/crawler-bin"},
+	// {"search-engine", "./search-engine/search-engine-bin"},
 }
 
 var buildCmds = [][]string{
