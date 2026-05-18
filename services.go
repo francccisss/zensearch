@@ -123,11 +123,24 @@ func runningService(ctx context.Context, commands []string) {
 	// for handling stderr
 	go func() {
 
-		scanner := bufio.NewScanner(stderr)
-		// dont need to handle EOF since cmd.Wait already waits and cleans up resources and then exits the function if
-		// io.EOF is encountered which can be a cause from an exit process
-		for scanner.Scan() {
-			fmt.Printf("[ZENSEARCH]: STDERR FROM %s - '%s'\n", cmdName, scanner.Text())
+		// bytes piped from services to zensearch stderr
+		// needs to be read as they come in
+		readerErr := bufio.NewReader(stderr)
+		buf := make([]byte, 4096)
+		for {
+			n, err := readerErr.Read(buf)
+			if err != nil {
+				if err.Error() == io.EOF.Error() {
+					return
+				}
+				fmt.Printf("[ZENSEARCH]: ERROR - %s - CAUSE %s\n", cmdName, err)
+				return
+			}
+			// dont need to handle EOF since cmd.Wait already waits and cleans up resources and then exits the function if
+			// io.EOF is encountered which can be a cause from an exit process
+			if n > 0 {
+				fmt.Printf("[ZENSEARCH]: STDERR FROM %s - '%s'\n", cmdName, buf[:n])
+			}
 		}
 
 	}()
