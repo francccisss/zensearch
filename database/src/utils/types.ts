@@ -39,7 +39,7 @@ export type Segment = {
 };
 
 export type URLs = {
-  Domain: string;
+  Root: string;
   Nodes: Array<string>;
 };
 
@@ -52,11 +52,11 @@ export type Node = {
 };
 export type FrontierQueue = {
   id: string;
-  domain: string;
+  root: string;
 };
 export type VisitedNode = {
-  id: string;
-  node_id: number;
+  id: number;
+  node_url: string;
   queue_id: number;
 };
 

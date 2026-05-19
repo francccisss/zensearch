@@ -5,15 +5,19 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
+
+	"github.com/docker/go-connections/nat"
 )
 
-var errArr = [][]string{}
 var runCmds = [][]string{
 	{"express", "node", "./express-server/dist/index.js"},
 	{"database", "node", "./database/dist/index.js"},
-	{"crawler", "./crawler/crawler-bin"},
-	{"search-engine", "./search-engine/search-engine-bin"},
+	// {"crawler", "./crawler/crawler-bin"},
+	// {"search-engine", "./search-engine/search-engine-bin"},
 }
 
 var buildCmds = [][]string{
@@ -28,75 +32,41 @@ var npmInstall = [][]string{
 	{"database", "npm", "install", "database/"},
 }
 
-var rabbitmqContConfig = DockerContainerConfig{
-	HostPorts:      HostPorts{"5672", "15672"},
-	ContainerPorts: ContainerPorts{{"5672", "5672"}, {"15672", "15672"}},
+// NOTICE: Make sure every image is compatible with the host system, arm64, linux, windows
+
+var RabbitmqConfig = DockerContainerConfig{
+	HostPorts:      HostPorts{"5672/tcp", "15672/tcp"},
+	ContainerPorts: nat.PortSet{"5672/tcp": struct{}{}, "15672/tcp": struct{}{}},
 	Name:           "zensearch-cli-rabbitmq",
 	ImageName:      "rabbitmq",
 	Tag:            "4.0-management",
 }
 
 // TODO use options method for optional arguments still dont know how to do that
-var seleniumContConfig = DockerContainerConfig{
-	ImageName:      "selenium/standalone-chrome",
+var SeleniumConfig = DockerContainerConfig{
+	ImageName:      "selenium/standalone-chromium",
 	Tag:            "latest",
-	HostPorts:      HostPorts{"4444", "7900"},
-	ContainerPorts: ContainerPorts{{"4444", "4444"}, {"7900", "7900"}},
+	HostPorts:      HostPorts{"4444/tcp", "7900/tcp"},
+	ContainerPorts: nat.PortSet{"4444/tcp": struct{}{}, "7900/tcp": struct{}{}},
 	Name:           "zensearch-cli-selenium",
-	ShmSize:        4 * 1024 * 1024 * 1024,
+	ShmSize:        2 * 1024 * 1024 * 1024,
 	Env:            []string{"SE_NODE_MAX_SESSIONS=5"},
 }
-var dockerContainerConf = []DockerContainerConfig{rabbitmqContConfig, seleniumContConfig}
+var dockerContainerConf = []DockerContainerConfig{RabbitmqConfig, SeleniumConfig}
 
 func main() {
-	scanner := bufio.NewScanner(os.Stdin)
-	// for reassigning cancel func if input is start
-	var cancelFunc context.CancelFunc
-	// TODO fix input field needs to be appended after every stdout
-loop:
-	for {
-		fmt.Printf("zensearch> ")
-		scanner.Scan()
-		text := scanner.Text()
-		input := strings.Trim(text, " ")
-		switch input {
-		case "start":
-			ctx, cancel := context.WithCancel(context.Background())
-			cancelFunc = cancel
-			startServices(ctx, runCmds)
-			fmt.Println("zensearch: services started")
-			break
-		case "stop":
-			// send kill signal to each process
-			fmt.Printf("Stopping services...\n")
-			if cancelFunc != nil {
-				cancelFunc()
-			}
-			break
-		case "exit":
-			// send kill signal to each process
-			fmt.Printf("Input received %s:\n", input)
-			fmt.Printf("Stopping services...\n")
-			if cancelFunc != nil {
-				cancelFunc()
-			}
-			break loop
-		case "build":
-			fmt.Printf("zensearch: Building...\n")
-			runCommands(buildCmds, &errArr)
-			break
-		case "node-install":
-			fmt.Printf("zensearch: installing node dependencies...\n")
-			runCommands(npmInstall, &errArr)
-			break
-		case "help":
-			help()
-		default:
-			break
-		}
-	}
-	printErrors(&errArr)
-	fmt.Println("Process stopped")
+	// for reassigning cancel func if services has started
+	var contextCancel context.CancelFunc
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	go CLILoop(contextCancel)
+
+	<-sigChan
+	contextCancel()
+
+	time.Sleep(time.Second * 3)
+	fmt.Println("Exit")
 }
 
 func printErrors(errArr *[][]string) {
@@ -105,5 +75,47 @@ func printErrors(errArr *[][]string) {
 	}
 	*errArr = nil
 }
-func addError(name string, err error) {
+
+func CLILoop(contextCancel context.CancelFunc) {
+
+	scanner := bufio.NewScanner(os.Stdin)
+loop:
+	for {
+		fmt.Printf("zensearch > ")
+		scanner.Scan()
+		text := scanner.Text()
+		input := strings.Trim(text, " ")
+		switch input {
+		case "start":
+			ctx, cancel := context.WithCancel(context.Background())
+			contextCancel = cancel
+			startServices(ctx, runCmds)
+		case "stop":
+			// send kill signal to each process
+
+			fmt.Println("Stopping zensearch")
+			fmt.Println("Stopping services...")
+			if contextCancel != nil {
+				contextCancel()
+			}
+			fmt.Println("Zensearch stopped")
+		case "exit":
+			// send kill signal to each process
+			fmt.Println("exiting zensearch")
+			fmt.Println("Stopping services...")
+			if contextCancel != nil {
+				contextCancel()
+			}
+			fmt.Println("Exit")
+			break loop
+		case "build":
+			fmt.Printf("zensearch: Building...\n")
+			runCommands(buildCmds)
+		case "node-install":
+			fmt.Printf("zensearch: installing node dependencies...\n")
+			runCommands(npmInstall)
+		default:
+			help()
+		}
+	}
 }

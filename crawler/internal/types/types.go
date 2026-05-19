@@ -1,6 +1,6 @@
 package types
 
-import ()
+import "github.com/tebeka/selenium"
 
 type Header struct {
 	Title string
@@ -33,6 +33,16 @@ type CrawlResults struct {
 
 type Result interface {
 	sendResults()
+}
+
+type Crawler struct {
+	URL string
+	WD  *selenium.WebDriver
+}
+
+type DequeuedUrl struct {
+	RemainingInQueue int
+	Url              string
 }
 
 func (cr CrawlResult) sendResults()   {}
