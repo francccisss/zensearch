@@ -12,3 +12,4 @@ zensearch
 zensearch-bin
 crawler-bin
 search-engine-bin
+.env
