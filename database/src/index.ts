@@ -4,7 +4,11 @@ import mysql from "mysql2/promise";
 import "dotenv/config";
 import { exit } from "node:process";
 import { readFileSync } from "node:fs";
+import { configDotenv } from "dotenv";
 
+
+
+configDotenv({ path: path.resolve(import.meta.dirname, "../.env") })
 const cumulativeAckCount = 1000;
 
 const poolOption: mysql.PoolOptions = {
