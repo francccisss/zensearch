@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -65,10 +66,10 @@ func runningDockerService(ctx context.Context, dockerMan *DockerManager, contCon
 
 	dockerMan.NewDockerContainer(contConfig)
 
-	err := dockerMan.PullImage(ctx, contConfig.ImageName, contConfig.Tag)
+	err := dockerMan.PullImage(ctx, contConfig.ImageName+":"+contConfig.Tag)
 	if err != nil {
 		newErr.addError(err.Error())
-		panic(newErr.Error)
+		panic(newErr.Error())
 	}
 	// cancellation for specific service
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second*120)
@@ -85,7 +86,7 @@ func runningDockerService(ctx context.Context, dockerMan *DockerManager, contCon
 	}()
 
 	select {
-	case err := <-dockerMan.Run(ctx, contConfig.Name, contConfig.ImageName, contConfig.Tag):
+	case err := <-dockerMan.Run(ctx, contConfig.Name, contConfig.ImageName+":"+contConfig.Tag):
 		if err != nil {
 			newErr.addError(err.Error())
 			panic(newErr.Error)
@@ -103,6 +104,7 @@ func runningDockerService(ctx context.Context, dockerMan *DockerManager, contCon
 }
 func runningService(ctx context.Context, commands []string) {
 	cmdName := commands[0]
+	logName := strings.ToUpper(cmdName)
 
 	cmd := exec.Command(commands[1], commands[2:]...)
 	newStdErr := NewError(cmdName)
@@ -139,7 +141,7 @@ func runningService(ctx context.Context, commands []string) {
 			// dont need to handle EOF since cmd.Wait already waits and cleans up resources and then exits the function if
 			// io.EOF is encountered which can be a cause from an exit process
 			if n > 0 {
-				fmt.Printf("[ZENSEARCH]: STDERR FROM %s - '%s'\n", cmdName, buf[:n])
+				fmt.Printf("[%s]: LOG ERR - %s\n", logName, buf[:n])
 			}
 		}
 
@@ -148,16 +150,16 @@ func runningService(ctx context.Context, commands []string) {
 	go func() {
 		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {
-			fmt.Printf("[ZENSEARCH]: %s - '%s'\n", cmdName, scanner.Text())
+			fmt.Printf("[%s]: LOG - '%s'\n", logName, scanner.Text())
 		}
 	}()
 
 	go func() {
 		<-ctx.Done()
-		fmt.Printf("[ZENSEARCH]: Shutting down %s\n", cmdName)
+		fmt.Printf("[%s]: Shutting down\n", logName)
 		if cmd.Process != nil {
 			_ = cmd.Process.Signal(syscall.SIGTERM)
-			fmt.Printf("[ZENSEARCH]: %s - closed captured interrupt SIGTERM\n", cmdName)
+			fmt.Printf("[%s]: Closed, captured interrupt SIGTERM\n", logName)
 		}
 	}()
 
@@ -166,7 +168,7 @@ func runningService(ctx context.Context, commands []string) {
 	case *exec.ExitError:
 		status := e.ProcessState.Sys().(syscall.WaitStatus)
 		if status.Signaled() {
-			fmt.Printf("[ZENSEARCH]: Process received '%s' signal\n", status.Signal())
+			fmt.Printf("[%s]: Process received '%s' signal\n", logName, status.Signal())
 			return
 		}
 		newStdErr.addError(err.Error())

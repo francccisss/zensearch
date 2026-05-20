@@ -18,11 +18,11 @@ func TestWithExistingContainer(t *testing.T) {
 
 	dm.NewDockerContainer(SeleniumConfig)
 
-	err = dm.PullImage(ctx, SeleniumConfig.ImageName, SeleniumConfig.Tag)
+	err = dm.PullImage(ctx, SeleniumConfig.ImageName+":"+SeleniumConfig.Tag)
 	if err != nil {
 		t.Fatalf("[TEST]: Image Pull Test - %s\n", err)
 	}
-	err = <-dm.Run(ctx, SeleniumConfig.Name, SeleniumConfig.ImageName, SeleniumConfig.Tag)
+	err = <-dm.Run(ctx, SeleniumConfig.Name, SeleniumConfig.ImageName+":"+SeleniumConfig.Tag)
 
 	if err != nil {
 		t.Fatalf("[TEST]: Existing Containers Test - %s\n", err)

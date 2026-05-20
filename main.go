@@ -16,8 +16,8 @@ import (
 var runCmds = [][]string{
 	{"express", "node", "./express-server/dist/index.js"},
 	{"database", "node", "./database/dist/index.js"},
-	// {"crawler", "./crawler/crawler-bin"},
-	// {"search-engine", "./search-engine/search-engine-bin"},
+	{"crawler", "./crawler/crawler-bin"},
+	{"search-engine", "./search-engine/search-engine-bin"},
 }
 
 var buildCmds = [][]string{
@@ -60,7 +60,7 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	go CLILoop(contextCancel)
+	go CLILoop(&contextCancel)
 
 	<-sigChan
 	contextCancel()
@@ -76,7 +76,7 @@ func printErrors(errArr *[][]string) {
 	*errArr = nil
 }
 
-func CLILoop(contextCancel context.CancelFunc) {
+func CLILoop(contextCancel *context.CancelFunc) {
 
 	scanner := bufio.NewScanner(os.Stdin)
 loop:
@@ -88,34 +88,37 @@ loop:
 		switch input {
 		case "start":
 			ctx, cancel := context.WithCancel(context.Background())
-			contextCancel = cancel
+			*contextCancel = cancel
 			startServices(ctx, runCmds)
+			continue
 		case "stop":
 			// send kill signal to each process
 
 			fmt.Println("Stopping zensearch")
 			fmt.Println("Stopping services...")
-			if contextCancel != nil {
-				contextCancel()
+			if *contextCancel != nil {
+				(*contextCancel)()
 			}
 			fmt.Println("Zensearch stopped")
+			continue
 		case "exit":
 			// send kill signal to each process
 			fmt.Println("exiting zensearch")
 			fmt.Println("Stopping services...")
 			if contextCancel != nil {
-				contextCancel()
+				(*contextCancel)()
 			}
 			fmt.Println("Exit")
 			break loop
 		case "build":
 			fmt.Printf("zensearch: Building...\n")
 			runCommands(buildCmds)
+			continue
 		case "node-install":
 			fmt.Printf("zensearch: installing node dependencies...\n")
 			runCommands(npmInstall)
+			continue
 		default:
-			help()
 		}
 	}
 }

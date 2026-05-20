@@ -82,7 +82,6 @@ func NewDockerManager() (DockerManager, error) {
 }
 
 func (dm *DockerManager) NewDockerContainer(contConfig DockerContainerConfig) {
-	fmt.Printf("[DOCKER]: Creating new docker container for %s\n", contConfig.Name)
 
 	newDockerContainer := &DockerContainer{
 		Client:         dm.Client,
@@ -112,10 +111,22 @@ type ContainerManager interface {
 
 // even though that the docker engine alreaady returns the existing image its better to
 // check first if the image already exists before calling ImagePull from docker registry
+func (dm *DockerManager) PullImage(ctx context.Context, ref string) error {
 
-func (dm *DockerManager) PullImage(ctx context.Context, ref string, tag string) error {
-	refStr := ref + ":" + tag
-	reader, err := dm.Client.ImagePull(ctx, refStr, image.PullOptions{})
+	filterArgs := filters.NewArgs(filters.KeyValuePair{Key: "reference", Value: ref})
+
+	fmt.Printf("[DOCKER]: Checking if an image already exists for %s\n", ref)
+	list, err := dm.GetImageList(ctx, image.ListOptions{Filters: filterArgs})
+	if err != nil {
+		return err
+	}
+	if len(list) > 0 {
+		fmt.Printf("[DOCKER]: Image %s already exists\n", ref)
+		fmt.Println(list[0])
+		return nil
+	}
+
+	reader, err := dm.Client.ImagePull(ctx, ref, image.PullOptions{})
 	if err != nil {
 		return err
 	}
@@ -134,7 +145,7 @@ func (dm *DockerManager) PullImage(ctx context.Context, ref string, tag string) 
 	return nil
 }
 
-func (dm *DockerManager) Run(dctx context.Context, containerName ContainerName, imageName string, tag string) <-chan error {
+func (dm *DockerManager) Run(dctx context.Context, containerName ContainerName, ref string) <-chan error {
 
 	// check architecture and OS
 	errChan := make(chan error, 1)
@@ -144,7 +155,7 @@ func (dm *DockerManager) Run(dctx context.Context, containerName ContainerName, 
 		errChan <- fmt.Errorf("[DOCKER]: ERROR - '%s Container does not exist'", containerName)
 		return errChan
 	}
-	err := dm.Create(dctx, containerName, imageName, tag)
+	err := dm.Create(dctx, containerName, ref)
 	if err != nil {
 		fmt.Printf("[DOCKER]: Unable to create %s container\n", containerName)
 		errChan <- err
@@ -206,7 +217,9 @@ func (dm *DockerManager) Stop(dctx context.Context, containerName ContainerName)
 	return nil
 }
 
-func (dm *DockerManager) Create(dctx context.Context, containerName ContainerName, imageName string, tag string) error {
+// Before creating a container, it checks for an existing continer first and uses that instead and updates the ID
+// of the DockerContainer struct type.
+func (dm *DockerManager) Create(dctx context.Context, containerName ContainerName, ref string) error {
 
 	fmt.Printf("[DOCKER]: Checking if %s container exists first\n", containerName)
 	dockerContainer, ok := (*dm.Containers)[containerName]
@@ -222,18 +235,17 @@ func (dm *DockerManager) Create(dctx context.Context, containerName ContainerNam
 	}
 
 	fmt.Printf("[DOCKER]: Creating %s container...\n", containerName)
-	imageNameWithTag := imageName + ":" + tag
 	fmt.Printf("[DOCKER]: Applying ports for %s\n", containerName)
 	hostPorts := make(map[nat.Port][]nat.PortBinding)
 	for _, hostPort := range dockerContainer.HostPorts {
 		hostPorts[hostPort] = append(hostPorts[hostPort], nat.PortBinding{HostIP: "0.0.0.0", HostPort: string(hostPort)})
 	}
 
-	fmt.Printf("[DOCKER]: Creating container from %s image as %s \n", imageNameWithTag, containerName)
+	fmt.Printf("[DOCKER]: Creating container from %s image as %s \n", ref, containerName)
 
 	// TODO dont include the env and shmsize for rabbitmq
 	resp, err := dm.Client.ContainerCreate(dctx, &container.Config{
-		Image: imageNameWithTag,
+		Image: ref,
 		// attaching container to process exec is on `-it`
 		AttachStdin:  true,
 		AttachStdout: true,
@@ -334,6 +346,14 @@ func (dm *DockerManager) listenContainerState(dctx context.Context, containerNam
 		}
 		fmt.Printf("[DOCKER]: %s container closed gracefully - STATUS:%+v \n", containerName, s)
 	}
+}
+
+func (dm *DockerManager) GetImageList(dctx context.Context, options image.ListOptions) ([]image.Summary, error) {
+	list, err := dm.Client.ImageList(dctx, options)
+	if err != nil {
+		return []image.Summary{}, err
+	}
+	return list, nil
 }
 
 // should check if a rabbitmq container already exists
