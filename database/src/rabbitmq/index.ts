@@ -9,7 +9,14 @@ import type {
 } from "../utils/types.js";
 import segmentSerializer from "../serializer/segment_serializer.js";
 import {
+	CRAWLER_DB_CLEAR_FRONTIER_QUEUE,
+	CRAWLER_DB_DEQUEUE_FRONTIER_QUEUE,
 	CRAWLER_DB_INDEXING_QUEUE,
+	CRAWLER_DB_LEN_FRONTIER_QUEUE,
+	CRAWLER_DB_STORE_FRONTIER_QUEUE,
+	DB_CRAWLER_DEQUEUE_FRONTIER_CBQ,
+	DB_CRAWLER_INDEXING_CBQ,
+	DB_CRAWLER_LEN_FRONTIER_CBQ,
 	DB_SENGINE_REQUEST_CBQ,
 	EXPRESS_DB_CHECK_QUEUE,
 	SENGINE_DB_REQUEST_QUEUE,
@@ -26,7 +33,7 @@ export async function establishConnection(
 			console.log(`Successfully connected to rabbitmq after several retries`);
 			return connection;
 		} catch (err) {
-			console.error("Retrying dbInterface service connection...");
+			console.log("Retrying dbInterface service connection...");
 			await new Promise((resolve) => {
 				const timeoutID = setTimeout(() => {
 					resolve("Done blocking");
@@ -81,7 +88,7 @@ async function webpageHandler(
 			// todo: use replyto queue to notify the express server of what is going on
 			// currently this there is no consumer for this queue
 			dbInterfaceChannel.sendToQueue(
-				data.properties.replyTo,
+				DB_CRAWLER_INDEXING_CBQ,
 				Buffer.from(
 					JSON.stringify({
 						isSuccess: true,
@@ -158,7 +165,8 @@ async function webpageHandler(
 				Buffer.from(encodedDocs),
 			);
 			if (!is_sent) {
-				throw new Error("ERROR: Unable to send back message.");
+				console.error("ERROR: Unable to send back message.");
+				return
 			}
 		} catch (err) {
 			const error = err as Error;
@@ -210,35 +218,29 @@ async function frontierQueueHandler(
 	pool: mysql.Pool,
 	frontierChannel: amqp.Channel,
 ) {
-	const CRAWLER_DB_DEQUEUE_URL_QUEUE = "crawler_db_dequeue_url_queue";
 
-	const CRAWLER_DB_STOREURLS_QUEUE = "crawler_db_storeurls_queue";
-	const CRAWLER_DB_CLEARURLS_QUEUE = "crawler_db_clearurls_queue";
-
-	const CRAWLER_DB_GET_LEN_QUEUE = "crawler_db_len_queue";
-
-	await frontierChannel.assertQueue(CRAWLER_DB_DEQUEUE_URL_QUEUE, {
+	await frontierChannel.assertQueue(CRAWLER_DB_DEQUEUE_FRONTIER_QUEUE, {
 		exclusive: false,
 		durable: false,
 	});
 
-	await frontierChannel.assertQueue(CRAWLER_DB_GET_LEN_QUEUE, {
+	await frontierChannel.assertQueue(CRAWLER_DB_LEN_FRONTIER_QUEUE, {
 		exclusive: false,
 		durable: false,
 	});
 
-	await frontierChannel.assertQueue(CRAWLER_DB_STOREURLS_QUEUE, {
+	await frontierChannel.assertQueue(CRAWLER_DB_STORE_FRONTIER_QUEUE, {
 		exclusive: false,
 		durable: false,
 	});
 
-	await frontierChannel.assertQueue(CRAWLER_DB_CLEARURLS_QUEUE, {
+	await frontierChannel.assertQueue(CRAWLER_DB_CLEAR_FRONTIER_QUEUE, {
 		exclusive: false,
 		durable: false,
 	});
 
 	frontierChannel.consume(
-		CRAWLER_DB_DEQUEUE_URL_QUEUE,
+		CRAWLER_DB_DEQUEUE_FRONTIER_QUEUE,
 		async (msg: amqp.ConsumeMessage | null) => {
 			try {
 				if (msg == null) {
@@ -255,7 +257,7 @@ async function frontierQueueHandler(
 				const msgBuffer = Buffer.from(JSON.stringify(dequeuedUrl));
 
 				const sent = frontierChannel.sendToQueue(
-					msg.properties.replyTo,
+					DB_CRAWLER_DEQUEUE_FRONTIER_CBQ,
 					msgBuffer,
 				);
 				if (!sent) {
@@ -282,7 +284,7 @@ async function frontierQueueHandler(
 		},
 	);
 	frontierChannel.consume(
-		CRAWLER_DB_STOREURLS_QUEUE,
+		CRAWLER_DB_STORE_FRONTIER_QUEUE,
 		async (msg: amqp.ConsumeMessage | null) => {
 			try {
 				if (msg == null) {
@@ -300,7 +302,7 @@ async function frontierQueueHandler(
 	);
 
 	frontierChannel.consume(
-		CRAWLER_DB_GET_LEN_QUEUE,
+		CRAWLER_DB_LEN_FRONTIER_QUEUE,
 		async (msg: amqp.ConsumeMessage | null) => {
 			try {
 				if (msg == null) {
@@ -315,7 +317,7 @@ async function frontierQueueHandler(
 				console.log("dbInterface TEST: QUEUE LEN BUFFER ", queueLenBuf);
 				console.log("dbInterface TEST: QUEUE='%s' LENGTH ", hostname, queueLen);
 
-				frontierChannel.sendToQueue(msg.properties.replyTo, queueLenBuf);
+				frontierChannel.sendToQueue(DB_CRAWLER_LEN_FRONTIER_CBQ, queueLenBuf);
 			} catch (e: any) {
 				console.error(e);
 				throw new Error(e);

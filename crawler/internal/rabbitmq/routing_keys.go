@@ -1,19 +1,21 @@
 package rabbitmq
 
 // CRAWLER ROUTING KEYS
-// queue used for when crawler is about to save webpages it crawled
-const CRAWLER_DB_INDEXING_QUEUE = "crawler_db_indexing_queue"
 
-const CRAWLER_DB_DEQUEUE_URL_QUEUE = "crawler_db_dequeue_url_queue"
-const DB_CRAWLER_DEQUEUE_URL_CBQ = "db_crawler_dequeue_url_cbq"
+// Stores webpage to database
+const CRAWLER_DB_INDEXING_QUEUE = "crawler.db.indexing.queue"
+const DB_CRAWLER_INDEXING_CBQ = "db.crawler.indexing.cbq"
 
-// a callback queue for notifying crawler that storing indexed webpages
-// was successful or failure
-const DB_CRAWLER_INDEXING_CBQ = "db_crawler_indexing_cbq"
+// Frontier Queue
+const CRAWLER_DB_STOREURLS_FRONTIER_QUEUE = "crawler.db.storeurls.frontier.queue"
+const CRAWLER_DB_CLEARURLS_QUEUE = "crawler.db.clearurls.frontier.queue"
+
+const CRAWLER_DB_DEQUEUE_FRONTIER_QUEUE = "crawler.db.dequeue.frontier.queue"
+const DB_CRAWLER_DEQUEUE_FRONTIER_CBQ = "db.crawler.dequeue.frontier.cbq"
+
+const CRAWLER_DB_LEN_FRONTIER_QUEUE = "crawler.db.len.frontier.queue"
+const DB_CRAWLER_LEN_FRONTIER_CBQ = "db.crawler.len.frontier.cbq"
 
 // queue used for consuming urls from express server
-const EXPRESS_CRAWLER_QUEUE = "express_crawler_queue"
-
-// a callback queue from express to crawler to notify express server
-// about the state of the crawl
-const CRAWLER_EXPRESS_CBQ = "crawler_express_cbq"
+const EXPRESS_CRAWLER_QUEUE = "express.crawler.crawl.queue"
+const CRAWLER_EXPRESS_CBQ = "crawler.express.crawl.cbq"

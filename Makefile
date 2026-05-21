@@ -1,5 +1,4 @@
 GO_FILES := $(wildcard *.go)
-TS_FILES := $(wildcard *.ts)
 GO_TESTFILES := $(wildcard *_test.go)
 
 .PHONY: check go_build go_test npm_build
@@ -9,7 +8,7 @@ check: lint_check format_check sec_check
 
 ifdef GO_FILES
 
-build: main.go
+build: main.go go_build node_build
 	go build -o zensearch
 
 
@@ -19,13 +18,9 @@ go_build:
 	cd ./search-engine/ && go build -o search_engine-bin
 endif
 
-ifdef TS_FILES
-npm_build:  
-	npm install ./database/
-	npm install ./express-server/
+node_build:  
 	npm run build --prefix ./database/
 	npm run build --prefix ./express-server/
-endif
 
 ifdef GO_TESTFILES
 go_test: 

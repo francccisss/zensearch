@@ -231,6 +231,7 @@ func (c Crawler) Crawl() error {
 	return nil
 }
 
+// TODO: Make SendIndexedWebpage use Go Routine instead
 func SendIndexedWebpage(result types.Result) error {
 
 	chann, err := rabbitmq.GetChannel("dbChannel")
@@ -246,8 +247,6 @@ func SendIndexedWebpage(result types.Result) error {
 
 	returnChan := make(chan amqp091.Return)
 
-	// TODO: USE REPLYTO Queue to notify the express server of what is going on
-	// currently this there is no consumer for this queue
 	err = chann.Publish("",
 		rabbitmq.CRAWLER_DB_INDEXING_QUEUE,
 		false, false,
@@ -257,6 +256,19 @@ func SendIndexedWebpage(result types.Result) error {
 			Body:        b,
 			ReplyTo:     rabbitmq.DB_CRAWLER_INDEXING_CBQ,
 		})
+	go func() {
+		del, err := chann.Consume(rabbitmq.DB_CRAWLER_INDEXING_CBQ, "", false, false, false, false, nil)
+		if err != nil {
+			fmt.Printf("Error on DB_CRAWLER_INDEXING_CBQ = '%s'\n", err)
+			return
+		}
+		msg := <-del
+		err = chann.Ack(msg.DeliveryTag, false)
+		if err != nil {
+			fmt.Printf("Error from ACK on DB_CRAWLER_INDEXING_CBQ = '%s'\n", err)
+			return
+		}
+	}()
 	chann.NotifyReturn(returnChan)
 	select {
 	case r := <-returnChan:

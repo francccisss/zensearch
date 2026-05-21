@@ -48,7 +48,7 @@ func New() FrontierQueue {
 func (q Queue) Dequeue(root string) error {
 
 	err := q.amqpChannel.Publish("",
-		"crawler_db_dequeue_url_queue",
+		rabbitmq.CRAWLER_DB_DEQUEUE_URL_QUEUE,
 		false, false,
 		amqp.Publishing{
 			Body:    []byte(root),
@@ -95,7 +95,7 @@ func (q Queue) Enqueue(exUrls ExtractedUrls) error {
 	if err != nil {
 		return err
 	}
-	err = q.amqpChannel.Publish("", "crawler_db_storeurls_queue", false, false, amqp.Publishing{
+	err = q.amqpChannel.Publish("", rabbitmq.CRAWLER_DB_STOREURLS_FRONTIER_QUEUE, false, false, amqp.Publishing{
 		ContentType: "application/json",
 		Body:        b,
 	})
@@ -108,18 +108,16 @@ func (q Queue) Enqueue(exUrls ExtractedUrls) error {
 func (q Queue) Len(hostname string) (uint32, error) {
 	fmt.Printf("CRAWLER TEST: GETTING QUEUE LENGTH FOR %s\n", hostname)
 
-	// TODO: change queue name
-
-	err := q.amqpChannel.Publish("", "crawler_db_len_queue", false, false, amqp.Publishing{
+	err := q.amqpChannel.Publish("", rabbitmq.CRAWLER_DB_LEN_QUEUE, false, false, amqp.Publishing{
 		ContentType: "application/json",
 		Body:        []byte(hostname),
-		ReplyTo:     "get_queue_len_queue",
+		ReplyTo:     rabbitmq.DB_CRAWLER_LEN_CBQ,
 	})
 	if err != nil {
 		return 0, err
 	}
 
-	lenMsg, err := q.amqpChannel.Consume("get_queue_len_queue", "", false, false, false, false, nil)
+	lenMsg, err := q.amqpChannel.Consume(rabbitmq.DB_CRAWLER_LEN_CBQ, "", false, false, false, false, nil)
 
 	msg := <-lenMsg
 

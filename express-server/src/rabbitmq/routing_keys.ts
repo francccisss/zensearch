@@ -10,30 +10,28 @@
 
 // CRAWLER ROUTING KEYS
 // queue for requesting a crawl from express to crawler
-const EXPRESS_CRAWLER_QUEUE = "express_crawler_queue";
-// a callback queue from express to crawler to notify express server
-// about the state of the crawl
-const CRAWLER_EXPRESS_CBQ = "crawler_express_cbq";
+const EXPRESS_CRAWLER_CRAWL_QUEUE = "express.crawler.crawl.queue"
+const CRAWLER_EXPRESS_CRAWL_CBQ = "crawler.express.crawl.cbq"
 
 // SEARCH ENGINE ROUTING KEYS
 // queue for sending search query to search engine from express server
-const EXPRESS_SENGINE_QUERY_QUEUE = "express_sengine_query_queue";
+const EXPRESS_SENGINE_QUERY_QUEUE = "express.sengine.query.queue";
 
 // a callback queue to consume from search engine to express server
 // after ranking webpages
-const SENGINE_EXPRESS_QUERY_CBQ = "sengine_express_query_cbq";
+const SENGINE_EXPRESS_QUERY_CBQ = "sengine.express.query.cbq";
 
 // DB ROUTING KEYS
 // route keys for checking db if the array of urls already exists
 // or websites have already been indexed
-const EXPRESS_DB_CHECK_QUEUE = "express_db_check_queue";
-const DB_EXPRESS_CHECK_CBQ = "db_express_check_cbq";
+const EXPRESS_DB_CHECK_QUEUE = "express.db.check.queue";
+const DB_EXPRESS_CHECK_CBQ = "db.express.check.cbq";
 
 export {
-  EXPRESS_CRAWLER_QUEUE,
-  EXPRESS_DB_CHECK_QUEUE,
-  EXPRESS_SENGINE_QUERY_QUEUE,
-  DB_EXPRESS_CHECK_CBQ,
-  SENGINE_EXPRESS_QUERY_CBQ,
-  CRAWLER_EXPRESS_CBQ,
+	EXPRESS_CRAWLER_CRAWL_QUEUE,
+	CRAWLER_EXPRESS_CRAWL_CBQ,
+	EXPRESS_DB_CHECK_QUEUE,
+	EXPRESS_SENGINE_QUERY_QUEUE,
+	DB_EXPRESS_CHECK_CBQ,
+	SENGINE_EXPRESS_QUERY_CBQ,
 };

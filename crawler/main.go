@@ -71,11 +71,11 @@ func main() {
 	expressChannel.QueueDeclare(rabbitmq.CRAWLER_EXPRESS_CBQ, false, false, false, false, nil)
 	rabbitmq.SetNewChannel("expressChannel", expressChannel)
 
-	frontierChannel.QueueDeclare("crawler_db_storeurls_queue", false, false, false, false, nil)
-	frontierChannel.QueueDeclare("db_crawler_dequeue_url_cbq", false, false, false, false, nil)
+	frontierChannel.QueueDeclare(rabbitmq.CRAWLER_DB_STOREURLS_QUEUE, false, false, false, false, nil)
+	frontierChannel.QueueDeclare(rabbitmq.DB_CRAWLER_DEQUEUE_URL_CBQ, false, false, false, false, nil)
 
-	frontierChannel.QueueDeclare("crawler_db_len_queue", false, false, false, false, nil)
-	frontierChannel.QueueDeclare("get_queue_len_queue", false, false, false, false, nil)
+	frontierChannel.QueueDeclare(rabbitmq.CRAWLER_DB_LEN_QUEUE, false, false, false, false, nil)
+	frontierChannel.QueueDeclare(rabbitmq.DB_CRAWLER_LEN_CBQ, false, false, false, false, nil)
 
 	rabbitmq.SetNewChannel("frontierChannel", frontierChannel)
 
