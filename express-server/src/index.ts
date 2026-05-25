@@ -1,13 +1,35 @@
 import http from "http";
 import rabbitmq from "./rabbitmq/index.js";
+import type { ExpressServerDefinition, RabbitMQDefinitions } from "./rabbitmq/rbq_definitions.js"
 import WebsocketService from "./websocket/index.js";
 import { WebSocketServer } from "ws";
 import app from "./express_server/index.js";
 import { exit } from "process";
+import yaml from "js-yaml"
+import fs from "fs"
+import path from "node:path";
+
 
 const httpServer = http.createServer(app);
 const PORT = 8080;
-(async function start_server() {
+await (async function start_server() {
+	console.log(import.meta.dirname)
+	const yamlfile = fs.readFileSync(path.resolve(import.meta.dirname, "../../rabbitmq.yml"), "utf8")
+	// const yamlfile = "../../rabbitmq.yml"
+	const doc = yaml.load(yamlfile, {}) as unknown as RabbitMQDefinitions
+	const expressDef: ExpressServerDefinition = {
+		exchange: {
+			...doc.exchange
+		}
+		,
+		queues: { ...doc.queues["express_server_queues"] as any },
+		routing_keys: { ...doc.routing_keys["express_server_keys"] as any },
+
+	}
+	console.log(expressDef.exchange)
+	console.log(expressDef.queues)
+	console.log(expressDef.routing_keys)
+	return
 	console.log("Starting express server");
 
 	httpServer.on("error", (err: any) => {
@@ -23,7 +45,7 @@ const PORT = 8080;
 	 Creates an indefinite loop to listen/receive
 	 new messages from the message broker.
 	*/
-	const rbqClient = await rabbitmq.client.establishConnection(7);
+	const rbqConn = await rabbitmq.client.establishConnection(7);
 
 	// Connect Websocket for search results retrieved
 	const wss: WebSocketServer = new WebSocketServer({ server: httpServer });
@@ -31,25 +53,25 @@ const PORT = 8080;
 	wsService.handler();
 
 	// rbq_client.segmentGenerator();
-	await rbqClient.initChannelQueues();
+	await rbqConn.initChannelQueues();
 
-	rbqClient.crawlChannelListener(
+	rbqConn.crawlChannelListener(
 		wsService.sendCrawlResultsToClient.bind(wsService),
 	);
 	(async () => {
 		let segmentsReceived = 0;
-		rbqClient.eventEmitter.on("newSegment", () => {
+		rbqConn.eventEmitter.on("newSegment", () => {
 			segmentsReceived++;
 		});
 
-		rbqClient.eventEmitter.on("done", () => {
+		rbqConn.eventEmitter.on("done", () => {
 			console.log("Segments Received: %d", segmentsReceived);
 			segmentsReceived = 0;
 		});
 	})();
 
-	rbqClient.addSegmentsToQueue();
-	rbqClient.searchChannelListener();
+	rbqConn.addSegmentsToQueue();
+	rbqConn.searchChannelListener();
 
 	// Start HTTP server
 	httpServer.listen(PORT, () => {
@@ -59,7 +81,7 @@ const PORT = 8080;
 	 Catching errors propogated by these initializers defined inside
 	 in the try block
 	*/
-})().catch((e) => {
+})().catch((e: any) => {
 	console.error(e);
 	httpServer.close();
 	console.log("SHUTDOWN");

@@ -8,22 +8,56 @@
  * that's just for me.
  */
 
+export type RabbitMQDefinitions = {
+	exchange: {
+		general: string
+		crawler: string
+	}
+	routing_keys: {
+		[key: string]: {
+			[key: string]: string
+		}
+	}
+	queues: {
+		[key: string]: {
+			[key: string]: string
+		}
+	}
+}
+
+export type ExpressServerDefinition = {
+	exchange: {
+		general: string
+		crawler: string
+	}
+	routing_keys: {
+		es_se_query: string
+		es_db_check: string
+		es_cr_request: string
+	}
+	queues: {
+
+		es_se_query_queue: string
+		es_se_query_cbq: string
+
+		es_db_check_queue: string
+		es_db_check_cbq: string
+
+		es_cr_request_queue: string
+		es_cr_request_cbq: string
+	}
+}
+
+
 // CRAWLER ROUTING KEYS
-// queue for requesting a crawl from express to crawler
 const EXPRESS_CRAWLER_CRAWL_QUEUE = "express.crawler.crawl.queue"
 const CRAWLER_EXPRESS_CRAWL_CBQ = "crawler.express.crawl.cbq"
 
 // SEARCH ENGINE ROUTING KEYS
-// queue for sending search query to search engine from express server
 const EXPRESS_SENGINE_QUERY_QUEUE = "express.sengine.query.queue";
-
-// a callback queue to consume from search engine to express server
-// after ranking webpages
 const SENGINE_EXPRESS_QUERY_CBQ = "sengine.express.query.cbq";
 
-// DB ROUTING KEYS
-// route keys for checking db if the array of urls already exists
-// or websites have already been indexed
+// EXPRESS ROUTING KEYS
 const EXPRESS_DB_CHECK_QUEUE = "express.db.check.queue";
 const DB_EXPRESS_CHECK_CBQ = "db.express.check.cbq";
 
