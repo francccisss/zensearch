@@ -1,25 +1,29 @@
 import type { Channel, ChannelModel, ConsumeMessage } from "amqplib";
+import yaml from "js-yaml"
+import fs from "fs"
+import type { ExpressServerDefinition, RabbitMQDefinitions } from "./rbq_definitions.js"
 import amqp from "amqplib";
 import EventEmitter from "stream";
 import CircularBuffer from "../segments/circular_buffer.js";
-import {
-	CRAWLER_EXPRESS_CRAWL_CBQ,
-	DB_EXPRESS_CHECK_CBQ,
-	EXPRESS_CRAWLER_CRAWL_QUEUE,
-	EXPRESS_DB_CHECK_QUEUE,
-	EXPRESS_SENGINE_QUERY_QUEUE,
-	SENGINE_EXPRESS_QUERY_CBQ,
-} from "./rbq_definitions.js";
 import type { CrawlMessageStatus } from "../types/index.js";
+import path from "path";
 
 // TODO ADD LOGS TO RECEIVED AND PROCESSED SEGMENTS
 class RabbitMQClient {
 	connection: null | ChannelModel = null;
 	client: this = this;
-	searchChannel: Channel | null = null;
+	publishChannel: Channel | null = null;
+	eventsChannel: Channel | null = null;
 	crawlChannel: Channel | null = null;
+	searchChannel: Channel | null = null;
 	eventEmitter: EventEmitter = new EventEmitter();
 	circleBuffer: CircularBuffer = new CircularBuffer(100);
+	definitions: ExpressServerDefinition
+
+
+	constructor(def: ExpressServerDefinition) {
+		this.definitions = def
+	}
 
 	async establishConnection(retryCount: number): Promise<RabbitMQClient> {
 		if (retryCount > 0) {
@@ -44,23 +48,61 @@ class RabbitMQClient {
 		throw new Error("Shutting down web server after several retries");
 	}
 
-	async initChannelQueues() {
+
+	// initializes the rabbitmq engine by and creating channels, asserting, binding queues and exchanges
+	// NOTICE: by AMQP specifications, the commands are delegated to the channels SO, any commands
+	// called by the channel does NOT mean that they are connected at all to the channel aside
+	// from the channel creation, assertion, and bindings called by the distinct channels
+	// are just used for making it clear that what channel will use for communicating with the
+	// RabbitMQ Engine.
+	//
+	// We do not bind ephmeral/temporary queues
+	async SetDefinitions() {
 		try {
 			if (this.connection == null) {
 				throw new Error("ERROR: Connection interface is null.");
 			}
+			this.publishChannel = await this.connection.createChannel()
+			// consumer channels
+			this.eventsChannel = await this.connection.createChannel();
+			// SearchChannel consumes from queue with heavier workload
 			this.searchChannel = await this.connection.createChannel();
-			this.crawlChannel = await this.connection.createChannel();
 
-			this.searchChannel.assertQueue(SENGINE_EXPRESS_QUERY_CBQ, {
-				exclusive: false,
-				durable: false,
-			});
+			// EXCHANGE ASSERTION
+			await this.publishChannel.assertExchange(this.definitions.exchange.general, "direct", { durable: true })
 
-			this.crawlChannel.assertQueue(CRAWLER_EXPRESS_CRAWL_CBQ, {
-				exclusive: false,
-				durable: false,
-			});
+			// QUEUE ASSERTIONS
+
+			// DB,EXPRESS & SEARCH SPECIFIC TASK
+			await this.eventsChannel.assertQueue(this.definitions.queues.es_db_check_queue)
+			await this.eventsChannel.assertQueue(this.definitions.queues.es_db_check_cbq,
+				{
+					exclusive: true,
+					durable: false,
+				}
+			)
+
+			await this.eventsChannel.assertQueue(this.definitions.queues.es_cr_request_queue)
+			await this.eventsChannel.assertQueue(this.definitions.queues.es_cr_request_cbq,
+				{
+					exclusive: true,
+					durable: false,
+				}
+			)
+			// SEARCH SPECIFIC TASK
+			await this.searchChannel.assertQueue(this.definitions.queues.es_se_query_queue)
+			await this.searchChannel.assertQueue(this.definitions.queues.es_se_query_cbq,
+				{
+					exclusive: true,
+					durable: false,
+				}
+			)
+
+			// QUEUE BINDING
+			await this.publishChannel.bindQueue(this.definitions.queues.es_se_query_queue, this.definitions.exchange.general, this.definitions.routing_keys.es_se_query)
+			await this.publishChannel.bindQueue(this.definitions.queues.es_cr_request_queue, this.definitions.exchange.general, this.definitions.routing_keys.es_cr_request)
+			await this.publishChannel.bindQueue(this.definitions.queues.es_db_check_queue, this.definitions.exchange.general, this.definitions.routing_keys.es_db_check)
+
 		} catch (err) {
 			const error = err as Error;
 			console.error(
@@ -76,14 +118,14 @@ class RabbitMQClient {
 	 returns a bool to check if it has been sent
 	*/
 	async sendSearchQuery(q: string): Promise<boolean> {
-		if (this.searchChannel == null) {
+		if (this.publishChannel == null) {
 			throw new Error("ERROR: Search Channel is null");
 		}
-		return this.searchChannel.sendToQueue(
-			EXPRESS_SENGINE_QUERY_QUEUE,
+		return this.publishChannel.publish(this.definitions.exchange.general,
+			this.definitions.routing_keys.es_se_query,
 			Buffer.from(q),
 			{
-				replyTo: SENGINE_EXPRESS_QUERY_CBQ,
+				replyTo: this.definitions.queues.es_se_query_cbq,
 			},
 		);
 	}
@@ -95,7 +137,7 @@ class RabbitMQClient {
 			throw new Error("ERROR: Crawl Channel is null.");
 
 		try {
-			this.crawlChannel.consume("", async (msg) => {
+			this.crawlChannel.consume(this.definitions.queues.es_cr_request_cbq, async (msg) => {
 				if (msg === null) throw new Error("No Response");
 				console.log("LOG: Message received from crawler");
 				if (this.crawlChannel == null) {
@@ -116,23 +158,13 @@ class RabbitMQClient {
 		}
 	}
 
-	// Channel Listener used by express server for listening for the
-	// search channel queue callback for webpages retrieval
-
 	async searchChannelListener() {
 		try {
-			if (this.searchChannel == null) {
-				throw new Error("ERROR: Search channel does not exist.");
-			}
-			//this.searchChannel.assertQueue(SEARCH_ES_CB, {
-			//  exclusive: false,
-			//  durable: false,
-			//});
-			this.searchChannel.consume(
-				SENGINE_EXPRESS_QUERY_CBQ,
+			this.searchChannel!.consume(
+				this.definitions.queues.es_se_query_cbq,
 				(data: ConsumeMessage | null) => {
 					if (data === null) {
-						this.searchChannel!.close();
+						this.eventsChannel!.close();
 						console.error("Msg does not exist");
 						this.eventEmitter.emit("segmentError", {
 							data: null,
@@ -180,26 +212,19 @@ class RabbitMQClient {
 	): Promise<boolean> {
 		if (this.connection === null)
 			throw new Error("ERROR: TCP Connection lost.");
-		const chan = await this.connection.createChannel();
 		try {
-			await chan.assertQueue(EXPRESS_CRAWLER_CRAWL_QUEUE, {
-				exclusive: false,
-				durable: false,
-			});
-			const success = chan.sendToQueue(EXPRESS_CRAWLER_CRAWL_QUEUE, websites, {
-				replyTo: CRAWLER_EXPRESS_CRAWL_CBQ,
+			const success = this.publishChannel!.publish(this.definitions.exchange.general, this.definitions.routing_keys.es_cr_request, websites, {
+				replyTo: this.definitions.queues.es_cr_request_cbq,
 				correlationId: job.id,
 			});
 			if (!success) {
 				throw new Error("ERROR: Unable to send to job to crawler service");
 			}
-			await chan.close();
 			return true;
 		} catch (err) {
 			const error = err as Error;
 			console.error("ERROR: Something went wrong while starting the crawl.");
 			console.error(error.message);
-			await chan.close();
 			return false;
 		}
 	}
@@ -215,23 +240,13 @@ class RabbitMQClient {
 	}> {
 		if (this.connection === null)
 			throw new Error("Unable to create a channel for crawl queue.");
-		const channel = await this.connection.createChannel();
 
-		await channel.assertQueue(EXPRESS_DB_CHECK_QUEUE, {
-			durable: false,
-			exclusive: false,
-		});
-		await channel.assertQueue(DB_EXPRESS_CHECK_CBQ, {
-			durable: false,
-			exclusive: false,
-		});
-
-		channel.sendToQueue(EXPRESS_DB_CHECK_QUEUE, Buffer.from(encoded_list), {
-			replyTo: DB_EXPRESS_CHECK_CBQ,
+		this.publishChannel!.publish(this.definitions.exchange.general, this.definitions.routing_keys.es_db_check, Buffer.from(encoded_list), {
+			replyTo: this.definitions.queues.es_db_check_cbq,
 		});
 		let unindexed: Array<string> = [];
 		let isError = false;
-		await channel.consume(DB_EXPRESS_CHECK_CBQ, async (data) => {
+		await this.eventsChannel!.consume(this.definitions.queues.es_db_check_cbq, async (data) => {
 			if (data === null) {
 				throw new Error("ERROR: Data received is null.");
 			}
@@ -240,10 +255,10 @@ class RabbitMQClient {
 					data.content.toString(),
 				);
 				unindexed = parseList.Docs;
-				channel.ack(data);
+				this.publishChannel!.ack(data);
 			} catch (err) {
 				isError = true;
-				channel.nack(data, false, false);
+				this.publishChannel!.nack(data, false, false);
 			}
 		});
 
@@ -252,11 +267,27 @@ class RabbitMQClient {
 				"ERROR: Something went wrong while tring to listen to DB serveice",
 			);
 
-		channel.close();
 		return isError ? null : { unindexed };
 	}
 }
 
 
-const rabbitClient = new RabbitMQClient();
+const yamlfile = fs.readFileSync(path.resolve(import.meta.dirname, "../../rabbitmq.yml"), "utf8")
+// const yamlfile = "../../rabbitmq.yml"
+const doc = yaml.load(yamlfile, {}) as unknown as RabbitMQDefinitions
+const expressDef: ExpressServerDefinition = {
+	exchange: {
+		...doc.exchange
+	}
+	,
+	queues: { ...doc.queues["express_server_queues"] as any },
+	routing_keys: { ...doc.routing_keys["express_server_keys"] as any },
+
+}
+console.log(expressDef.exchange)
+console.log(expressDef.queues)
+console.log(expressDef.routing_keys)
+console.log("Starting express server");
+
+const rabbitClient = new RabbitMQClient(expressDef);
 export default rabbitClient
