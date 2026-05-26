@@ -34,7 +34,8 @@ func (se *StdError) addError(value string) {
 // so that they configure the location of the host to their dockerd socket path
 func startServices(pctx context.Context, commandsList [][]string) {
 	newerr := NewError("Service Initialization")
-	dockerMan, err := NewDockerManager()
+	var mux sync.Mutex
+	dockerMan, err := NewDockerManager(&mux)
 	if err != nil {
 		newerr.addError(err.Error())
 		panic(newerr.Error())

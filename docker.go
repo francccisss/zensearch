@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -54,6 +55,7 @@ type DockerManager struct {
 	Containers *map[ContainerName]*DockerContainer
 	Images     map[string]*DockerImage
 	Host       string
+	mux        *sync.Mutex
 }
 
 var user = os.Getenv("USER")
@@ -66,7 +68,7 @@ const STANDALONE_DOCKER_HOST = "unix:///var/run/docker.sock"
 // then we can check the other host url since both Docker Desktop and standalone Docker Engine
 // uses 2 different URL Socket.
 
-func NewDockerManager() (DockerManager, error) {
+func NewDockerManager(mux *sync.Mutex) (DockerManager, error) {
 	cl, err := client.NewClientWithOpts(client.FromEnv, client.WithHost(DOCKER_DESKTOP_HOST), client.WithAPIVersionNegotiation())
 	if err != nil {
 		return DockerManager{}, err
@@ -78,11 +80,14 @@ func NewDockerManager() (DockerManager, error) {
 		Containers: &dcmap,
 		Images:     make(map[string]*DockerImage, 2),
 		Host:       cl.DaemonHost(),
+		mux:        mux,
 	}, nil
 }
 
 func (dm *DockerManager) NewDockerContainer(contConfig DockerContainerConfig) {
 
+	dm.mux.Lock()
+	defer dm.mux.Unlock()
 	newDockerContainer := &DockerContainer{
 		Client:         dm.Client,
 		ContainerName:  contConfig.Name,
@@ -94,6 +99,7 @@ func (dm *DockerManager) NewDockerContainer(contConfig DockerContainerConfig) {
 		ContainerID:    "",
 	}
 	(*dm.Containers)[newDockerContainer.ContainerName] = newDockerContainer
+
 }
 
 type ContainerManager interface {
