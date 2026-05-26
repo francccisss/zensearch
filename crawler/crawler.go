@@ -155,6 +155,7 @@ func (c Crawler) Crawl() error {
 	// so crawler does not have to check if the current url has already
 	// been visited by it.
 
+	// Blocks thread
 	queueLength, err := c.FrontierQueue.Len(hostname)
 	if err != nil {
 		fmt.Println(err)
@@ -177,7 +178,8 @@ func (c Crawler) Crawl() error {
 			return err
 		}
 
-		// concurrency issue xd
+		// TODO: race condition issue xd
+		// need to wait for database service to receive enqueued url
 		time.Sleep(time.Second * 3)
 	}
 

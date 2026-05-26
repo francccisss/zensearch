@@ -13,6 +13,11 @@ const CRAWLER_DB_CLEARURLS_QUEUE = "crawler.db.clearurls.frontier.queue"
 const CRAWLER_DB_DEQUEUE_FRONTIER_QUEUE = "crawler.db.dequeue.frontier.queue"
 const DB_CRAWLER_DEQUEUE_FRONTIER_CBQ = "db.crawler.dequeue.frontier.cbq"
 
+// TODO: maybe instead of querying message broker
+// instead create a map with root as key, and each node/url
+// is stored in the array in the map's value which then
+// can be used to pop and push items into it for checking len
+// problem is "RACE CONDITION"
 const CRAWLER_DB_LEN_FRONTIER_QUEUE = "crawler.db.len.frontier.queue"
 const DB_CRAWLER_LEN_FRONTIER_CBQ = "db.crawler.len.frontier.cbq"
 

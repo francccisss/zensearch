@@ -9,6 +9,7 @@ There will be lots of changes to the project, so for now just sit tight.
 - list of urls for each webpage crawled
 - caching queries from search
 - Optimize frontend rendering of search results
+- Convert byte ordering received from rabbitmq queues
 
 
 ## Snapshots
@@ -32,6 +33,15 @@ There will be lots of changes to the project, so for now just sit tight.
 
 - The `b` controls the normalization of the length of the document relative to the term's relevancy or controls the concentration of the term in the document, if the term is sparse and is not mentioned enough in a long document and if `b` is high from 0-1, then long documents will be punished which means they will be scored lower, but if a document mentions the term more frequently and is more concetrated throughout the whole document, the document will be scored higher,
 using `0` normalization will render the document to only consider the term frequency and not consider if the document is relative to the term.
+
+
+# Service Communication
+
+### Publishers: Express server, Search engine and Crawler.
+The database service NEVER publishes any messages to any of the other services by its own accord
+but only when it is queried by other services to reply back to an asserted ephemeral queue via
+the messages' `replyTo` value that was set by these services.
+
 
 # Tools and Dependencies
 

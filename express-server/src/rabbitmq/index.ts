@@ -1,4 +1,4 @@
-import type { Channel, ChannelModel, ConsumeMessage } from "amqplib";
+import type { Channel, Connection, ConsumeMessage } from "amqplib";
 import yaml from "js-yaml"
 import fs from "fs"
 import type { ExpressServerDefinition, RabbitMQDefinitions } from "./rbq_definitions.js"
@@ -10,7 +10,7 @@ import path from "path";
 
 // TODO ADD LOGS TO RECEIVED AND PROCESSED SEGMENTS
 class RabbitMQClient {
-	connection: null | ChannelModel = null;
+	connection: null | Connection = null;
 	client: this = this;
 	publishChannel: Channel | null = null;
 	eventsChannel: Channel | null = null;
@@ -62,11 +62,12 @@ class RabbitMQClient {
 			if (this.connection == null) {
 				throw new Error("ERROR: Connection interface is null.");
 			}
-			this.publishChannel = await this.connection.createChannel()
+			this.publishChannel = await this.connection.createChannel() as Channel
 			// consumer channels
-			this.eventsChannel = await this.connection.createChannel();
+			this.eventsChannel = await this.connection.createChannel() as Channel;
 			// SearchChannel consumes from queue with heavier workload
-			this.searchChannel = await this.connection.createChannel();
+			this.searchChannel = await this.connection.createChannel() as Channel;
+			this.crawlChannel = await this.connection.createChannel() as Channel;
 
 			// EXCHANGE ASSERTION
 			await this.publishChannel.assertExchange(this.definitions.exchange.general, "direct", { durable: true })
@@ -143,7 +144,7 @@ class RabbitMQClient {
 				if (this.crawlChannel == null) {
 					throw new Error("ERROR: Crawl Channel is null.");
 				}
-				const deserializedMessage = new TextDecoder().decode(msg.content);
+				const deserializedMessage = msg.content.toString();
 				const crawlMessage: CrawlMessageStatus =
 					JSON.parse(deserializedMessage);
 				console.log(crawlMessage);
@@ -272,8 +273,7 @@ class RabbitMQClient {
 }
 
 
-const yamlfile = fs.readFileSync(path.resolve(import.meta.dirname, "../../rabbitmq.yml"), "utf8")
-// const yamlfile = "../../rabbitmq.yml"
+const yamlfile = fs.readFileSync(path.resolve(import.meta.dirname, "../../../rabbitmq.yml"), "utf8")
 const doc = yaml.load(yamlfile, {}) as unknown as RabbitMQDefinitions
 const expressDef: ExpressServerDefinition = {
 	exchange: {

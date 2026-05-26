@@ -1,0 +1,49 @@
+exchange:
+  general: req2res.dx
+  crawler: crawler.dx
+
+routing_keys:
+  search_engine_keys:
+    se_db_request: se.db.request
+  express_server_keys:
+    es_se_query: es.se.query
+    es_db_check: es.db.check
+    es_cr_request: es_cr_request
+  crawler_keys:
+    cr_db_indexing: cr.db.indexing
+    cr_db_enqueue: cr.db.enqueue
+    cr_db_dequeue: cr.db.dequeue
+    cr_db_getlen: cr.db.getlen
+
+# Every cbq (callback queues) are ephemeral and will be
+# declared on process startup.
+# TODO: add dead letter queues
+
+queues:
+  search_engine_queues:
+    se_db_request_queue: se.db.request.queue
+    se_db_request_cbq: se.db.request.cbq
+
+  express_server_queues:
+    # To Search engine communication
+    es_se_query_queue: es.se.query.queue
+    es_se_query_cbq: es.se.query.cbq
+    # To Database communication
+    es_db_check_queue: es.db.check.queue
+    es_db_check_cbq: es.db.check.cbq
+    # To Crawler communication
+    es_cr_request_queue: es.cr.request.queue
+    es_cr_request_cbq: es.cr.request.cbq
+
+  crawler_queues:
+    cr_db_indexing_queue: cr.db.indexing.queue
+    cr_db_indexing_cbq: cr.db.indexing.cbq
+
+    cr_db_enqueue_queue: cr.db.enqueue.queue
+    cr_db_enqueue_cbq: cr.db.enqueue.cbq
+
+    cr_db_dequeue_queue: cr.db.dequeue.queue
+    cr_db_dequeue_cbq: cr.db.dequeue.cbq
+
+    cr_db_getlen_queue: cr.db.getlen.queue
+    cr_db_getlen_cbq: cr.db.getlen.cbq
