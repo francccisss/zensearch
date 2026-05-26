@@ -24,6 +24,7 @@ import segmentSerializer from "../serializer/segment_serializer.js";
 // from search engine request as well as crawler request
 //
 // Data segmentation request and processing and responding is for both search engine 
+const cumulativeAckCount = 1000;
 class RabbitMQClient {
 	connection: null | ChannelModel = null;
 	client: this = this;
@@ -81,7 +82,10 @@ class RabbitMQClient {
 			this.lowThroughputChannel = await this.connection.createChannel()
 
 			// handling high throughput publishing to search engine from data segmentation 
+			//
 			this.highThroughputChannel = await this.connection.createChannel()
+
+			this.highThroughputChannel!.prefetch(cumulativeAckCount, false);
 			// incoming data can be from, search engine query, frontier queue requests from crawler
 			// as well has webpage indexing.
 			// and crawl list check request from express server
@@ -95,71 +99,29 @@ class RabbitMQClient {
 
 			// DB,EXPRESS & SEARCH SPECIFIC TASK
 			await this.eventsChannel.assertQueue(this.definitions.queues.es_db_check_queue)
-			await this.eventsChannel.assertQueue(this.definitions.queues.es_db_check_cbq,
-				{
-					exclusive: true,
-					durable: false,
-				}
-			)
-
 			await this.eventsChannel.assertQueue(this.definitions.queues.se_db_request_queue)
-			await this.eventsChannel.assertQueue(this.definitions.queues.se_db_request_cbq,
-				{
-					exclusive: true,
-					durable: false,
-				}
-			)
-
 			await this.eventsChannel.assertQueue(this.definitions.queues.cr_db_indexing_queue)
-			await this.eventsChannel.assertQueue(this.definitions.queues.cr_db_indexing_cbq,
-				{
-					exclusive: true,
-					durable: false,
-				}
-			)
-
 			await this.eventsChannel.assertQueue(this.definitions.queues.cr_db_enqueue_queue)
-			await this.eventsChannel.assertQueue(this.definitions.queues.cr_db_enqueue_cbq,
-				{
-					exclusive: true,
-					durable: false,
-				}
-
-			)
-
 			await this.eventsChannel.assertQueue(this.definitions.queues.cr_db_dequeue_queue)
-			await this.eventsChannel.assertQueue(this.definitions.queues.cr_db_dequeue_cbq,
-				{
-					exclusive: true,
-					durable: false,
-
-				}
-			)
 
 			await this.eventsChannel.assertQueue(this.definitions.queues.cr_db_getlen_queue)
-			await this.eventsChannel.assertQueue(this.definitions.queues.cr_db_getlen_cbq,
-				{
-					exclusive: true,
-					durable: false,
-				}
-			)
 
-			// QUEUE BINDING
-			// # General Exchange
-			await this.highThroughputChannel.bindQueue(this.definitions.queues.es_db_check_queue, this.definitions.exchange.general, this.definitions.routing_keys.es_db_check)
-			await this.highThroughputChannel.bindQueue(this.definitions.queues.se_db_request_queue, this.definitions.exchange.general, this.definitions.routing_keys.se_db_request)
-
-
-			// # Crawler Exchange
-
-			await this.highThroughputChannel.bindQueue(this.definitions.queues.cr_db_indexing_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_indexing)
-
-			await this.highThroughputChannel.bindQueue(this.definitions.queues.cr_db_enqueue_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_dequeue)
-
-			await this.highThroughputChannel.bindQueue(this.definitions.queues.cr_db_dequeue_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_dequeue)
-
-			await this.highThroughputChannel.bindQueue(this.definitions.queues.cr_db_getlen_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_getlen)
-
+			// // QUEUE BINDING
+			// // # General Exchange
+			// await this.highThroughputChannel.bindQueue(this.definitions.queues.es_db_check_queue, this.definitions.exchange.general, this.definitions.routing_keys.es_db_check)
+			// await this.highThroughputChannel.bindQueue(this.definitions.queues.se_db_request_queue, this.definitions.exchange.general, this.definitions.routing_keys.se_db_request)
+			//
+			//
+			// // # Crawler Exchange
+			//
+			// await this.highThroughputChannel.bindQueue(this.definitions.queues.cr_db_indexing_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_indexing)
+			//
+			// await this.highThroughputChannel.bindQueue(this.definitions.queues.cr_db_enqueue_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_dequeue)
+			//
+			// await this.highThroughputChannel.bindQueue(this.definitions.queues.cr_db_dequeue_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_dequeue)
+			//
+			// await this.highThroughputChannel.bindQueue(this.definitions.queues.cr_db_getlen_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_getlen)
+			//
 		} catch (err) {
 			const error = err as Error;
 			console.error(
@@ -247,6 +209,7 @@ class RabbitMQClient {
 				const is_sent = this.lowThroughputChannel!.publish("",
 					data.properties.replyTo,
 					Buffer.from(encodedDocs),
+
 				);
 				if (!is_sent) {
 					console.error("ERROR: Unable to send back message.");
@@ -408,7 +371,7 @@ class RabbitMQClient {
 }
 
 
-const yamlfile = fs.readFileSync(path.resolve(import.meta.dirname, "../../rabbitmq.yml"), "utf8")
+const yamlfile = fs.readFileSync(path.resolve(import.meta.dirname, "../../../rabbitmq.yml"), "utf8")
 // const yamlfile = "../../rabbitmq.yml"
 const doc = yaml.load(yamlfile, {}) as unknown as RabbitMQDefinitions
 const expressDef: DatabaseServiceDefinition = {

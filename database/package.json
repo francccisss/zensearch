@@ -20,11 +20,13 @@
     "@types/node": "^22.5.0",
     "nodemon": "^3.1.4",
     "ts-node": "^10.9.2",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "@types/js-yaml": "^4.0.9"
   },
   "dependencies": {
     "amqplib": "^0.10.4",
     "dotenv": "^17.2.2",
+    "js-yaml": "^4.1.1",
     "mysql2": "^3.14.4"
   }
 }

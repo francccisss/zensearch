@@ -9,7 +9,6 @@ import { configDotenv } from "dotenv";
 
 
 configDotenv({ path: path.resolve(import.meta.dirname, "../.env") })
-const cumulativeAckCount = 1000;
 
 const poolOption: mysql.PoolOptions = {
 	user: process.env.DB_USER,
@@ -30,12 +29,10 @@ await (async function init(): Promise<void> {
 		console.log("tables created");
 		console.log("Starting database server");
 		const rbqClient = await rabbitmq.EstablishConnection(7);
-		console.log("Channel Created");
-		rbqClient.SetDefinitions()
-		rbqClient.highThroughputChannel!.prefetch(cumulativeAckCount, false);
-		rabbitmq.SearchEngineHandler(db);
-		rabbitmq.EventHandler(db)
-		rabbitmq.CrawlerHandler(db);
+		await rbqClient.SetDefinitions()
+		// rabbitmq.SearchEngineHandler(db);
+		// rabbitmq.EventHandler(db)
+		// rabbitmq.CrawlerHandler(db);
 	} catch (err) {
 		const error = err as Error;
 		console.error(error);
@@ -43,7 +40,7 @@ await (async function init(): Promise<void> {
 	}
 })();
 
-export async function execScripts(
+async function execScripts(
 	db: mysql.Pool | null,
 	scriptPath: string,
 ): Promise<void> {
