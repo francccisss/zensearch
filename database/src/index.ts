@@ -29,13 +29,13 @@ await (async function init(): Promise<void> {
 
 		console.log("tables created");
 		console.log("Starting database server");
-		const connection = await rabbitmq.establishConnection(7);
-		const databaseChannel = await connection.createChannel();
-		const frontierChannel = await connection.createChannel();
+		const rbqClient = await rabbitmq.EstablishConnection(7);
 		console.log("Channel Created");
-		databaseChannel.prefetch(cumulativeAckCount, false);
-		rabbitmq.webpageHandler(db, databaseChannel);
-		rabbitmq.frontierQueueHandler(db, frontierChannel);
+		rbqClient.SetDefinitions()
+		rbqClient.highThroughputChannel!.prefetch(cumulativeAckCount, false);
+		rabbitmq.SearchEngineHandler(db);
+		rabbitmq.EventHandler(db)
+		rabbitmq.CrawlerHandler(db);
 	} catch (err) {
 		const error = err as Error;
 		console.error(error);

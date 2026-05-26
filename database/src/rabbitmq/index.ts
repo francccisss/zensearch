@@ -15,12 +15,6 @@ import type {
 	Webpage,
 } from "../utils/types.js";
 import segmentSerializer from "../serializer/segment_serializer.js";
-import {
-	CRAWLER_DB_INDEXING_QUEUE,
-	DB_CRAWLER_INDEXING_CBQ,
-	DB_CRAWLER_LEN_FRONTIER_CBQ,
-	EXPRESS_DB_CHECK_QUEUE,
-} from "./routing_keys.js";
 
 
 // search engine and database would need to consume highthroughput data
@@ -33,10 +27,9 @@ import {
 class RabbitMQClient {
 	connection: null | ChannelModel = null;
 	client: this = this;
-	publishChannel: Channel | null = null;
+	highThroughputChannel: Channel | null = null;
 	eventsChannel: Channel | null = null;
-	crawlChannel: Channel | null = null;
-	searchChannel: Channel | null = null;
+	lowThroughputChannel: Channel | null = null;
 	eventEmitter: EventEmitter = new EventEmitter();
 	definitions: DatabaseServiceDefinition
 
@@ -82,16 +75,21 @@ class RabbitMQClient {
 			if (this.connection == null) {
 				throw new Error("ERROR: Connection interface is null.");
 			}
-			// handling high and low throughput publishing to express, search and crawler
-			this.publishChannel = await this.connection.createChannel()
+
+
+
+			this.lowThroughputChannel = await this.connection.createChannel()
+
+			// handling high throughput publishing to search engine from data segmentation 
+			this.highThroughputChannel = await this.connection.createChannel()
 			// incoming data can be from, search engine query, frontier queue requests from crawler
 			// as well has webpage indexing.
 			// and crawl list check request from express server
 			this.eventsChannel = await this.connection.createChannel();
 
 			// EXCHANGE ASSERTION
-			await this.publishChannel.assertExchange(this.definitions.exchange.general, "direct", { durable: true })
-			await this.publishChannel.assertExchange(this.definitions.exchange.crawler, "direct", { durable: true })
+			await this.highThroughputChannel.assertExchange(this.definitions.exchange.general, "direct", { durable: true })
+			await this.highThroughputChannel.assertExchange(this.definitions.exchange.crawler, "direct", { durable: true })
 
 			// QUEUE ASSERTIONS
 
@@ -148,19 +146,19 @@ class RabbitMQClient {
 
 			// QUEUE BINDING
 			// # General Exchange
-			await this.publishChannel.bindQueue(this.definitions.queues.es_db_check_queue, this.definitions.exchange.general, this.definitions.routing_keys.es_db_check)
-			await this.publishChannel.bindQueue(this.definitions.queues.se_db_request_queue, this.definitions.exchange.general, this.definitions.routing_keys.se_db_request)
+			await this.highThroughputChannel.bindQueue(this.definitions.queues.es_db_check_queue, this.definitions.exchange.general, this.definitions.routing_keys.es_db_check)
+			await this.highThroughputChannel.bindQueue(this.definitions.queues.se_db_request_queue, this.definitions.exchange.general, this.definitions.routing_keys.se_db_request)
 
 
 			// # Crawler Exchange
 
-			await this.publishChannel.bindQueue(this.definitions.queues.cr_db_indexing_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_indexing)
+			await this.highThroughputChannel.bindQueue(this.definitions.queues.cr_db_indexing_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_indexing)
 
-			await this.publishChannel.bindQueue(this.definitions.queues.cr_db_enqueue_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_dequeue)
+			await this.highThroughputChannel.bindQueue(this.definitions.queues.cr_db_enqueue_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_dequeue)
 
-			await this.publishChannel.bindQueue(this.definitions.queues.cr_db_dequeue_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_dequeue)
+			await this.highThroughputChannel.bindQueue(this.definitions.queues.cr_db_dequeue_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_dequeue)
 
-			await this.publishChannel.bindQueue(this.definitions.queues.cr_db_getlen_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_getlen)
+			await this.highThroughputChannel.bindQueue(this.definitions.queues.cr_db_getlen_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_getlen)
 
 		} catch (err) {
 			const error = err as Error;
@@ -172,71 +170,48 @@ class RabbitMQClient {
 		}
 	}
 
-	async SearchEngineHandler() { }
-
-
-	async WebpageHandler(
+	async SearchEngineHandler(
 		pool: mysql.Pool,
-		dbInterfaceChannel: amqp.Channel,
 	) {
-		// EXPRESS SERVER ROUTING KEYS
-		// routing key used by express server to check existing webpages.
 
 		/*
-		 TODO Document code please :)
-		 TODO Use PRE-Compression eg:
-		  saving new indexed webpage should be compressed and decompressed on
-		  request
+		  Consumes messages sent by the search engine services to query the dbInterface for
+		  the webpages to be ranked and sent to the client.
 	      
-		  Consumer waits for the crawler service to push new webpages into the `db_indexing_crawler`
-		  message queue, the `indexWebpages` handler saves these crawled webpages into
-		  the await dbInterface.
+		  a callback queue is assigned once we consume and query webpages so that we can send
+		  it back right after all those process are done.
 		*/
-
-		// Errors and successful crawls will be demultiplexed here
-		dbInterfaceChannel.consume(CRAWLER_DB_INDEXING_QUEUE, async (data) => {
-			// who is going to catch this error? aaaaaa
+		this.eventsChannel!.consume(this.definitions.queues.se_db_request_queue, async (data) => {
 			if (data === null) throw new Error("No data was pushed.");
-			const decoder = new TextDecoder();
-			const decodedData = decoder.decode(data.content as unknown as ArrayBuffer);
-			const deserializeData: IndexedWebpage = JSON.parse(decodedData);
 			try {
-				dbInterfaceChannel.ack(data);
-				await dbInterface.saveWebpage(pool, deserializeData);
-				console.log("Storing data");
+				const dataQuery: Webpage[] = await dbInterface.queryWebpages(pool);
+				console.log({ searchEngineMessage: data.content.toString() });
 
-				// todo: use replyto queue to notify the express server of what is going on
-				// currently this there is no consumer for this queue
-				dbInterfaceChannel.sendToQueue(
-					DB_CRAWLER_INDEXING_CBQ,
-					Buffer.from(
-						JSON.stringify({
-							isSuccess: true,
-							Message: "Successfully stored webpages",
-							URLSeed: deserializeData.URLSeed,
-						}),
-					),
+				this.eventsChannel!.ack(data);
+				const MSS = 100000;
+				let segments = segmentSerializer.createSegments(
+					Buffer.from(JSON.stringify(dataQuery)),
+					MSS,
+					async (newSegment: Buffer) => {
+						this.highThroughputChannel!.publish("",
+							data.properties.replyTo, // respond back to this queue from search engine
+							newSegment,
+							{
+								correlationId: data.properties.correlationId,
+							},
+						);
+					},
 				);
+				console.log("Total segments created: %d", segments.length);
 			} catch (err) {
 				const error = err as Error;
-				console.error("ERROR: %s", error);
-				console.log("Sending back response to crawler");
-				console.log(deserializeData);
-				// TODO: USE REPLYTO Queue to notify the express server of what is going on
-				// currently this there is no consumer for this queue
-				dbInterfaceChannel.sendToQueue(
-					data.properties.replyTo,
-					Buffer.from(
-						JSON.stringify({
-							IsSuccess: false,
-							Message: "Unable to store indexed webpages to sqlite",
-							URLSeed: deserializeData.URLSeed,
-						}),
-					),
-				);
-				throw Error(error.message);
+				console.error(error.message);
+				console.error(error.stack);
+				this.eventsChannel!.nack(data, false, false);
 			}
 		});
+	}
+	async EventHandler(pool: mysql.Pool) {
 
 		/*
 		  The `ES_DB_CHECK_QUEUE` routing key used to consumes the messages from the express server
@@ -249,7 +224,7 @@ class RabbitMQClient {
 		  the remaining items as uncrawled to be processed by the crawler service.
 		 */
 
-		dbInterfaceChannel.consume(EXPRESS_DB_CHECK_QUEUE, async (data) => {
+		this.eventsChannel!.consume(this.definitions.queues.es_db_check_queue, async (data) => {
 			if (data == null) throw new Error("No data was pushed.");
 			try {
 				console.log(
@@ -268,8 +243,8 @@ class RabbitMQClient {
 					JSON.stringify({ Docs: unindexedWebsites }),
 				);
 
-				dbInterfaceChannel.ack(data);
-				const is_sent = dbInterfaceChannel.publish("",
+				this.eventsChannel!.ack(data);
+				const is_sent = this.lowThroughputChannel!.publish("",
 					data.properties.replyTo,
 					Buffer.from(encodedDocs),
 				);
@@ -279,65 +254,75 @@ class RabbitMQClient {
 				}
 			} catch (err) {
 				const error = err as Error;
-				dbInterfaceChannel.nack(data, false, false);
+				this.eventsChannel!.nack(data, false, false);
 				console.error(error.message);
 				console.error(err);
 			}
 		});
 
-		/*
-		  Consumes messages sent by the search engine services to query the dbInterface for
-		  the webpages to be ranked and sent to the client.
-	      
-		  a callback queue is assigned once we consume and query webpages so that we can send
-		  it back right after all those process are done.
-		*/
-		dbInterfaceChannel.consume(this.definitions.queues.se_db_request_queue, async (data) => {
-			if (data === null) throw new Error("No data was pushed.");
-			try {
-				const dataQuery: Webpage[] = await dbInterface.queryWebpages(pool);
-				console.log({ searchEngineMessage: data.content.toString() });
-
-				dbInterfaceChannel.ack(data);
-				const MSS = 100000;
-				let segments = segmentSerializer.createSegments(
-					Buffer.from(JSON.stringify(dataQuery)),
-					MSS,
-					async (newSegment: Buffer) => {
-						dbInterfaceChannel.publish("",
-							data.properties.replyTo, // respond back to this queue from search engine
-							newSegment,
-							{
-								correlationId: data.properties.correlationId,
-							},
-						);
-					},
-				);
-				console.log("Total segments created: %d", segments.length);
-			} catch (err) {
-				const error = err as Error;
-				console.error(error.message);
-				console.error(error.stack);
-				dbInterfaceChannel.nack(data, false, false);
-			}
-		});
 	}
 
 
-	async FrontierQueueHandler(
+	async CrawlerHandler(
 		pool: mysql.Pool,
-		frontierChannel: amqp.Channel,
 	) {
 
+		// Crawler indexing handler
+		this.eventsChannel!.consume(this.definitions.queues.cr_db_indexing_queue, async (data) => {
+			// who is going to catch this error? aaaaaa
+			if (data === null) throw new Error("No data was pushed.");
+			const decoder = new TextDecoder();
+			const decodedData = decoder.decode(data.content as unknown as ArrayBuffer);
+			const deserializeData: IndexedWebpage = JSON.parse(decodedData);
+			try {
+				this.eventsChannel!.ack(data);
+				await dbInterface.saveWebpage(pool, deserializeData);
+				console.log("Storing data");
 
-		frontierChannel.consume(this.definitions.queues.cr_db_dequeue_queue,
+				// todo: use replyto queue to notify the express server of what is going on
+				// currently this there is no consumer for this queue
+				this.lowThroughputChannel!.publish("",
+					data.properties.replyTo,
+					Buffer.from(
+						JSON.stringify({
+							isSuccess: true,
+							Message: "Successfully stored webpages",
+							URLSeed: deserializeData.URLSeed,
+						}),
+					),
+				);
+			} catch (err) {
+				const error = err as Error;
+				console.error("ERROR: %s", error);
+				console.log("Sending back response to crawler");
+				console.log(deserializeData);
+				// TODO: USE REPLYTO Queue to notify the express server of what is going on
+				// currently this there is no consumer for this queue
+				this.lowThroughputChannel!.publish("",
+					data.properties.replyTo,
+					Buffer.from(
+						JSON.stringify({
+							IsSuccess: false,
+							Message: "Unable to store indexed webpages to sqlite",
+							URLSeed: deserializeData.URLSeed,
+						}),
+					),
+				);
+				throw Error(error.message);
+			}
+		});
+
+
+		// Crawler frontier queues handlers
+		this.eventsChannel!.consume(this.definitions.queues.cr_db_dequeue_queue,
 			async (msg: amqp.ConsumeMessage | null) => {
-				try {
-					if (msg == null) {
-						throw new Error("Message is null");
-					}
 
-					frontierChannel.ack(msg);
+				if (msg == null) {
+					throw new Error("Message received is null");
+				}
+
+				try {
+					this.eventsChannel!.ack(msg);
 					console.log("dbInterface TEST: DEQUEUEING");
 					const domain = msg.content.toString();
 					const { length, url, inProgressNode, message } =
@@ -346,7 +331,7 @@ class RabbitMQClient {
 					const dequeuedUrl: DequeuedUrl = { RemainingInQueue: length, Url: url };
 					const msgBuffer = Buffer.from(JSON.stringify(dequeuedUrl));
 
-					const sent = frontierChannel.publish("",
+					const sent = this.lowThroughputChannel!.publish("",
 						msg.properties.replyTo,
 						msgBuffer,
 					);
@@ -369,36 +354,39 @@ class RabbitMQClient {
 					}
 				} catch (e: any) {
 					console.error(e);
+					this.eventsChannel!.nack(msg)
 					throw new Error(e);
 				}
 			},
 		);
-		frontierChannel.consume(
+		// doensnt really send any message back to crawler enqueue cbq
+		this.eventsChannel!.consume(
 			this.definitions.queues.cr_db_enqueue_queue,
 			async (msg: amqp.ConsumeMessage | null) => {
+				if (msg == null) {
+					throw new Error("Message received is null");
+				}
 				try {
-					if (msg == null) {
-						throw new Error("Message is null");
-					}
 					const URLs: URLs = JSON.parse(msg.content.toString());
 					console.log("dbInterface TEST: URLS ", URLs);
 					await dbInterface.enqueueUrls(pool, URLs);
-					frontierChannel.ack(msg);
+					this.eventsChannel!.ack(msg);
 				} catch (e: any) {
 					console.error(e);
+					this.eventsChannel!.nack(msg)
 					throw new Error(e);
 				}
 			},
 		);
 
-		frontierChannel.consume(
+		this.eventsChannel!.consume(
 			this.definitions.queues.cr_db_getlen_queue,
 			async (msg: amqp.ConsumeMessage | null) => {
+				if (msg == null) {
+					throw new Error("Message received is null");
+				}
 				try {
-					if (msg == null) {
-						throw new Error("Message is null");
-					}
-					frontierChannel.ack(msg);
+					this.eventsChannel!.ack(msg);
 					const hostname = msg.content.toString();
 					const queueLen = await dbInterface.getCurrentQueueLen(pool, hostname);
 
@@ -407,9 +395,10 @@ class RabbitMQClient {
 					console.log("dbInterface TEST: QUEUE LEN BUFFER ", queueLenBuf);
 					console.log("dbInterface TEST: QUEUE='%s' LENGTH ", hostname, queueLen);
 
-					frontierChannel.sendToQueue(DB_CRAWLER_LEN_FRONTIER_CBQ, queueLenBuf);
+					this.lowThroughputChannel!.publish("", msg.properties.replyTo, queueLenBuf);
 				} catch (e: any) {
 					console.error(e);
+					this.eventsChannel!.nack(msg)
 					throw new Error(e);
 				}
 			},
