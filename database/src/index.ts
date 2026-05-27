@@ -30,9 +30,9 @@ await (async function init(): Promise<void> {
 		console.log("Starting database server");
 		const rbqClient = await rabbitmq.EstablishConnection(7);
 		await rbqClient.SetDefinitions()
-		// rabbitmq.SearchEngineHandler(db);
-		// rabbitmq.EventHandler(db)
-		// rabbitmq.CrawlerHandler(db);
+		rabbitmq.SearchEngineHandler(db);
+		rabbitmq.EventHandler(db)
+		rabbitmq.CrawlerHandler(db);
 	} catch (err) {
 		const error = err as Error;
 		console.error(error);

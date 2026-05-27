@@ -200,10 +200,11 @@ class RabbitMQClient {
 					crawlList.Docs,
 				);
 
+				console.log(unindexedWebsites)
 				const encoder = new TextEncoder();
 				const encodedDocs = encoder.encode(
 					JSON.stringify({ Docs: unindexedWebsites }),
-				);
+				).buffer;
 
 				this.eventsChannel!.ack(data);
 				const is_sent = this.lowThroughputChannel!.publish("",
@@ -215,6 +216,7 @@ class RabbitMQClient {
 					console.error("ERROR: Unable to send back message.");
 					return
 				}
+				console.log("Sent crawlist")
 			} catch (err) {
 				const error = err as Error;
 				this.eventsChannel!.nack(data, false, false);

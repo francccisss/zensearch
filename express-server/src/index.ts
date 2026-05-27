@@ -24,7 +24,7 @@ await (async function start_server() {
 	 Creates an indefinite loop to listen/receive
 	 new messages from the message broker.
 	*/
-	const rbqConn = await rabbitmq.client.establishConnection(7);
+	const rbqConn = await rabbitmq.client.EstablishConnection(7);
 
 	// Connect Websocket for search results retrieved
 	const wss: WebSocketServer = new WebSocketServer({ server: httpServer });
@@ -34,7 +34,7 @@ await (async function start_server() {
 	// rbq_client.segmentGenerator();
 	await rbqConn.SetDefinitions();
 
-	rbqConn.crawlChannelListener(
+	rbqConn.CrawlChannelHandler(
 		wsService.sendCrawlResultsToClient.bind(wsService),
 	);
 	(async () => {
@@ -49,8 +49,8 @@ await (async function start_server() {
 		});
 	})();
 
-	rbqConn.addSegmentsToQueue();
-	rbqConn.searchChannelListener();
+	rbqConn.AddSegmentsToQueue();
+	rbqConn.SearchChannelHandler();
 
 	// Start HTTP server
 	httpServer.listen(PORT, () => {

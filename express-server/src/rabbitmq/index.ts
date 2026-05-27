@@ -25,7 +25,7 @@ class RabbitMQClient {
 		this.definitions = def
 	}
 
-	async establishConnection(retryCount: number): Promise<RabbitMQClient> {
+	async EstablishConnection(retryCount: number): Promise<RabbitMQClient> {
 		if (retryCount > 0) {
 			retryCount--;
 			try {
@@ -42,7 +42,7 @@ class RabbitMQClient {
 						clearTimeout(timeoutID);
 					}, 2000);
 				});
-				return await this.establishConnection(retryCount);
+				return await this.EstablishConnection(retryCount);
 			}
 		}
 		throw new Error("Shutting down web server after several retries");
@@ -118,7 +118,7 @@ class RabbitMQClient {
 	 This Function sends a new search query to the SEARCH ENGINE SERVICE.
 	 returns a bool to check if it has been sent
 	*/
-	async sendSearchQuery(q: string): Promise<boolean> {
+	async SendSearchQuery(q: string): Promise<boolean> {
 		if (this.publishChannel == null) {
 			throw new Error("ERROR: Search Channel is null");
 		}
@@ -131,7 +131,8 @@ class RabbitMQClient {
 		);
 	}
 
-	async crawlChannelListener(
+	// cb handles data ack
+	async CrawlChannelHandler(
 		cb: (chan: Channel, data: ConsumeMessage, message_type: string) => void,
 	) {
 		if (this.crawlChannel == null)
@@ -159,7 +160,7 @@ class RabbitMQClient {
 		}
 	}
 
-	async searchChannelListener() {
+	async SearchChannelHandler() {
 		try {
 			this.searchChannel!.consume(
 				this.definitions.queues.es_se_query_cbq,
@@ -184,7 +185,7 @@ class RabbitMQClient {
 		}
 	}
 
-	async addSegmentsToQueue() {
+	async AddSegmentsToQueue() {
 		this.eventEmitter.on("newSegment", (segment) => {
 			this.circleBuffer.write(segment);
 		});
@@ -196,7 +197,7 @@ class RabbitMQClient {
 	 in terms of data being perserved within the segmentGenerator.
 	*/
 
-	async *segmentGenerator() {
+	async *SegmentGenerator() {
 		while (true) {
 			if (this.circleBuffer.inUseSize() > 0) {
 				yield this.circleBuffer.read();
@@ -207,7 +208,7 @@ class RabbitMQClient {
 	}
 
 	// Crawler Expects an Object to be unmarshalled where the array of websites are inside a Docs property.
-	async crawl(
+	async Crawl(
 		websites: Buffer,
 		job: { queue: string; id: string },
 	): Promise<boolean> {
@@ -234,42 +235,37 @@ class RabbitMQClient {
 	    Sends a message to the database service to check and see if the DOCS
 	    or list of websites the users want to crawl already exists in the database.
 	  */
-	async crawlListCheck(
-		encoded_list: Uint8Array,
-	): Promise<null | {
-		unindexed: Array<string>;
+	async DBCheckHandler(
+		encoded_list: Uint8Array
+	): Promise<{
+		unindexed: Array<string>
 	}> {
-		if (this.connection === null)
-			throw new Error("Unable to create a channel for crawl queue.");
-
 		this.publishChannel!.publish(this.definitions.exchange.general, this.definitions.routing_keys.es_db_check, Buffer.from(encoded_list), {
 			replyTo: this.definitions.queues.es_db_check_cbq,
 		});
-		let unindexed: Array<string> = [];
-		let isError = false;
-		await this.eventsChannel!.consume(this.definitions.queues.es_db_check_cbq, async (data) => {
-			if (data === null) {
-				throw new Error("ERROR: Data received is null.");
-			}
-			try {
-				const parseList: { Docs: Array<string> } = JSON.parse(
-					data.content.toString(),
-				);
-				unindexed = parseList.Docs;
-				this.publishChannel!.ack(data);
-			} catch (err) {
-				isError = true;
-				this.publishChannel!.nack(data, false, false);
-			}
-		});
 
-		isError ??
-			console.error(
-				"ERROR: Something went wrong while tring to listen to DB serveice",
-			);
+		return new Promise(async (resolve, reject) => {
+			await this.eventsChannel!.consume(this.definitions.queues.es_db_check_cbq, async (data) => {
+				if (data === null) {
+					throw new Error("ERROR: Data received is null.");
+				}
+				try {
+					const parseList: { Docs: Array<string> } = JSON.parse(
+						data.content.toString(),
+					);
+					console.log(parseList)
+					this.eventsChannel!.ack(data);
+					resolve({ unindexed: parseList.Docs })
+				} catch (err) {
+					this.eventsChannel!.nack(data, false, false);
+					reject(err)
+				}
+			});
 
-		return isError ? null : { unindexed };
+		})
+
 	}
+
 }
 
 

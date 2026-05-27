@@ -107,7 +107,7 @@ app.post("/crawl", async (req: Request, res: Response, next: NextFunction) => {
 		// TODO need to return some error after some amount of time if there is not ack received
 		// results are the array of websites that have NOT been indexed yet
 
-		const results = await rabbitmq.client.crawlListCheck(encoded_docs);
+		const results = await rabbitmq.client.DBCheckHandler(encoded_docs)
 		console.log(results);
 		// let results = { unindexed: Docs };
 		if (results === null) {
@@ -178,14 +178,14 @@ app.get("/search", async (req: Request, res: Response, next: NextFunction) => {
 	console.log("NOTIF: Search Query sent");
 	console.log("SEARCH QUERY: %s", q);
 	try {
-		const isSent = await rabbitmq.client.sendSearchQuery(q as string);
+		const isSent = await rabbitmq.client.SendSearchQuery(q as string);
 		if (!isSent) {
 			throw new Error("ERROR: Unable to send search query.");
 		}
 
 		const webpageBuffer = await segmentSerializer.listenIncomingSegments(
 			rabbitmq.client.searchChannel!,
-			rabbitmq.client.segmentGenerator.bind(rabbitmq.client),
+			rabbitmq.client.SegmentGenerator.bind(rabbitmq.client),
 		);
 		rabbitmq.client.eventEmitter.emit("done", {});
 		const parseWebpages = segmentSerializer.parseWebpages(webpageBuffer);
