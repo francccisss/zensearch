@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"fmt"
+	amqp "github.com/rabbitmq/amqp091-go"
+	"gopkg.in/yaml.v2"
 	"log"
 	"os"
 	"search-engine/constants"
@@ -11,8 +13,6 @@ import (
 	"search-engine/internal/segment_serializer"
 	"search-engine/utilities"
 	"time"
-
-	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 // TODO SYSTEM ERRORS SHOULD RESTART THE SERVICE... I DONT KNOW HOW TO DO IT
@@ -21,53 +21,60 @@ import (
 
 func main() {
 
-	err := rabbitmq.EstablishConnection(7)
+	defBuff, err := os.ReadFile("../rabbitmq.yml")
+	if err != nil {
+		panic(err)
+	}
+
+	var searchEngineDef rabbitmq.SearchEngineDefinitions
+	var rbqDef rabbitmq.RabbitMQDefinitions
+	err = yaml.Unmarshal(defBuff, &rbqDef)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(searchEngineDef.Exchange.Crawler)
+	fmt.Println(searchEngineDef.Exchange.General)
+
+	fmt.Println(searchEngineDef.RoutingKeys.SE_DB_REQUEST)
+
+	fmt.Println(searchEngineDef.Queues.SE_DB_REQUEST_CBQ)
+	fmt.Println(searchEngineDef.Queues.SE_DB_REQUEST_QUEUE)
+
+	searchEngineDef = rabbitmq.SearchEngineDefinitions{
+		Exchange: rbqDef.Exchange,
+		Queues: struct {
+			SE_DB_REQUEST_QUEUE string
+			SE_DB_REQUEST_CBQ   string
+		}{
+			SE_DB_REQUEST_QUEUE: rbqDef.Queues.SearchEngineQueues.SE_DB_REQUEST_QUEUE,
+			SE_DB_REQUEST_CBQ:   rbqDef.Queues.SearchEngineQueues.SE_DB_REQUEST_CBQ,
+		},
+		RoutingKeys: struct {
+			SE_DB_REQUEST string
+		}{
+			SE_DB_REQUEST: rbqDef.RoutingKeys.SearchEngineKeys.SE_DB_REQUEST,
+		},
+	}
+
+	client := rabbitmq.NewRabbitMQClient(searchEngineDef)
+
+	err = client.EstablishConnection(7)
 
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
 
-	conn, err := rabbitmq.GetConnection("conn")
-	if err != nil {
-		fmt.Println("Connection does not exist")
-		os.Exit(1)
-	}
 	fmt.Println("Search engine established TCP Connection with RabbitMQ")
 
-	// DECLARING CHANNELS
-	mainChannel, err := conn.Channel()
-	failOnError(err, "Failed to create a main Channel")
-	dbQueryChannel, err := conn.Channel()
-	failOnError(err, "Failed to create a database Channel")
-
 	// SET PREFETCH FOR CUMULATIVE ACKS
-	dbQueryChannel.Qos(constants.CMLTV_ACK, 0, false)
-
-	rabbitmq.SetNewChannel("dbChannel", dbQueryChannel)
-	rabbitmq.SetNewChannel("mainChannel", mainChannel)
 
 	// DECLARING CHANNELS
 
-	defer func() {
-		conn.Close()
-		mainChannel.Close()
-		dbQueryChannel.Close()
-	}()
+	defer client.Connection.Close()
 
-	// DECLARING QUEUES
-	mainChannel.QueueDeclare(rabbitmq.EXPRESS_SENGINE_QUERY_QUEUE, false, false, false, false, nil)
-	failOnError(err, "Failed to create search queue")
-	mainChannel.QueueDeclare(rabbitmq.SENGINE_EXPRESS_QUERY_CBQ, false, false, false, false, nil)
-	failOnError(err, "Failed to create publish queue")
-
-	dbQueryChannel.QueueDeclare(rabbitmq.SENGINE_DB_REQUEST_QUEUE, false, false, false, false, nil)
-	failOnError(err, "Failed to create query queue")
-	dbQueryChannel.QueueDeclare(rabbitmq.DB_SENGINE_REQUEST_CBQ, false, false, false, false, nil)
-	failOnError(err, "Failed to create db response queue")
-	// DECLARING QUEUES
-
-	msgs, err := mainChannel.Consume(
+	msgs, err := client.EventsChannel.Consume(
 		rabbitmq.EXPRESS_SENGINE_QUERY_QUEUE,
 		"",
 		false,

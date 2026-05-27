@@ -8,10 +8,66 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-var connections = map[string]*amqp.Connection{}
-var channels = map[string]*amqp.Channel{}
+type RabbitMQClient struct {
+	Connection            *amqp.Connection
+	PublishChannel        *amqp.Channel
+	HighThroughputChannel *amqp.Channel // for returning search results
+	EventsChannel         *amqp.Channel
+	Definitions           SearchEngineDefinitions
+}
 
-func EstablishConnection(retries int) error {
+const CMLTV_ACK = 1000
+
+func NewRabbitMQClient(def SearchEngineDefinitions) RabbitMQClient {
+	rb := RabbitMQClient{
+		Connection:            nil,
+		PublishChannel:        nil,
+		EventsChannel:         nil,
+		HighThroughputChannel: nil,
+		Definitions:           def,
+	}
+	return rb
+}
+
+func (rb *RabbitMQClient) SetDefinitions() error {
+
+	pubCh, err := rb.Connection.Channel()
+	if err != nil {
+		return err
+	}
+	rb.PublishChannel = pubCh
+
+	highCh, err := rb.Connection.Channel()
+	if err != nil {
+		return err
+	}
+	rb.HighThroughputChannel = highCh
+	rb.HighThroughputChannel.Qos(CMLTV_ACK, 0, false)
+
+	eventsCh, err := rb.Connection.Channel()
+	if err != nil {
+		return err
+	}
+	rb.EventsChannel = eventsCh
+	_, err = pubCh.QueueDeclare(rb.Definitions.Queues.SE_DB_REQUEST_QUEUE, true, false, true, false, nil)
+
+	_, err = pubCh.QueueDeclare(rb.Definitions.Queues.SE_DB_REQUEST_CBQ, true, false, true, false, nil)
+
+	if err != nil {
+		return err
+	}
+
+	err = pubCh.QueueBind(rb.Definitions.Queues.SE_DB_REQUEST_QUEUE, rb.Definitions.RoutingKeys.SE_DB_REQUEST, rb.Definitions.Exchange.General, false, nil)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+func (rb *RabbitMQClient) EstablishConnection(retries int) error {
 
 	if retries > 0 {
 		conn, err := amqp.Dial("amqp://localhost:5672/")
@@ -19,22 +75,18 @@ func EstablishConnection(retries int) error {
 			retries--
 			fmt.Println("Retrying Search engine service connection")
 			time.Sleep(2000 * time.Millisecond)
-			return EstablishConnection(retries)
+			return rb.EstablishConnection(retries)
 		}
-		SetNewConnection("conn", conn)
+		rb.Connection = conn
 		return nil
 	}
 
 	return fmt.Errorf("Shutting down search engine after serveral retries")
 }
 
-func QueryDatabase(message string) {
+func (rb *RabbitMQClient) QueryDatabase(message string) {
 
-	ch, err := GetChannel("dbChannel")
-	if err != nil {
-		log.Panicf("dbChannel does not exist\n")
-	}
-	err = ch.Publish(
+	err := rb.PublishChannel.Publish(
 		"",
 		SENGINE_DB_REQUEST_QUEUE,
 		false, false, amqp.Publishing{
@@ -48,17 +100,12 @@ func QueryDatabase(message string) {
 	}
 }
 
-func PublishScoreRanking(segments [][]byte) {
-
-	ch, err := GetChannel("mainChannel")
-	if err != nil {
-		log.Panicf("mainChannel does not exist\n")
-	}
+func (rb *RabbitMQClient) PublishScoreRanking(segments [][]byte) {
 
 	fmt.Printf("Sending %d ranked webpage segments\n", len(segments))
 	defer fmt.Printf("Successfully sent all %d segments\n", len(segments))
-	for i := 0; i < len(segments); i++ {
-		err = ch.Publish(
+	for i := range len(segments) {
+		err := rb.HighThroughputChannel.Publish(
 			"",
 			SENGINE_EXPRESS_QUERY_CBQ,
 			false,
@@ -74,45 +121,4 @@ func PublishScoreRanking(segments [][]byte) {
 		}
 	}
 
-}
-
-/*
-  Creates a new global reference to a specific tcp connection to rabbitmq
-  setting new connection requres the connection Name to index
-  the specific connection.
-*/
-
-// I know these are duplicates but they should work for now
-// I should change this later
-
-func SetNewConnection(name string, conn *amqp.Connection) *amqp.Connection {
-	existingconn, ok := connections[name]
-	if !ok {
-		connections[name] = conn
-		return conn
-	}
-	return existingconn
-}
-
-func GetConnection(name string) (*amqp.Connection, error) {
-	if conn, ok := connections[name]; ok {
-		return conn, nil
-	}
-	return nil, fmt.Errorf("Connection does not exist: %s\n", name)
-}
-
-func SetNewChannel(name string, channel *amqp.Channel) *amqp.Channel {
-	existingChan, ok := channels[name]
-	if !ok {
-		channels[name] = channel
-		return channel
-	}
-	return existingChan
-}
-
-func GetChannel(name string) (*amqp.Channel, error) {
-	if conn, ok := channels[name]; ok {
-		return conn, nil
-	}
-	return nil, fmt.Errorf("Connection does not exist: %s\n", name)
 }
