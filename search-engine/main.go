@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	amqp "github.com/rabbitmq/amqp091-go"
 	"gopkg.in/yaml.v2"
 	"log"
 	"os"
@@ -46,9 +45,11 @@ func main() {
 		Queues: struct {
 			SE_DB_REQUEST_QUEUE string
 			SE_DB_REQUEST_CBQ   string
+			ES_SE_QUERY_QUEUE   string
 		}{
 			SE_DB_REQUEST_QUEUE: rbqDef.Queues.SearchEngineQueues.SE_DB_REQUEST_QUEUE,
 			SE_DB_REQUEST_CBQ:   rbqDef.Queues.SearchEngineQueues.SE_DB_REQUEST_CBQ,
+			ES_SE_QUERY_QUEUE:   rbqDef.Queues.SearchEngineQueues.ES_SE_QUERY_QUEUE,
 		},
 		RoutingKeys: struct {
 			SE_DB_REQUEST string
@@ -68,126 +69,71 @@ func main() {
 
 	fmt.Println("Search engine established TCP Connection with RabbitMQ")
 
-	// SET PREFETCH FOR CUMULATIVE ACKS
-
-	// DECLARING CHANNELS
-
 	defer client.Connection.Close()
 
-	msgs, err := client.EventsChannel.Consume(
-		rabbitmq.EXPRESS_SENGINE_QUERY_QUEUE,
-		"",
-		false,
-		false,
-		false,
-		false,
-		nil,
-	)
-	if err != nil {
-		log.Panicf("Unable to listen to %s", rabbitmq.EXPRESS_SENGINE_QUERY_QUEUE)
-	}
+	for {
 
-	searchQueryChan := make(chan string)
-	incomingSegmentsChan := make(chan amqp.Delivery)
-	webpageBytesChan := make(chan bytes.Buffer)
-	var currentSearchQuery string
-
-	// Receiving User's Query
-	go func(searchQueryChan chan string) {
-		for userSearch := range msgs {
-			searchQuery := string(userSearch.Body)
-
-			searchQueryChan <- searchQuery
-			mainChannel.Ack(userSearch.DeliveryTag, true)
-
-			fmt.Printf("User's Query: %s\n", searchQuery)
-			currentSearchQuery = searchQuery
-		}
-	}(searchQueryChan)
-
-	// Consumes and pushes segments to the `incomingSegmentsChan` channel
-	go func(chann *amqp.Channel) {
-
-		dbMsg, err := chann.Consume(
-			rabbitmq.DB_SENGINE_REQUEST_CBQ,
-			"",
-			false,
-			false,
-			false,
-			false,
-			nil,
-		)
-
+		msgs, err := client.EventsChannel.Consume(
+			client.Definitions.Queues.ES_SE_QUERY_QUEUE,
+			"", false, true, false, false, nil)
 		if err != nil {
-			log.Panicf("Unable to listen to %s", rabbitmq.DB_SENGINE_REQUEST_CBQ)
+			log.Fatalf("Error from Consume %s", err)
+		}
+		newMsg := <-msgs
+
+		err = client.EventsChannel.Ack(newMsg.DeliveryTag, true)
+		if err != nil {
+			log.Fatalf("Error from Ack %s", err)
 		}
 
-		// Consume and send segment to segment channel
-		for incomingSegment := range dbMsg {
-			incomingSegmentsChan <- incomingSegment
-		}
+		webpageBytesChan := make(chan bytes.Buffer)
+		fmt.Printf("User's Query: %s\n", newMsg.Body)
 
-	}(dbQueryChannel)
+		client.QueryDatabase(string(newMsg.Body))
 
-	// the consumed incoming segments will be processed here and
-	go func() {
-		for searchQuery := range searchQueryChan {
+		go client.DatabaseResponseHandler(webpageBytesChan, string(newMsg.Body))
 
-			fmt.Print("Query database\n")
-			// Queries database to send segments to search engine
-			go rabbitmq.QueryDatabase(searchQuery)
+		// // Handling search engine logic for parsing webpage to json, ranking and data segmentation for transpotation
+		go func() {
 
-			fmt.Print("Spawn segment listener\n")
+			// TODO THROW ERRORS TO FRONT END
+			for webpageBuffer := range webpageBytesChan {
+				// Parsing webpages
 
-			// Listens for incoming segments from the database Query channel consumer
-			go segments.HandleIncomingSegments(dbQueryChannel, incomingSegmentsChan, webpageBytesChan)
-		}
-	}()
+				timeStart := time.Now()
+				webpages, err := utilities.ParseWebpages(webpageBuffer.Bytes())
+				if err != nil {
+					fmt.Println(err.Error())
+					log.Println("Unable to parse webpages")
+					continue
+				}
+				fmt.Printf("Time elapsed parsing: %dms\n", time.Until(timeStart).Abs().Milliseconds())
 
-	// Handling search engine logic for parsing webpage to json, ranking and data segmentation for transpotation
-	go func() {
+				// Ranking webpages
+				timeStart = time.Now()
 
-		// TODO THROW ERRORS TO FRONT END
-		for webpageBuffer := range webpageBytesChan {
-			// Parsing webpages
+				calculatedRatings := bm25.CalculateBMRatings(string(newMsg.Body), webpages)
+				rankedWebpages := bm25.RankBM25Ratings(calculatedRatings)
 
-			timeStart := time.Now()
-			webpages, err := utilities.ParseWebpages(webpageBuffer.Bytes())
-			if err != nil {
-				fmt.Println(err.Error())
-				log.Println("Unable to parse webpages")
-				continue
-			}
-			fmt.Printf("Time elapsed parsing: %dms\n", time.Until(timeStart).Abs().Milliseconds())
+				fmt.Printf("Total ranked webpages: %d\n", len(*rankedWebpages))
+				fmt.Printf("Time elapsed ranking: %dms\n", time.Until(timeStart).Abs().Milliseconds())
 
-			// Ranking webpages
-			timeStart = time.Now()
+				// create segments in this section after ranking
+				timeStart = time.Now()
+				segments, err := segments.CreateSegments(rankedWebpages, constants.MSS)
+				if err != nil {
+					fmt.Println(err.Error())
+					log.Println("Unable to create segments")
+					continue
+				}
 
-			calculatedRatings := bm25.CalculateBMRatings(currentSearchQuery, webpages)
-			rankedWebpages := bm25.RankBM25Ratings(calculatedRatings)
+				fmt.Printf("Time elapsed data segmentation: %dms\n", time.Until(timeStart).Abs().Milliseconds())
+				go client.PublishScoreRanking(segments)
 
-			fmt.Printf("Total ranked webpages: %d\n", len(*rankedWebpages))
-			fmt.Printf("Time elapsed ranking: %dms\n", time.Until(timeStart).Abs().Milliseconds())
-
-			// create segments in this section after ranking
-			timeStart = time.Now()
-			segments, err := segments.CreateSegments(rankedWebpages, constants.MSS)
-			if err != nil {
-				fmt.Println(err.Error())
-				log.Println("Unable to create segments")
-				continue
 			}
 
-			fmt.Printf("Time elapsed data segmentation: %dms\n", time.Until(timeStart).Abs().Milliseconds())
-			go rabbitmq.PublishScoreRanking(segments)
-
-		}
-
-	}()
-
-	// need to signal this loop to stop if error or graceful exits
-	loop := make(chan bool)
-	loop <- true
+		}()
+	}
 
 }
 

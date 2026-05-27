@@ -24,14 +24,17 @@ type SegmentHeader struct {
 	TotalSegments uint32
 }
 
+type Done struct{}
+
 // waits for all of the incoming segments and decodes then appends bytes into the `webpageBytesChan`
 // incoming segment is the input while the webpageBytesChan is the output
-func HandleIncomingSegments(dbChannel *amqp.Channel, incomingSegmentsChan <-chan amqp.Delivery, webpageBytesChan chan bytes.Buffer) {
+func HandleIncomingSegments(dbChannel *amqp.Channel, incomingSegmentsChan <-chan amqp.Delivery) (<-chan Done, bytes.Buffer, error) {
 
 	var (
 		segmentCounter      uint32 = 0
 		expectedSequenceNum uint32 = 0
 	)
+	doneCh := make(chan Done)
 
 	timeStart := time.Now()
 	var webpageBytes bytes.Buffer
@@ -40,7 +43,7 @@ func HandleIncomingSegments(dbChannel *amqp.Channel, incomingSegmentsChan <-chan
 		segment, err := DecodeSegments(newSegment.Body)
 		if err != nil {
 			log.Panicf("Unable to decode segments")
-			return
+			return doneCh, bytes.Buffer{}, err
 		}
 
 		if segment.Header.SequenceNum != expectedSequenceNum {
@@ -72,8 +75,10 @@ func HandleIncomingSegments(dbChannel *amqp.Channel, incomingSegmentsChan <-chan
 			break
 		}
 	}
-	webpageBytesChan <- webpageBytes
+
 	fmt.Printf("Time elapsed Listening to segments: %dms\n", time.Until(timeStart).Abs().Milliseconds())
+
+	return doneCh, webpageBytes, nil
 }
 
 func DecodeSegments(newSegment []byte) (Segment, error) {
@@ -127,7 +132,7 @@ func CreateSegments(webpages *[]types.WebpageTFIDF, MSS int) ([][]byte, error) {
 		pointerPosition = math.Min(float64(MSS), float64(serializedWebpagesLen-currentIndex))
 	)
 
-	for i := 0; i < segmentCount; i++ {
+	for i := range segmentCount {
 
 		segmentSlice := serializeWebpages[currentIndex:int(pointerPosition)]
 

@@ -1,8 +1,10 @@
 package rabbitmq
 
 import (
+	"bytes"
 	"fmt"
 	"log"
+	segments "search-engine/internal/segment_serializer"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -88,7 +90,7 @@ func (rb *RabbitMQClient) QueryDatabase(message string) {
 
 	err := rb.PublishChannel.Publish(
 		"",
-		SENGINE_DB_REQUEST_QUEUE,
+		rb.Definitions.Queues.SE_DB_REQUEST_QUEUE,
 		false, false, amqp.Publishing{
 			ContentType: "text/plain",
 			Body:        []byte(message),
@@ -98,6 +100,44 @@ func (rb *RabbitMQClient) QueryDatabase(message string) {
 	if err != nil {
 		log.Panic(err.Error())
 	}
+}
+
+func (rb *RabbitMQClient) DatabaseResponseHandler(webpageBytesChan chan bytes.Buffer, searchQuery string) {
+	for {
+		dbMsg, err := rb.HighThroughputChannel.Consume(
+			rb.Definitions.Queues.SE_DB_REQUEST_CBQ,
+			"",
+			false,
+			true,
+			false,
+			false,
+			nil,
+		)
+
+		if err != nil {
+			log.Panicf("Unable to listen to %s", rb.Definitions.Queues.SE_DB_REQUEST_CBQ)
+		}
+
+		fmt.Print("Query database\n")
+		// Queries database to send segments to search engine
+
+		fmt.Print("Spawn segment listener\n")
+
+		// Listens for incoming segments from the database Query channel consumer
+		done, webpageBytes, err := segments.HandleIncomingSegments(rb.HighThroughputChannel, dbMsg)
+		select {
+		case <-done:
+			if err != nil {
+				log.Fatalf("Error from Handling Segments: %s", err)
+			}
+			webpageBytesChan <- webpageBytes
+			fmt.Printf("Clean up Handler for %s search query\n", searchQuery)
+			return
+		default:
+			continue
+		}
+	}
+
 }
 
 func (rb *RabbitMQClient) PublishScoreRanking(segments [][]byte) {
