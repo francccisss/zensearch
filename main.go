@@ -14,21 +14,21 @@ import (
 )
 
 var runCmds = [][]string{
-	{"express", "node", "./express-server/dist/index.js"},
-	{"database", "node", "./database/dist/index.js"},
-	{"crawler", "./crawler/crawler-bin"},
-	{"search-engine", "./search-engine/search-engine-bin"},
+	{"express-server", "node", "./dist/index.js"},
+	{"database", "node", "./dist/index.js"},
+	// {"crawler", "./crawler-bin"},
+	{"search-engine", "./search-engine-bin"},
 }
 
 var buildCmds = [][]string{
-	{"express", "npm", "run", "build", "--prefix", "./express-server"},
+	{"express-server", "npm", "run", "build", "--prefix", "./express-server"},
 	{"database", "npm", "run", "build", "--prefix", "./database"},
 	{"crawler", "go", "build", "-C", "./crawler/", "-o", "crawler-bin"},
 	{"search-engine", "go", "build", "-C", "./search-engine/", "-o", "search-engine-bin"},
 }
 
 var npmInstall = [][]string{
-	{"express", "npm", "install", "express-server/"},
+	{"express-server", "npm", "install", "express-server/"},
 	{"database", "npm", "install", "database/"},
 }
 

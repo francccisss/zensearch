@@ -107,8 +107,19 @@ func runningService(ctx context.Context, commands []string) {
 	cmdName := commands[0]
 	logName := strings.ToUpper(cmdName)
 
-	cmd := exec.Command(commands[1], commands[2:]...)
 	newStdErr := NewError(cmdName)
+	cmd := exec.Command(commands[1], commands[2:]...)
+	// update the current working directory of each services
+	// to run within its own directory to enable relative imports
+	// for config files to be used.
+	wdir, err := os.Getwd()
+	if err != nil {
+		fmt.Printf("[ZENSEARCH]: ERROR unable to get working directory %s\n", cmdName)
+		newStdErr.addError(err.Error())
+		panic(newStdErr.Error())
+	}
+	fmt.Printf("%s/%s\n", wdir, cmdName)
+	cmd.Dir = fmt.Sprintf("%s/%s/", wdir, cmdName)
 	stdout, err := cmd.StdoutPipe()
 	stderr, err := cmd.StderrPipe()
 
