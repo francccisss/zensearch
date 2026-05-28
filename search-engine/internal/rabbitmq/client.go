@@ -31,6 +31,7 @@ func NewRabbitMQClient(def SearchEngineDefinitions) RabbitMQClient {
 	return rb
 }
 
+// Must always be called right after establishing a connection and before setting up consumer handlers
 func (rb *RabbitMQClient) SetDefinitions() error {
 
 	pubCh, err := rb.Connection.Channel()

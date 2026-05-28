@@ -24,21 +24,16 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
+	if len(defBuff) == 0 {
+		panic("Empty config file")
+	}
+	fmt.Printf("DefBuff len: %d\n", len(defBuff))
 	var searchEngineDef rabbitmq.SearchEngineDefinitions
 	var rbqDef rabbitmq.RabbitMQDefinitions
 	err = yaml.Unmarshal(defBuff, &rbqDef)
 	if err != nil {
 		panic(err)
 	}
-
-	fmt.Println(searchEngineDef.Exchange.Crawler)
-	fmt.Println(searchEngineDef.Exchange.General)
-
-	fmt.Println(searchEngineDef.RoutingKeys.SE_DB_REQUEST)
-
-	fmt.Println(searchEngineDef.Queues.SE_DB_REQUEST_CBQ)
-	fmt.Println(searchEngineDef.Queues.SE_DB_REQUEST_QUEUE)
 
 	searchEngineDef = rabbitmq.SearchEngineDefinitions{
 		Exchange: rbqDef.Exchange,
@@ -49,7 +44,7 @@ func main() {
 		}{
 			SE_DB_REQUEST_QUEUE: rbqDef.Queues.SearchEngineQueues.SE_DB_REQUEST_QUEUE,
 			SE_DB_REQUEST_CBQ:   rbqDef.Queues.SearchEngineQueues.SE_DB_REQUEST_CBQ,
-			ES_SE_QUERY_QUEUE:   rbqDef.Queues.SearchEngineQueues.ES_SE_QUERY_QUEUE,
+			ES_SE_QUERY_QUEUE:   rbqDef.Queues.ExpressServerQueues.ES_SE_QUERY_QUEUE,
 		},
 		RoutingKeys: struct {
 			SE_DB_REQUEST string
@@ -58,6 +53,8 @@ func main() {
 		},
 	}
 
+	fmt.Printf("definition: :%+v\n", searchEngineDef)
+
 	client := rabbitmq.NewRabbitMQClient(searchEngineDef)
 
 	err = client.EstablishConnection(7)
@@ -65,6 +62,11 @@ func main() {
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
+	}
+
+	err = client.SetDefinitions()
+	if err != nil {
+		panic(err.Error())
 	}
 
 	fmt.Println("Search engine established TCP Connection with RabbitMQ")

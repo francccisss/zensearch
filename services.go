@@ -118,7 +118,6 @@ func runningService(ctx context.Context, commands []string) {
 		newStdErr.addError(err.Error())
 		panic(newStdErr.Error())
 	}
-	fmt.Printf("%s/%s\n", wdir, cmdName)
 	cmd.Dir = fmt.Sprintf("%s/%s/", wdir, cmdName)
 	stdout, err := cmd.StdoutPipe()
 	stderr, err := cmd.StderrPipe()

@@ -28,9 +28,9 @@ const cumulativeAckCount = 1000;
 class RabbitMQClient {
 	connection: null | ChannelModel = null;
 	client: this = this;
-	highThroughputChannel: Channel | null = null;
+	highThroughputChannel: Channel | null = null; // receiving search results
 	eventsChannel: Channel | null = null;
-	lowThroughputChannel: Channel | null = null;
+	lowThroughputChannel: Channel | null = null; // general publishing channel
 	eventEmitter: EventEmitter = new EventEmitter();
 	definitions: DatabaseServiceDefinition
 
