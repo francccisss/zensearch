@@ -36,7 +36,6 @@ export type DatabaseServiceDefinition = {
 		es_db_check: string
 
 		cr_db_indexing: string
-
 		cr_db_enqueue: string
 		cr_db_dequeue: string
 		cr_db_getlen: string
@@ -44,19 +43,11 @@ export type DatabaseServiceDefinition = {
 	queues: {
 
 		se_db_request_queue: string
-		se_db_request_cbq: string
-
 		es_db_check_queue: string
-		es_db_check_cbq: string
 
 		cr_db_indexing_queue: string
-		cr_db_indexing_cbq: string
-
 		cr_db_enqueue_queue: string
-		cr_db_enqueue_cbq: string
 		cr_db_dequeue_queue: string
-		cr_db_dequeue_cbq: string
 		cr_db_getlen_queue: string
-		cr_db_getlen_cbq: string
 	}
 }

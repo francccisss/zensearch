@@ -90,7 +90,7 @@ func main() {
 			log.Fatalf("Error from Ack %s", err)
 		}
 
-		webpageBytesChan := make(chan *bytes.Buffer)
+		webpageBytesChan := make(chan *bytes.Buffer, 1)
 		fmt.Printf("User's Query: %s\n", newMsg.Body)
 
 		go client.DatabaseResponseHandler(webpageBytesChan, string(newMsg.Body))
@@ -100,40 +100,41 @@ func main() {
 		go func() {
 
 			// TODO THROW ERRORS TO FRONT END
-			for webpageBuffer := range webpageBytesChan {
-				// Parsing webpages
+			fmt.Println("Spawned Webpage Buffer Listener Routine")
+			webpageBuffer := <-webpageBytesChan
+			fmt.Println("Received Webpage Buffer")
 
-				timeStart := time.Now()
-				webpages, err := utilities.ParseWebpages(webpageBuffer.Bytes())
-				if err != nil {
-					fmt.Println(err.Error())
-					log.Println("Unable to parse webpages")
-					continue
-				}
-				fmt.Printf("Time elapsed parsing: %dms\n", time.Until(timeStart).Abs().Milliseconds())
+			// Parsing webpages
 
-				// Ranking webpages
-				timeStart = time.Now()
-
-				calculatedRatings := bm25.CalculateBMRatings(string(newMsg.Body), webpages)
-				rankedWebpages := bm25.RankBM25Ratings(calculatedRatings)
-
-				fmt.Printf("Total ranked webpages: %d\n", len(*rankedWebpages))
-				fmt.Printf("Time elapsed ranking: %dms\n", time.Until(timeStart).Abs().Milliseconds())
-
-				// create segments in this section after ranking
-				timeStart = time.Now()
-				segments, err := segments.CreateSegments(rankedWebpages, constants.MSS)
-				if err != nil {
-					fmt.Println(err.Error())
-					log.Println("Unable to create segments")
-					continue
-				}
-
-				fmt.Printf("Time elapsed data segmentation: %dms\n", time.Until(timeStart).Abs().Milliseconds())
-				go client.PublishScoreRanking(segments)
-
+			timeStart := time.Now()
+			webpages, err := utilities.ParseWebpages(webpageBuffer.Bytes())
+			if err != nil {
+				fmt.Println(err.Error())
+				log.Println("Unable to parse webpages")
+				log.Panic(err)
 			}
+			fmt.Printf("Time elapsed parsing: %dms\n", time.Until(timeStart).Abs().Milliseconds())
+
+			// Ranking webpages
+			timeStart = time.Now()
+
+			calculatedRatings := bm25.CalculateBMRatings(string(newMsg.Body), webpages)
+			rankedWebpages := bm25.RankBM25Ratings(calculatedRatings)
+
+			fmt.Printf("Total ranked webpages: %d\n", len(*rankedWebpages))
+			fmt.Printf("Time elapsed ranking: %dms\n", time.Until(timeStart).Abs().Milliseconds())
+
+			// create segments in this section after ranking
+			timeStart = time.Now()
+			segments, err := segments.CreateSegments(rankedWebpages, constants.MSS)
+			if err != nil {
+				fmt.Println(err.Error())
+				log.Println("Unable to create segments")
+				log.Panic(err)
+			}
+
+			fmt.Printf("Time elapsed data segmentation: %dms\n", time.Until(timeStart).Abs().Milliseconds())
+			go client.PublishScoreRanking(segments)
 
 		}()
 	}

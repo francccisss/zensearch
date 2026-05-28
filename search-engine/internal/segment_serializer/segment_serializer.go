@@ -45,7 +45,7 @@ type Done struct{}
 // incoming segment is the input while the webpageBytesChan is the output
 func (ss *SegmentSerializer) HandleIncomingSegments(incomingSegmentsChan <-chan amqp.Delivery) (<-chan Done, bytes.Buffer, error) {
 
-	doneCh := make(chan Done)
+	doneCh := make(chan Done, 1)
 
 	timeStart := time.Now()
 	var webpageBytes bytes.Buffer
@@ -55,7 +55,7 @@ segmentLoop:
 		segment, err := DecodeSegments(newSegment.Body)
 		if err != nil {
 			log.Panicf("Unable to decode segments")
-			return doneCh, bytes.Buffer{}, err
+			return nil, bytes.Buffer{}, err
 		}
 
 		if segment.Header.SequenceNum != ss.expectedSequenceNum {
@@ -87,6 +87,7 @@ segmentLoop:
 	}
 
 	fmt.Printf("Time elapsed Listening to segments: %dms\n", time.Until(timeStart).Abs().Milliseconds())
+	doneCh <- Done{}
 
 	return doneCh, webpageBytes, nil
 }

@@ -139,6 +139,7 @@ func (rb *RabbitMQClient) DatabaseResponseHandler(webpageBytesChan chan *bytes.B
 		done, webpageBytes, err := serializer.HandleIncomingSegments(dbMsg)
 		select {
 		case <-done:
+			fmt.Println("Done Handling Segments")
 			if err != nil {
 				log.Fatalf("Error from Handling Segments: %s", err)
 			}

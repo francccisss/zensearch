@@ -126,7 +126,7 @@ class RabbitMQClient {
 		}
 	}
 
-	async SearchEngineHandler(
+	SearchEngineHandler(
 		pool: mysql.Pool,
 	) {
 
@@ -137,16 +137,19 @@ class RabbitMQClient {
 		  a callback queue is assigned once we consume and query webpages so that we can send
 		  it back right after all those process are done.
 		*/
+		console.log(`database consume queue: ${this.definitions.queues.se_db_request_queue}`)
 		this.eventsChannel!.consume(this.definitions.queues.se_db_request_queue, async (data) => {
 			if (data === null) throw new Error("No data was pushed.");
 			console.log("Received query from search engine")
 			try {
 				const dataQuery: Webpage[] = await dbInterface.queryWebpages(pool);
-				console.log({ searchEngineMessage: data.content.toString() });
+
+				const blen = Buffer.from(JSON.stringify(dataQuery))
 
 				this.eventsChannel!.ack(data);
 				const MSS = 100000;
-				let segments = segmentSerializer.createSegments(
+
+				segmentSerializer.createSegments(
 					Buffer.from(JSON.stringify(dataQuery)),
 					MSS,
 					async (newSegment: Buffer) => {
@@ -159,7 +162,8 @@ class RabbitMQClient {
 						);
 					},
 				);
-				console.log("Total segments created: %d", segments.length);
+
+				console.log({ searchEngineMessage: data.content.toString(), BuffLen: Math.trunc(blen.byteLength / MSS) + 1 });
 			} catch (err) {
 				const error = err as Error;
 				console.error(error.message);
@@ -168,7 +172,7 @@ class RabbitMQClient {
 			}
 		});
 	}
-	async EventHandler(pool: mysql.Pool) {
+	DBCheckHandler(pool: mysql.Pool) {
 
 		/*
 		  The `ES_DB_CHECK_QUEUE` routing key used to consumes the messages from the express server
@@ -223,7 +227,7 @@ class RabbitMQClient {
 	}
 
 
-	async CrawlerHandler(
+	CrawlerHandler(
 		pool: mysql.Pool,
 	) {
 
@@ -368,22 +372,19 @@ class RabbitMQClient {
 }
 
 
-const yamlfile = fs.readFileSync(path.resolve(import.meta.dirname, "../../../rabbitmq.yml"), "utf8")
-// const yamlfile = "../../rabbitmq.yml"
+const yamlfile = fs.readFileSync(path.join(import.meta.dirname, "../../../rabbitmq.yml"), "utf8")
 const doc = yaml.load(yamlfile, {}) as unknown as RabbitMQDefinitions
 const expressDef: DatabaseServiceDefinition = {
 	exchange: {
 		...doc.exchange
 	}
 	,
-	queues: { ...doc.queues["express_server_queues"] as any },
+	queues: { ...doc.queues["express_server_queues"] as any, ...doc.queues["search_engine_queues"] as any, ...doc.queues["crawler_queues"] as any },
 	routing_keys: { ...doc.routing_keys["express_server_keys"] as any },
 
 }
-console.log(expressDef.exchange)
-console.log(expressDef.queues)
-console.log(expressDef.routing_keys)
 console.log("Starting express server");
+console.log(`Express Definitions: ${JSON.stringify(expressDef)}`)
 
 const rabbitClient = new RabbitMQClient(expressDef);
 export default rabbitClient
