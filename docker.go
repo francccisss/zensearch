@@ -227,8 +227,6 @@ func (dm *DockerManager) Stop(dctx context.Context, containerName ContainerName)
 
 func (dm *DockerManager) StopAll(dctx context.Context) error {
 	for _, cname := range dm.ContainerNames {
-
-		fmt.Printf("CONTAINER NAME TO CLOSE: %s\n", cname)
 		err := dm.Stop(dctx, cname)
 		if err != nil {
 			return nil

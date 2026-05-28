@@ -35,7 +35,6 @@ class RabbitMQClient {
 				);
 				return this;
 			} catch (err) {
-				console.error("Retrying Web server service connection");
 				await new Promise((resolve) => {
 					const timeoutID = setTimeout(() => {
 						resolve("Done blocking");
@@ -78,7 +77,7 @@ class RabbitMQClient {
 			await this.eventsChannel.assertQueue(this.definitions.queues.es_db_check_queue)
 			await this.eventsChannel.assertQueue(this.definitions.queues.es_db_check_cbq,
 				{
-					exclusive: true,
+					exclusive: false,
 					durable: false,
 				}
 			)
@@ -86,7 +85,7 @@ class RabbitMQClient {
 			await this.eventsChannel.assertQueue(this.definitions.queues.es_cr_request_queue)
 			await this.eventsChannel.assertQueue(this.definitions.queues.es_cr_request_cbq,
 				{
-					exclusive: true,
+					exclusive: false,
 					durable: false,
 				}
 			)
@@ -94,7 +93,7 @@ class RabbitMQClient {
 			await this.searchChannel.assertQueue(this.definitions.queues.es_se_query_queue)
 			await this.searchChannel.assertQueue(this.definitions.queues.es_se_query_cbq,
 				{
-					exclusive: true,
+					exclusive: false,
 					durable: false,
 				}
 			)

@@ -34,14 +34,19 @@ func NewRabbitMQClient(def SearchEngineDefinitions) RabbitMQClient {
 // Must always be called right after establishing a connection and before setting up consumer handlers
 func (rb *RabbitMQClient) SetDefinitions() error {
 
+	if rb.Connection == nil {
+		return fmt.Errorf("SetDefinitions() Connection is not connected after running EstablishConnection ")
+	}
 	pubCh, err := rb.Connection.Channel()
 	if err != nil {
+		fmt.Println("From PublishChannel")
 		return err
 	}
 	rb.PublishChannel = pubCh
 
 	highCh, err := rb.Connection.Channel()
 	if err != nil {
+		fmt.Println("From HighChannel")
 		return err
 	}
 	rb.HighThroughputChannel = highCh
@@ -49,20 +54,28 @@ func (rb *RabbitMQClient) SetDefinitions() error {
 
 	eventsCh, err := rb.Connection.Channel()
 	if err != nil {
+		fmt.Println("From EventsChannel")
 		return err
 	}
 	rb.EventsChannel = eventsCh
-	_, err = pubCh.QueueDeclare(rb.Definitions.Queues.SE_DB_REQUEST_QUEUE, true, false, true, false, nil)
+	_, err = pubCh.QueueDeclare(rb.Definitions.Queues.SE_DB_REQUEST_QUEUE, true, false, false, false, nil)
+	if err != nil {
+		fmt.Printf("From Declaring Queue %s\n", rb.Definitions.Queues.SE_DB_REQUEST_QUEUE)
+		return err
+	}
 
-	_, err = pubCh.QueueDeclare(rb.Definitions.Queues.SE_DB_REQUEST_CBQ, true, false, true, false, nil)
+	_, err = pubCh.QueueDeclare(rb.Definitions.Queues.SE_DB_REQUEST_CBQ, false, true, false, false, nil)
 
 	if err != nil {
+		fmt.Printf("From Declaring Queue %s\n", rb.Definitions.Queues.SE_DB_REQUEST_CBQ)
 		return err
 	}
 
 	err = pubCh.QueueBind(rb.Definitions.Queues.SE_DB_REQUEST_QUEUE, rb.Definitions.RoutingKeys.SE_DB_REQUEST, rb.Definitions.Exchange.General, false, nil)
 
 	if err != nil {
+
+		fmt.Printf("From Binding Queue %s\n", rb.Definitions.Queues.SE_DB_REQUEST_QUEUE)
 		return err
 	}
 
@@ -76,10 +89,10 @@ func (rb *RabbitMQClient) EstablishConnection(retries int) error {
 		conn, err := amqp.Dial("amqp://localhost:5672/")
 		if err != nil {
 			retries--
-			fmt.Println("Retrying Search engine service connection")
 			time.Sleep(2000 * time.Millisecond)
 			return rb.EstablishConnection(retries)
 		}
+		fmt.Println("Successfully connected to RabbitMQ")
 		rb.Connection = conn
 		return nil
 	}
@@ -90,12 +103,12 @@ func (rb *RabbitMQClient) EstablishConnection(retries int) error {
 func (rb *RabbitMQClient) QueryDatabase(message string) {
 
 	err := rb.PublishChannel.Publish(
-		"",
+		rb.Definitions.Exchange.General,
 		rb.Definitions.Queues.SE_DB_REQUEST_QUEUE,
 		false, false, amqp.Publishing{
 			ContentType: "text/plain",
 			Body:        []byte(message),
-			ReplyTo:     DB_SENGINE_REQUEST_CBQ,
+			ReplyTo:     rb.Definitions.Queues.SE_DB_REQUEST_CBQ,
 		},
 	)
 	if err != nil {
@@ -109,7 +122,7 @@ func (rb *RabbitMQClient) DatabaseResponseHandler(webpageBytesChan chan bytes.Bu
 			rb.Definitions.Queues.SE_DB_REQUEST_CBQ,
 			"",
 			false,
-			true,
+			false,
 			false,
 			false,
 			nil,

@@ -30,8 +30,8 @@ func (se *StdError) addError(value string) {
 	se.value = value
 }
 
-// TODO: make it so that if users can use either docker desktop or just dockerd
-// so that they configure the location of the host to their dockerd socket path
+// TODOD Make use of errgroup "golang.org/x/sync/errgroup"
+
 func startServices(pctx context.Context, commandsList [][]string) {
 	newerr := NewError("Service Initialization")
 	var mux sync.Mutex
@@ -47,7 +47,7 @@ func startServices(pctx context.Context, commandsList [][]string) {
 	fmt.Println("[DOCKER]: Starting up Docker Services")
 	for _, contConfig := range dockerContainerConf {
 		wg.Go(func() {
-			runningDockerService(pctx, &dockerMan, contConfig)
+			runningDockerService(pctx, dockerMan, contConfig)
 		})
 	}
 
@@ -56,7 +56,7 @@ func startServices(pctx context.Context, commandsList [][]string) {
 	fmt.Println("[ZENSEARCH]: Starting up Express & DB Services")
 	for _, commands := range commandsList {
 		wg.Go(func() {
-			runningService(pctx, commands)
+			runningService(pctx, commands, dockerMan)
 		})
 	}
 	fmt.Println("[ZENSEARCH]: Services started")
@@ -72,9 +72,11 @@ func runningDockerService(ctx context.Context, dockerMan *DockerManager, contCon
 		newErr.addError(err.Error())
 		panic(newErr.Error())
 	}
-	// cancellation for specific service
+
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second*120)
 	defer cancel()
+
+	// FOR CLEANING UP BY SHUTTING DOWN SERVICE
 	go func() {
 		<-ctx.Done()
 		fmt.Printf("[DOCKER]: shutting down %s container...\n", contConfig.Name)
@@ -103,11 +105,24 @@ func runningDockerService(ctx context.Context, dockerMan *DockerManager, contCon
 	}
 
 }
-func runningService(ctx context.Context, commands []string) {
+
+// TODO: use errgroup to close down all running process once one of the running services crashes
+// right now if one of the service crashes, docker stops all containers, as well as stopping
+// the current executed binary but the other process still runs
+func runningService(ctx context.Context, commands []string, dm *DockerManager) {
+
 	cmdName := commands[0]
 	logName := strings.ToUpper(cmdName)
 
 	newStdErr := NewError(cmdName)
+
+	defer func() {
+		err := dm.StopAll(ctx)
+		if err != nil {
+			newStdErr.addError(err.Error())
+			panic(newStdErr.Error())
+		}
+	}()
 	cmd := exec.Command(commands[1], commands[2:]...)
 	// update the current working directory of each services
 	// to run within its own directory to enable relative imports
@@ -149,6 +164,10 @@ func runningService(ctx context.Context, commands []string) {
 				fmt.Printf("[ZENSEARCH]: ERROR - %s - CAUSE %s\n", cmdName, err)
 				return
 			}
+
+			if strings.Contains(string(buf[n]), "panic") {
+
+			}
 			// dont need to handle EOF since cmd.Wait already waits and cleans up resources and then exits the function if
 			// io.EOF is encountered which can be a cause from an exit process
 			if n > 0 {
@@ -165,6 +184,7 @@ func runningService(ctx context.Context, commands []string) {
 		}
 	}()
 
+	// FOR CLEANING UP BY SHUTTING DOWN SERVICE
 	go func() {
 		<-ctx.Done()
 		fmt.Printf("[%s]: Shutting down\n", logName)
@@ -182,9 +202,8 @@ func runningService(ctx context.Context, commands []string) {
 			fmt.Printf("[%s]: Process received '%s' signal\n", logName, status.Signal())
 			return
 		}
-		newStdErr.addError(err.Error())
-		panic(newStdErr.Error())
 	}
+	fmt.Println("Exit Error from service")
 
 }
 

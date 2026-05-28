@@ -49,7 +49,6 @@ class RabbitMQClient {
 				);
 				return this;
 			} catch (err) {
-				console.error("Retrying Web server service connection");
 				await new Promise((resolve) => {
 					const timeoutID = setTimeout(() => {
 						resolve("Done blocking");
@@ -77,12 +76,9 @@ class RabbitMQClient {
 				throw new Error("ERROR: Connection interface is null.");
 			}
 
-
-
 			this.lowThroughputChannel = await this.connection.createChannel()
 
 			// handling high throughput publishing to search engine from data segmentation 
-			//
 			this.highThroughputChannel = await this.connection.createChannel()
 
 			this.highThroughputChannel!.prefetch(cumulativeAckCount, false);
@@ -95,37 +91,10 @@ class RabbitMQClient {
 			await this.highThroughputChannel.assertExchange(this.definitions.exchange.general, "direct", { durable: true })
 			await this.highThroughputChannel.assertExchange(this.definitions.exchange.crawler, "direct", { durable: true })
 
-			// QUEUE ASSERTIONS
-
-			// DB,EXPRESS & SEARCH SPECIFIC TASK
-			await this.eventsChannel.assertQueue(this.definitions.queues.es_db_check_queue)
-			await this.eventsChannel.assertQueue(this.definitions.queues.se_db_request_queue)
-			await this.eventsChannel.assertQueue(this.definitions.queues.cr_db_indexing_queue)
-			await this.eventsChannel.assertQueue(this.definitions.queues.cr_db_enqueue_queue)
-			await this.eventsChannel.assertQueue(this.definitions.queues.cr_db_dequeue_queue)
-
-			await this.eventsChannel.assertQueue(this.definitions.queues.cr_db_getlen_queue)
-
-			// // QUEUE BINDING
-			// // # General Exchange
-			// await this.highThroughputChannel.bindQueue(this.definitions.queues.es_db_check_queue, this.definitions.exchange.general, this.definitions.routing_keys.es_db_check)
-			// await this.highThroughputChannel.bindQueue(this.definitions.queues.se_db_request_queue, this.definitions.exchange.general, this.definitions.routing_keys.se_db_request)
-			//
-			//
-			// // # Crawler Exchange
-			//
-			// await this.highThroughputChannel.bindQueue(this.definitions.queues.cr_db_indexing_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_indexing)
-			//
-			// await this.highThroughputChannel.bindQueue(this.definitions.queues.cr_db_enqueue_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_dequeue)
-			//
-			// await this.highThroughputChannel.bindQueue(this.definitions.queues.cr_db_dequeue_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_dequeue)
-			//
-			// await this.highThroughputChannel.bindQueue(this.definitions.queues.cr_db_getlen_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_getlen)
-			//
 		} catch (err) {
 			const error = err as Error;
 			console.error(
-				"ERROR: Something went wrong while creating search channels.",
+				"ERROR: Something went wrong while creating channels.",
 			);
 			console.error(err);
 			throw new Error(error.message);
@@ -145,6 +114,7 @@ class RabbitMQClient {
 		*/
 		this.eventsChannel!.consume(this.definitions.queues.se_db_request_queue, async (data) => {
 			if (data === null) throw new Error("No data was pushed.");
+			console.log("Received query from search engine")
 			try {
 				const dataQuery: Webpage[] = await dbInterface.queryWebpages(pool);
 				console.log({ searchEngineMessage: data.content.toString() });

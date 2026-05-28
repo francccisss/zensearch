@@ -77,7 +77,7 @@ func main() {
 
 		msgs, err := client.EventsChannel.Consume(
 			client.Definitions.Queues.ES_SE_QUERY_QUEUE,
-			"", false, true, false, false, nil)
+			"", false, false, false, false, nil)
 		if err != nil {
 			log.Fatalf("Error from Consume %s", err)
 		}
