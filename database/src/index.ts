@@ -8,8 +8,9 @@ import { configDotenv } from "dotenv";
 
 
 
-configDotenv({ path: path.resolve(import.meta.dirname, "../.env") })
+configDotenv({ path: path.resolve(import.meta.dirname, "../../.env") })
 
+// TODO: UNABLE TO RESOLVE .ENV FILE
 const poolOption: mysql.PoolOptions = {
 	user: process.env.DB_USER,
 	password: process.env.DB_PASS,
