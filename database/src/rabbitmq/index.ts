@@ -76,21 +76,46 @@ class RabbitMQClient {
 				throw new Error("ERROR: Connection interface is null.");
 			}
 
-			this.lowThroughputChannel = await this.connection.createChannel()
+			this.lowThroughputChannel = await this.connection.createChannel() // ouput channel
 
 			// handling high throughput publishing to search engine from data segmentation 
-			this.highThroughputChannel = await this.connection.createChannel()
+			this.highThroughputChannel = await this.connection.createChannel() // ouput channel
 
 			this.highThroughputChannel!.prefetch(cumulativeAckCount, false);
 			// incoming data can be from, search engine query, frontier queue requests from crawler
 			// as well has webpage indexing.
 			// and crawl list check request from express server
-			this.eventsChannel = await this.connection.createChannel();
+			this.eventsChannel = await this.connection.createChannel(); // consuming channel
 
-			// EXCHANGE ASSERTION
-			await this.highThroughputChannel.assertExchange(this.definitions.exchange.general, "direct", { durable: true })
-			await this.highThroughputChannel.assertExchange(this.definitions.exchange.crawler, "direct", { durable: true })
+			await this.eventsChannel.assertQueue(this.definitions.queues.se_db_request_queue, { durable: true, exclusive: false })
+			await this.eventsChannel.assertQueue(this.definitions.queues.es_db_check_queue, { durable: true, exclusive: false })
 
+			await this.eventsChannel.assertQueue(this.definitions.queues.cr_db_getlen_queue, { durable: true, exclusive: false })
+			await this.eventsChannel.assertQueue(this.definitions.queues.cr_db_indexing_queue, { durable: true, exclusive: false })
+			await this.eventsChannel.assertQueue(this.definitions.queues.cr_db_enqueue_queue, { durable: true, exclusive: false })
+			await this.eventsChannel.assertQueue(this.definitions.queues.cr_db_dequeue_queue, { durable: true, exclusive: false })
+
+
+			try {
+				await this.highThroughputChannel.assertExchange(this.definitions.exchange.general, "direct", { durable: true })
+				console.log("General Exchange ok")
+			} catch (err: any) {
+				throw new Error(err)
+			}
+			try {
+				await this.highThroughputChannel.assertExchange(this.definitions.exchange.crawler, "direct", { durable: true })
+				console.log("Crawler Exchange ok")
+			} catch (err: any) {
+				throw new Error(err)
+			}
+
+			await this.eventsChannel.bindQueue(this.definitions.queues.se_db_request_queue, this.definitions.exchange.general, this.definitions.routing_keys.se_db_request)
+			await this.eventsChannel.bindQueue(this.definitions.queues.es_db_check_queue, this.definitions.exchange.general, this.definitions.routing_keys.es_db_check)
+
+			await this.eventsChannel.bindQueue(this.definitions.queues.cr_db_getlen_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_getlen)
+			await this.eventsChannel.bindQueue(this.definitions.queues.cr_db_indexing_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_indexing)
+			await this.eventsChannel.bindQueue(this.definitions.queues.cr_db_enqueue_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_enqueue)
+			await this.eventsChannel.bindQueue(this.definitions.queues.cr_db_dequeue_queue, this.definitions.exchange.crawler, this.definitions.routing_keys.cr_db_dequeue)
 		} catch (err) {
 			const error = err as Error;
 			console.error(

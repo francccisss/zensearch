@@ -104,7 +104,7 @@ func (rb *RabbitMQClient) QueryDatabase(message string) {
 
 	err := rb.PublishChannel.Publish(
 		rb.Definitions.Exchange.General,
-		rb.Definitions.Queues.SE_DB_REQUEST_QUEUE,
+		rb.Definitions.RoutingKeys.SE_DB_REQUEST,
 		false, false, amqp.Publishing{
 			ContentType: "text/plain",
 			Body:        []byte(message),
@@ -161,7 +161,7 @@ func (rb *RabbitMQClient) PublishScoreRanking(segments [][]byte) {
 	for i := range len(segments) {
 		err := rb.HighThroughputChannel.Publish(
 			"",
-			SENGINE_EXPRESS_QUERY_CBQ,
+			rb.Definitions.Queues.ES_SE_QUERY_CBQ,
 			false,
 			false,
 			amqp.Publishing{

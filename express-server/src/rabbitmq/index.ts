@@ -70,38 +70,25 @@ class RabbitMQClient {
 
 			// EXCHANGE ASSERTION
 			await this.publishChannel.assertExchange(this.definitions.exchange.general, "direct", { durable: true })
+			await this.publishChannel.assertExchange(this.definitions.exchange.crawler, "direct", { durable: true })
 
 			// QUEUE ASSERTIONS
 
 			// DB,EXPRESS & SEARCH SPECIFIC TASK
-			await this.eventsChannel.assertQueue(this.definitions.queues.es_db_check_queue)
-			await this.eventsChannel.assertQueue(this.definitions.queues.es_db_check_cbq,
-				{
-					exclusive: false,
-					durable: false,
-				}
-			)
+			await this.eventsChannel.assertQueue(this.definitions.queues.es_db_check_queue, { exclusive: false, durable: true })
+			await this.eventsChannel.assertQueue(this.definitions.queues.es_db_check_cbq, { exclusive: false, durable: false, })
 
-			await this.eventsChannel.assertQueue(this.definitions.queues.es_cr_request_queue)
-			await this.eventsChannel.assertQueue(this.definitions.queues.es_cr_request_cbq,
-				{
-					exclusive: false,
-					durable: false,
-				}
-			)
+			await this.eventsChannel.assertQueue(this.definitions.queues.es_cr_request_queue, { exclusive: false, durable: true })
+			await this.eventsChannel.assertQueue(this.definitions.queues.es_cr_request_cbq, { exclusive: false, durable: false, })
 			// SEARCH SPECIFIC TASK
-			await this.searchChannel.assertQueue(this.definitions.queues.es_se_query_queue)
-			await this.searchChannel.assertQueue(this.definitions.queues.es_se_query_cbq,
-				{
-					exclusive: false,
-					durable: false,
-				}
-			)
+			await this.searchChannel.assertQueue(this.definitions.queues.es_se_query_queue, { exclusive: false, durable: true })
+			await this.searchChannel.assertQueue(this.definitions.queues.es_se_query_cbq, { exclusive: false, durable: false, })
 
 			// QUEUE BINDING
-			await this.publishChannel.bindQueue(this.definitions.queues.es_se_query_queue, this.definitions.exchange.general, this.definitions.routing_keys.es_se_query)
-			await this.publishChannel.bindQueue(this.definitions.queues.es_cr_request_queue, this.definitions.exchange.general, this.definitions.routing_keys.es_cr_request)
+			//
 			await this.publishChannel.bindQueue(this.definitions.queues.es_db_check_queue, this.definitions.exchange.general, this.definitions.routing_keys.es_db_check)
+			await this.publishChannel.bindQueue(this.definitions.queues.es_cr_request_queue, this.definitions.exchange.general, this.definitions.routing_keys.es_cr_request)
+			await this.publishChannel.bindQueue(this.definitions.queues.es_se_query_queue, this.definitions.exchange.general, this.definitions.routing_keys.es_se_query)
 
 		} catch (err) {
 			const error = err as Error;

@@ -41,10 +41,12 @@ func main() {
 			SE_DB_REQUEST_QUEUE string
 			SE_DB_REQUEST_CBQ   string
 			ES_SE_QUERY_QUEUE   string
+			ES_SE_QUERY_CBQ     string
 		}{
 			SE_DB_REQUEST_QUEUE: rbqDef.Queues.SearchEngineQueues.SE_DB_REQUEST_QUEUE,
 			SE_DB_REQUEST_CBQ:   rbqDef.Queues.SearchEngineQueues.SE_DB_REQUEST_CBQ,
 			ES_SE_QUERY_QUEUE:   rbqDef.Queues.ExpressServerQueues.ES_SE_QUERY_QUEUE,
+			ES_SE_QUERY_CBQ:     rbqDef.Queues.ExpressServerQueues.ES_SE_QUERY_CBQ,
 		},
 		RoutingKeys: struct {
 			SE_DB_REQUEST string
