@@ -51,11 +51,12 @@ type DockerImage struct {
 }
 
 type DockerManager struct {
-	Client     *client.Client
-	Containers *map[ContainerName]*DockerContainer
-	Images     map[string]*DockerImage
-	Host       string
-	mux        *sync.Mutex
+	Client         *client.Client
+	ContainerNames []ContainerName
+	Containers     *map[ContainerName]*DockerContainer
+	Images         map[string]*DockerImage
+	Host           string
+	mux            *sync.Mutex
 }
 
 var user = os.Getenv("USER")
@@ -68,19 +69,20 @@ const STANDALONE_DOCKER_HOST = "unix:///var/run/docker.sock"
 // then we can check the other host url since both Docker Desktop and standalone Docker Engine
 // uses 2 different URL Socket.
 
-func NewDockerManager(mux *sync.Mutex) (DockerManager, error) {
+func NewDockerManager(mux *sync.Mutex) (*DockerManager, error) {
 	cl, err := client.NewClientWithOpts(client.FromEnv, client.WithHost(DOCKER_DESKTOP_HOST), client.WithAPIVersionNegotiation())
 	if err != nil {
-		return DockerManager{}, err
+		return nil, err
 	}
 
 	dcmap := make(map[ContainerName]*DockerContainer, 2)
-	return DockerManager{
-		Client:     cl,
-		Containers: &dcmap,
-		Images:     make(map[string]*DockerImage, 2),
-		Host:       cl.DaemonHost(),
-		mux:        mux,
+	return &DockerManager{
+		Client:         cl,
+		Containers:     &dcmap,
+		Images:         make(map[string]*DockerImage, 2),
+		Host:           cl.DaemonHost(),
+		mux:            mux,
+		ContainerNames: make([]ContainerName, 0, 2),
 	}, nil
 }
 
@@ -99,14 +101,14 @@ func (dm *DockerManager) NewDockerContainer(contConfig DockerContainerConfig) {
 		ContainerID:    "",
 	}
 	(*dm.Containers)[newDockerContainer.ContainerName] = newDockerContainer
-
+	dm.ContainerNames = append(dm.ContainerNames, contConfig.Name)
 }
 
 type ContainerManager interface {
 	Run(dctx context.Context, imageName string, imageTag string) <-chan error
 	Create(dctx context.Context, imageName string, tag string) error
 	Start(dctx context.Context, containerID string) error
-	Stop(dctx context.Context) error
+	Stop(dctx context.Context, containerName ContainerName) error
 	GetContainer(dctx context.Context) (container.Summary, bool)
 	listenContainerState(dctx context.Context)
 	RemoveContainer(ctx context.Context, containerName ContainerName)
@@ -220,6 +222,18 @@ func (dm *DockerManager) Stop(dctx context.Context, containerName ContainerName)
 		return fmt.Errorf("[DOCKER]: ERROR Something went wrong, zensearch is unable to stop the container %s with ID of %s\n", dockerContainer.ContainerID[:8], containerName)
 	}
 	fmt.Printf("[DOCKER]: Successfully stopped a container with an ID starting with %s\n", dockerContainer.ContainerID[:8])
+	return nil
+}
+
+func (dm *DockerManager) StopAll(dctx context.Context) error {
+	for _, cname := range dm.ContainerNames {
+
+		fmt.Printf("CONTAINER NAME TO CLOSE: %s\n", cname)
+		err := dm.Stop(dctx, cname)
+		if err != nil {
+			return nil
+		}
+	}
 	return nil
 }
 
