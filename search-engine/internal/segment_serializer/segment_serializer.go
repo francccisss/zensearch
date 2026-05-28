@@ -14,6 +14,21 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+type SegmentSerializer struct {
+	segmentCounter        uint32
+	expectedSequenceNum   uint32
+	HighThroughputChannel *amqp.Channel
+}
+
+func NewSegmentSerializer(ackChannel *amqp.Channel) *SegmentSerializer {
+	return &SegmentSerializer{
+		segmentCounter:        0,
+		expectedSequenceNum:   0,
+		HighThroughputChannel: ackChannel,
+	}
+
+}
+
 type Segment struct {
 	Header  SegmentHeader
 	Payload []byte
@@ -28,16 +43,13 @@ type Done struct{}
 
 // waits for all of the incoming segments and decodes then appends bytes into the `webpageBytesChan`
 // incoming segment is the input while the webpageBytesChan is the output
-func HandleIncomingSegments(dbChannel *amqp.Channel, incomingSegmentsChan <-chan amqp.Delivery) (<-chan Done, bytes.Buffer, error) {
+func (ss *SegmentSerializer) HandleIncomingSegments(incomingSegmentsChan <-chan amqp.Delivery) (<-chan Done, bytes.Buffer, error) {
 
-	var (
-		segmentCounter      uint32 = 0
-		expectedSequenceNum uint32 = 0
-	)
 	doneCh := make(chan Done)
 
 	timeStart := time.Now()
 	var webpageBytes bytes.Buffer
+segmentLoop:
 	for newSegment := range incomingSegmentsChan {
 
 		segment, err := DecodeSegments(newSegment.Body)
@@ -46,33 +58,31 @@ func HandleIncomingSegments(dbChannel *amqp.Channel, incomingSegmentsChan <-chan
 			return doneCh, bytes.Buffer{}, err
 		}
 
-		if segment.Header.SequenceNum != expectedSequenceNum {
-			dbChannel.Nack(newSegment.DeliveryTag, true, true)
+		if segment.Header.SequenceNum != ss.expectedSequenceNum {
+			ss.HighThroughputChannel.Nack(newSegment.DeliveryTag, true, true)
 			fmt.Printf("Expected Sequence number %d, got %d\n",
-				expectedSequenceNum, segment.Header.SequenceNum)
+				ss.expectedSequenceNum, segment.Header.SequenceNum)
 
 			// TODO change this for retransmission dont crash
 			log.Panicf("Unexpected sequence number\n")
 			// continue
 		}
 
-		segmentCounter++
-		expectedSequenceNum++
+		ss.segmentCounter++
+		ss.expectedSequenceNum++
 
-		if segmentCounter%constants.CMLTV_ACK == 0 {
+		if ss.segmentCounter%constants.CMLTV_ACK == 0 {
 			fmt.Println("Ack all prior messages from")
-			dbChannel.Ack(newSegment.DeliveryTag, true)
+			ss.HighThroughputChannel.Ack(newSegment.DeliveryTag, true)
 		}
 		webpageBytes.Write(segment.Payload)
 
-		if segmentCounter == segment.Header.TotalSegments {
+		if ss.segmentCounter == segment.Header.TotalSegments {
 			fmt.Println("Ack all prior messages")
-			dbChannel.Ack(newSegment.DeliveryTag, true)
-			fmt.Printf("Received all of the segments from Database %d\n", segmentCounter)
+			ss.HighThroughputChannel.Ack(newSegment.DeliveryTag, true)
+			fmt.Printf("Received all of the segments from Database %d\n", ss.segmentCounter)
 			// reset everything
-			expectedSequenceNum = 0
-			segmentCounter = 0
-			break
+			break segmentLoop
 		}
 	}
 

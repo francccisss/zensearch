@@ -116,7 +116,8 @@ func (rb *RabbitMQClient) QueryDatabase(message string) {
 	}
 }
 
-func (rb *RabbitMQClient) DatabaseResponseHandler(webpageBytesChan chan bytes.Buffer, searchQuery string) {
+func (rb *RabbitMQClient) DatabaseResponseHandler(webpageBytesChan chan *bytes.Buffer, searchQuery string) {
+	serializer := segments.NewSegmentSerializer(rb.HighThroughputChannel)
 	for {
 		dbMsg, err := rb.HighThroughputChannel.Consume(
 			rb.Definitions.Queues.SE_DB_REQUEST_CBQ,
@@ -132,19 +133,16 @@ func (rb *RabbitMQClient) DatabaseResponseHandler(webpageBytesChan chan bytes.Bu
 			log.Panicf("Unable to listen to %s", rb.Definitions.Queues.SE_DB_REQUEST_CBQ)
 		}
 
-		fmt.Print("Query database\n")
-		// Queries database to send segments to search engine
-
 		fmt.Print("Spawn segment listener\n")
 
 		// Listens for incoming segments from the database Query channel consumer
-		done, webpageBytes, err := segments.HandleIncomingSegments(rb.HighThroughputChannel, dbMsg)
+		done, webpageBytes, err := serializer.HandleIncomingSegments(dbMsg)
 		select {
 		case <-done:
 			if err != nil {
 				log.Fatalf("Error from Handling Segments: %s", err)
 			}
-			webpageBytesChan <- webpageBytes
+			webpageBytesChan <- &webpageBytes
 			fmt.Printf("Clean up Handler for %s search query\n", searchQuery)
 			return
 		default:

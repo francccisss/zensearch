@@ -90,12 +90,11 @@ func main() {
 			log.Fatalf("Error from Ack %s", err)
 		}
 
-		webpageBytesChan := make(chan bytes.Buffer)
+		webpageBytesChan := make(chan *bytes.Buffer)
 		fmt.Printf("User's Query: %s\n", newMsg.Body)
 
-		client.QueryDatabase(string(newMsg.Body))
-
 		go client.DatabaseResponseHandler(webpageBytesChan, string(newMsg.Body))
+		client.QueryDatabase(string(newMsg.Body))
 
 		// // Handling search engine logic for parsing webpage to json, ranking and data segmentation for transpotation
 		go func() {
