@@ -1,35 +1,9 @@
 package rabbitmq
 
 type RabbitMQDefinitions struct {
-	Exchange    exchange    `yaml:"exchange"`
-	RoutingKeys routingKeys `yaml:"routing_keys"`
-	Queues      queues      `yaml:"queues"`
-}
-type CrawlerDefinitions struct {
-	Exchange    exchange
-	RoutingKeys struct {
-		ES_CR_REQUEST  string
-		CR_DB_INDEXING string
-		CR_DB_ENQUEUE  string
-		CR_DB_DEQUEUE  string
-		CR_DB_GETLEN   string
-	}
-	Queues struct {
-		ES_CR_REQUEST_QUEUE string
-		ES_CR_REQUEST_CBQ   string
-
-		CR_DB_INDEXING_QUEUE string
-		CR_DB_INDEXING_CBQ   string
-
-		CR_DB_ENQUEUE_QUEUE string
-		CR_DB_ENQUEUE_CBQ   string
-
-		CR_DB_DEQUEUE_QUEUE string
-		CR_DB_DEQUEUE_CBQ   string
-
-		CR_DB_GETLEN_QUEUE string
-		CR_DB_GETLEN_CBQ   string
-	}
+	RBExchange    exchange    `yaml:"exchange"`
+	RBRoutingKeys routingKeys `yaml:"routing_keys"`
+	RBQueues      queues      `yaml:"queues"`
 }
 
 type exchange struct {
@@ -68,4 +42,33 @@ type queues struct {
 		CR_DB_GETLEN_QUEUE string `yaml:"cr_db_getlen_queue"`
 		CR_DB_GETLEN_CBQ   string `yaml:"cr_db_getlen_cbq"`
 	}
+}
+type CrawlerDefinitions struct {
+	Exchange exchange
+	RoutingKeys
+	Queues
+}
+
+type RoutingKeys struct {
+	ES_CR_REQUEST  string
+	CR_DB_INDEXING string
+	CR_DB_ENQUEUE  string
+	CR_DB_DEQUEUE  string
+	CR_DB_GETLEN   string
+}
+type Queues struct {
+	ES_CR_REQUEST_QUEUE string
+	ES_CR_REQUEST_CBQ   string
+
+	CR_DB_INDEXING_QUEUE string
+	CR_DB_INDEXING_CBQ   string
+
+	CR_DB_ENQUEUE_QUEUE string
+	CR_DB_ENQUEUE_CBQ   string
+
+	CR_DB_DEQUEUE_QUEUE string
+	CR_DB_DEQUEUE_CBQ   string
+
+	CR_DB_GETLEN_QUEUE string
+	CR_DB_GETLEN_CBQ   string
 }
