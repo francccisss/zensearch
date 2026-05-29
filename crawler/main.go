@@ -13,7 +13,8 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// TODO create type to send to express server
+// TODO: Need to make the crawler send an error crawl message aside from individual ones
+// could use a different queue that the express server to consume from and handle
 
 func main() {
 
@@ -75,7 +76,6 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	crawlerResChann := make(chan crawler.CrawlMessageStatus, 1)
 	for {
 		expressMsg, err := client.EventsChannel.Consume(client.Definitions.ES_CR_REQUEST_QUEUE, "", false, false, false, false, nil)
 		if err != nil {
@@ -89,26 +89,19 @@ func main() {
 			log.Panic(err)
 		}
 		client.EventsChannel.Ack(msg.DeliveryTag, false)
-		go func() {
-
-		}()
 		go func(ctx context.Context) {
+
 			fmt.Printf("Docs: %+v\n", list.Docs)
-			crawlerManager, err := crawler.NewCrawlerManager(&client, 4)
+			crawlerManager, err := crawler.NewCrawlerManager(&client, len(list.Docs))
 			if err != nil {
 				if err != nil {
 					log.Panic(err)
 				}
 			}
-			res, err := crawlerManager.SpawnCrawlers(ctx, list.Docs)
+			err = crawlerManager.SpawnCrawlers(ctx, list.Docs)
 			if err != nil {
-				updateRes := <-res
-				updateRes.Message = err.Error()
-				crawlerResChann <- updateRes
-				return
+				panic(err)
 			}
-			response := <-res
-			crawlerResChann <- response
 
 		}(ctx)
 	}

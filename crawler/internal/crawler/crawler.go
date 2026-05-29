@@ -37,10 +37,6 @@ type Spawner struct {
 	URLs       []string
 }
 
-type DequeuedUrl struct {
-	RemainingInQueue int
-	Url              string
-}
 type Crawler struct {
 	URL           string
 	WD            *selenium.WebDriver
@@ -79,26 +75,22 @@ func (cr *CrawlerManager) NewCrawler(entryPoint string, fq frontier.FrontierQueu
 	return c
 }
 
-func (crm *CrawlerManager) SpawnCrawlers(ctx context.Context, URLs []string) ([]CrawlMessageStatus, error) {
+func (crm *CrawlerManager) SpawnCrawlers(ctx context.Context, URLs []string) error {
 
 	var wg sync.WaitGroup
 
-	crawlResultsChan := make(chan CrawlMessageStatus, len(URLs))
+	crawlerResultsChan := make(chan CrawlMessageStatus, len(URLs))
 
 	for _, entryPoint := range URLs {
 		fq := frontier.New()
 		crawler := crm.NewCrawler(entryPoint, fq)
-		wg.Go(func() {
+		go func() {
 			defer func() {
 				wg.Done()
 				(*crawler.WD).Quit()
 			}()
 			err := crawler.Crawl()
 
-			if err != nil {
-				fmt.Printf(err.Error())
-				return
-			}
 			messageStatus := CrawlMessageStatus{
 				IsSuccess: true,
 				Message:   "Succesfully indexed and stored webpages",
@@ -108,21 +100,22 @@ func (crm *CrawlerManager) SpawnCrawlers(ctx context.Context, URLs []string) ([]
 				messageStatus.Message = err.Error()
 				messageStatus.IsSuccess = false
 			}
-			crawlResultsChan <- messageStatus
+			crawlerResultsChan <- messageStatus
 			fmt.Printf("NOTIF: Thread Token release\n")
-		})
+		}()
 	}
 
-	fmt.Printf("NOTIF: Wait for crawlers\n")
-	wg.Wait()
-	close(crawlResultsChan)
-	results := make([]CrawlMessageStatus, 0, len(URLs))
-	for crawlMessage := range crawlResultsChan {
-		results = append(results, crawlMessage)
+	for result := range crawlerResultsChan {
+		err := crm.SendCrawlMessageStatus(result)
+		if err != nil {
+			result.Message = err.Error()
+			result.IsSuccess = false
+			crm.SendCrawlMessageStatus(result)
+		}
 	}
 
 	fmt.Println("NOTIF: All Process have finished.")
-	return results, nil
+	return nil
 }
 
 func (c Crawler) Crawl() error {
@@ -228,7 +221,7 @@ func (c Crawler) Crawl() error {
 		err = pageNavigator.ProcessUrl(dq.Url)
 		if err != nil {
 			retries++
-			for retries < MAX_RETRIES {
+			for retries < 7 {
 				err = pageNavigator.ProcessUrl(dq.Url)
 				if err != nil {
 					fmt.Printf("ERROR: unable to naviagate to %s retrying\n", dq.Url)
@@ -252,12 +245,7 @@ func (c Crawler) Crawl() error {
 }
 
 // TODO: Make SendIndexedWebpage use Go Routine instead
-func SendIndexedWebpage(result types.Result) error {
-
-	chann, err := rabbitmq.GetChannel("dbChannel")
-	if err != nil {
-		return err
-	}
+func (crm *CrawlerManager) SendIndexedWebpage(result types.Result) error {
 
 	b, err := json.Marshal(result)
 	if err != nil {
@@ -267,7 +255,7 @@ func SendIndexedWebpage(result types.Result) error {
 
 	returnChan := make(chan amqp.Return)
 
-	err = chann.Publish("",
+	err = crm.RBQClient.PublishChannel.Publish("",
 		rabbitmq.CRAWLER_DB_INDEXING_QUEUE,
 		false, false,
 		amqp.Publishing{
@@ -277,19 +265,19 @@ func SendIndexedWebpage(result types.Result) error {
 			ReplyTo:     rabbitmq.DB_CRAWLER_INDEXING_CBQ,
 		})
 	go func() {
-		del, err := chann.Consume(rabbitmq.DB_CRAWLER_INDEXING_CBQ, "", false, false, false, false, nil)
+		del, err := crm.RBQClient.EventsChannel.Consume(rabbitmq.DB_CRAWLER_INDEXING_CBQ, "", false, false, false, false, nil)
 		if err != nil {
 			fmt.Printf("Error on DB_CRAWLER_INDEXING_CBQ = '%s'\n", err)
 			return
 		}
 		msg := <-del
-		err = chann.Ack(msg.DeliveryTag, false)
+		err = crm.RBQClient.EventsChannel.Ack(msg.DeliveryTag, false)
 		if err != nil {
 			fmt.Printf("Error from ACK on DB_CRAWLER_INDEXING_CBQ = '%s'\n", err)
 			return
 		}
 	}()
-	chann.NotifyReturn(returnChan)
+	crm.RBQClient.EventsChannel.NotifyReturn(returnChan)
 	select {
 	case r := <-returnChan:
 		fmt.Printf("ERROR: Unable to deliver message to designated queue %s\n", rabbitmq.CRAWLER_DB_INDEXING_QUEUE)
@@ -302,14 +290,14 @@ func SendIndexedWebpage(result types.Result) error {
 }
 
 // Send message back to express to notify that either crawl failed or was success
-func SendCrawlMessageStatus(crawlStatus CrawlMessageStatus, publishChannel *amqp.Channel) error {
+func (crm *CrawlerManager) SendCrawlMessageStatus(crawlStatus CrawlMessageStatus) error {
 
 	b, err := json.Marshal(crawlStatus)
 	if err != nil {
 		fmt.Println("ERROR: unable to marshal message status")
 		return err
 	}
-	err = publishChannel.Publish("",
+	err = crm.RBQClient.PublishChannel.Publish("",
 		rabbitmq.CRAWLER_EXPRESS_CBQ,
 		false, false,
 		amqp.Publishing{
