@@ -1,7 +1,5 @@
 package types
 
-import "github.com/tebeka/selenium"
-
 type Header struct {
 	Title string
 	URL   string
@@ -15,6 +13,14 @@ type IndexedWebpage struct {
 type IndexedResult struct {
 	CrawlResult
 	Webpage IndexedWebpage
+}
+
+type Result interface {
+	sendResults()
+}
+
+type CrawlList struct {
+	Docs []string
 }
 
 type CrawlResult struct {
@@ -31,19 +37,8 @@ type CrawlResults struct {
 	CrawlResultsChan chan CrawlResult
 }
 
-type Result interface {
-	sendResults()
+type DBResponse struct {
+	IsSuccess bool
+	Message   string
+	URLSeed   string
 }
-
-type Crawler struct {
-	URL string
-	WD  *selenium.WebDriver
-}
-
-type DequeuedUrl struct {
-	RemainingInQueue int
-	Url              string
-}
-
-func (cr CrawlResult) sendResults()   {}
-func (ir IndexedResult) sendResults() {}

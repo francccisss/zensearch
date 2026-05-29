@@ -91,17 +91,17 @@ func (q Queue) Enqueue(exUrls ExtractedUrls) error {
 
 	fmt.Printf("CRAWLER TEST: ENQUEUING %+d URLS\n", len(exUrls.Nodes))
 
-	b, err := json.Marshal(exUrls)
-	if err != nil {
-		return err
-	}
-	err = q.amqpChannel.Publish("", rabbitmq.CRAWLER_DB_STOREURLS_FRONTIER_QUEUE, false, false, amqp.Publishing{
-		ContentType: "application/json",
-		Body:        b,
-	})
-	if err != nil {
-		return err
-	}
+	// b, err := json.Marshal(exUrls)
+	// if err != nil {
+	// 	return err
+	// }
+	// err = q.amqpChannel.Publish("", rabbitmq., false, false, amqp.Publishing{
+	// 	ContentType: "application/json",
+	// 	Body:        b,
+	// })
+	// if err != nil {
+	// 	return err
+	// }
 	return nil
 }
 

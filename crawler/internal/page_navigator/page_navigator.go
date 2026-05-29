@@ -1,4 +1,4 @@
-package main
+package page_navigator
 
 import (
 	frontier "crawler/frontier_queue"
@@ -22,7 +22,7 @@ type PageNavigator struct {
 	RequestTime
 	IndexedWebpages []types.IndexedWebpage
 	Hostname        string
-	fq              *frontier.FrontierQueue
+	FQ              *frontier.FrontierQueue
 }
 
 type RequestTime struct {
@@ -196,7 +196,7 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) error {
 	// Empty urls
 	pn.Urls = []string{}
 
-	err = (*pn.fq).Enqueue(ex)
+	err = (*pn.FQ).Enqueue(ex)
 	if err != nil {
 		fmt.Printf("ERROR: Unable to store extracted Urls.\n")
 		return err

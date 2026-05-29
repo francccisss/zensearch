@@ -1,7 +1,9 @@
-package main
+package crawler
 
 import (
+	"context"
 	frontier "crawler/frontier_queue"
+	pageNavigator "crawler/internal/page_navigator"
 	"crawler/internal/rabbitmq"
 	"crawler/internal/types"
 	webdriver "crawler/internal/webdriver"
@@ -11,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rabbitmq/amqp091-go"
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/tebeka/selenium"
 )
 
@@ -35,76 +37,92 @@ type Spawner struct {
 	URLs       []string
 }
 
+type DequeuedUrl struct {
+	RemainingInQueue int
+	Url              string
+}
 type Crawler struct {
 	URL           string
 	WD            *selenium.WebDriver
 	FrontierQueue frontier.FrontierQueue
 }
 
-type DequeuedUrl struct {
-	RemainingInQueue int
-	Url              string
+type CrawlerManager struct {
+	RBQClient *rabbitmq.RabbitMQClient
+	WD        *selenium.WebDriver
 }
 
-func NewCrawler(entryPoint string, fq frontier.FrontierQueue) (*Crawler, error) {
+type CrawlMessageStatus struct {
+	IsSuccess bool
+	Message   string
+	URLSeed   string
+}
+
+func NewCrawlerManager(rbqClient *rabbitmq.RabbitMQClient, limit int) (*CrawlerManager, error) {
+	wd, err := webdriver.CreateClient()
+	if err != nil {
+		return nil, err
+	}
+	cm := &CrawlerManager{
+		WD:        wd,
+		RBQClient: rbqClient,
+	}
+	return cm, nil
+}
+
+func (cr *CrawlerManager) NewCrawler(entryPoint string, fq frontier.FrontierQueue) *Crawler {
 	c := &Crawler{
 		URL:           entryPoint,
 		FrontierQueue: fq,
+		WD:            cr.WD,
 	}
-	wd, err := webdriver.CreateClient()
-	if err != nil {
-		fmt.Print(err.Error())
-		fmt.Printf("ERROR: Unable to create a new connection with Chrome Web Driver.\n")
-		return nil, err
-	}
-	c.WD = wd
-	return c, nil
+	return c
 }
 
-func SpawnCrawlers(URLs []string) {
-	crawlResultsChan := make(chan types.CrawlResult, len(URLs))
+func (crm *CrawlerManager) SpawnCrawlers(ctx context.Context, URLs []string) ([]CrawlMessageStatus, error) {
 
 	var wg sync.WaitGroup
 
+	crawlResultsChan := make(chan CrawlMessageStatus, len(URLs))
+
 	for _, entryPoint := range URLs {
-		wg.Add(1)
-		go func() {
-			fq := frontier.New()
-			crawler, err := NewCrawler(entryPoint, fq)
-			if err != nil {
-				fmt.Printf(err.Error())
-				fmt.Printf("NOTIF: Thread token release due to error.\n")
-				return
-			}
+		fq := frontier.New()
+		crawler := crm.NewCrawler(entryPoint, fq)
+		wg.Go(func() {
 			defer func() {
 				wg.Done()
 				(*crawler.WD).Quit()
 			}()
-			err = crawler.Crawl()
+			err := crawler.Crawl()
+
+			if err != nil {
+				fmt.Printf(err.Error())
+				return
+			}
 			messageStatus := CrawlMessageStatus{
 				IsSuccess: true,
 				Message:   "Succesfully indexed and stored webpages",
 				URLSeed:   entryPoint,
 			}
 			if err != nil {
-				messageStatus = CrawlMessageStatus{
-					IsSuccess: false,
-					URLSeed:   entryPoint,
-					Message:   err.Error(),
-				}
-				fmt.Println(err.Error())
+				messageStatus.Message = err.Error()
+				messageStatus.IsSuccess = false
 			}
-
-			SendCrawlMessageStatus(messageStatus)
+			crawlResultsChan <- messageStatus
 			fmt.Printf("NOTIF: Thread Token release\n")
-		}()
+		})
 	}
 
 	fmt.Printf("NOTIF: Wait for crawlers\n")
 	wg.Wait()
 	close(crawlResultsChan)
+	results := make([]CrawlMessageStatus, 0, len(URLs))
+	for crawlMessage := range crawlResultsChan {
+		results = append(results, crawlMessage)
+	}
 
 	fmt.Println("NOTIF: All Process have finished.")
+	return results, nil
 }
 
 func (c Crawler) Crawl() error {
@@ -125,13 +143,13 @@ func (c Crawler) Crawl() error {
 	fmt.Printf("DISALLOWED PATHS: %+v\n", disallowedPaths)
 	// ROBOTS.TXT HANDLING
 
-	pageNavigator := PageNavigator{
+	pageNavigator := pageNavigator.PageNavigator{
 		WD:              c.WD,
 		Urls:            []string{}, // initialize Queue with URLSeed
 		DisallowedPaths: disallowedPaths,
 		IndexedWebpages: make([]types.IndexedWebpage, 0, 50),
 		Hostname:        hostname,
-		fq:              &c.FrontierQueue,
+		FQ:              &c.FrontierQueue,
 	}
 
 	/*
@@ -247,12 +265,12 @@ func SendIndexedWebpage(result types.Result) error {
 		return err
 	}
 
-	returnChan := make(chan amqp091.Return)
+	returnChan := make(chan amqp.Return)
 
 	err = chann.Publish("",
 		rabbitmq.CRAWLER_DB_INDEXING_QUEUE,
 		false, false,
-		amqp091.Publishing{
+		amqp.Publishing{
 			ContentType: "application/json",
 			Type:        "store-indexed-webpages",
 			Body:        b,
@@ -281,4 +299,27 @@ func SendIndexedWebpage(result types.Result) error {
 		return nil
 	}
 
+}
+
+// Send message back to express to notify that either crawl failed or was success
+func SendCrawlMessageStatus(crawlStatus CrawlMessageStatus, publishChannel *amqp.Channel) error {
+
+	b, err := json.Marshal(crawlStatus)
+	if err != nil {
+		fmt.Println("ERROR: unable to marshal message status")
+		return err
+	}
+	err = publishChannel.Publish("",
+		rabbitmq.CRAWLER_EXPRESS_CBQ,
+		false, false,
+		amqp.Publishing{
+			ContentType: "application/json",
+			Type:        "store-indexed-webpages",
+			Body:        b,
+		})
+	if err != nil {
+		fmt.Println("ERROR: Unable send crawl message status to express ")
+		return err
+	}
+	return nil
 }

@@ -1,30 +1,17 @@
 package main
 
 import (
+	"context"
+	"crawler/internal/crawler"
 	"crawler/internal/rabbitmq"
+	"crawler/internal/types"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 
-	amqp "github.com/rabbitmq/amqp091-go"
 	"gopkg.in/yaml.v2"
 )
-
-type CrawlList struct {
-	Docs []string
-}
-
-type CrawlMessageStatus struct {
-	IsSuccess bool
-	Message   string
-	URLSeed   string
-}
-
-type DBResponse struct {
-	IsSuccess bool
-	Message   string
-	URLSeed   string
-}
 
 // TODO create type to send to express server
 
@@ -78,52 +65,52 @@ func main() {
 		os.Exit(1)
 	}
 
+	err = client.SetDefinitions()
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
 	fmt.Println("Crawler established TCP Connection with RabbitMQ")
 
-	// expressMsg, err := expressChannel.Consume(rabbitmq.EXPRESS_CRAWLER_QUEUE, "", false, false, false, false, nil)
-	// if err != nil {
-	// 	log.Panicf("Unable to listen to express server")
-	// }
-	// for msg := range expressMsg {
-	// 	// add context??
-	// 	go handleIncomingUrls(msg, expressChannel)
-	// }
-	// log.Println("NOTIF: Crawler Exit.")
-}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-func handleIncomingUrls(msg amqp.Delivery, chann *amqp.Channel) {
-	defer chann.Ack(msg.DeliveryTag, false)
-	webpageIndex := parseIncomingData(msg.Body)
-	fmt.Printf("Docs: %+v\n", webpageIndex.Docs)
-	go SpawnCrawlers(webpageIndex.Docs)
-}
+	crawlerResChann := make(chan crawler.CrawlMessageStatus, 1)
+	for {
+		expressMsg, err := client.EventsChannel.Consume(client.Definitions.ES_CR_REQUEST_QUEUE, "", false, false, false, false, nil)
+		if err != nil {
+			log.Println("Unable to listen to express server")
+			break
+		}
+		msg := <-expressMsg
+		var list types.CrawlList
+		err = json.Unmarshal(msg.Body, list)
+		if err != nil {
+			log.Panic(err)
+		}
+		client.EventsChannel.Ack(msg.DeliveryTag, false)
+		go func() {
 
-func parseIncomingData(data []byte) CrawlList {
-	var webpages CrawlList
-	json.Unmarshal(data, &webpages)
-	return webpages
-}
+		}()
+		go func(ctx context.Context) {
+			fmt.Printf("Docs: %+v\n", list.Docs)
+			crawlerManager, err := crawler.NewCrawlerManager(&client, 4)
+			if err != nil {
+				if err != nil {
+					log.Panic(err)
+				}
+			}
+			res, err := crawlerManager.SpawnCrawlers(ctx, list.Docs)
+			if err != nil {
+				updateRes := <-res
+				updateRes.Message = err.Error()
+				crawlerResChann <- updateRes
+				return
+			}
+			response := <-res
+			crawlerResChann <- response
 
-// Send message back to express to notify that either crawl failed or was success
-func SendCrawlMessageStatus(crawlStatus CrawlMessageStatus) error {
-
-	expressChannel, err := rabbitmq.GetChannel("expressChannel")
-	b, err := json.Marshal(crawlStatus)
-	if err != nil {
-		fmt.Println("ERROR: unable to marshal message status")
-		return err
+		}(ctx)
 	}
-	err = expressChannel.Publish("",
-		rabbitmq.CRAWLER_EXPRESS_CBQ,
-		false, false,
-		amqp.Publishing{
-			ContentType: "application/json",
-			Type:        "store-indexed-webpages",
-			Body:        b,
-		})
-	if err != nil {
-		fmt.Println("ERROR: Unable send crawl message status to express ")
-		return err
-	}
-	return nil
+	log.Println("NOTIF: Crawler Exit.")
 }

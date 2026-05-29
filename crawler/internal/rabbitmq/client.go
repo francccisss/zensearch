@@ -1,6 +1,8 @@
 package rabbitmq
 
 import (
+	"context"
+	"crawler/internal/types"
 	"fmt"
 	"time"
 
@@ -87,4 +89,11 @@ func (rb *RabbitMQClient) SetDefinitions() error {
 	rb.PublishChannel.QueueBind(rb.Definitions.Queues.CR_DB_GETLEN_QUEUE, rb.Definitions.RoutingKeys.CR_DB_GETLEN, rb.Definitions.Exchange.Crawler, false, nil)
 
 	return nil
+}
+
+func (rb *RabbitMQClient) HandleIncomingUrls(ctx context.Context, list types.CrawlList) {
+	fmt.Printf("Docs: %+v\n", list.Docs)
+
+	crawlerManager := crawlerNewCrawlerManager()
+	crawlerManager.SpawnCrawlers(list.Docs)
 }
