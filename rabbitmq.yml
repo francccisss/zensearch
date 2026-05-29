@@ -8,7 +8,7 @@ routing_keys:
   express_server_keys:
     es_se_query: es.se.query
     es_db_check: es.db.check
-    es_cr_request: es_cr_request
+    es_cr_request: es.cr.request
   crawler_keys:
     cr_db_indexing: cr.db.indexing
     cr_db_enqueue: cr.db.enqueue
