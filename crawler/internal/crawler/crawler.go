@@ -2,8 +2,6 @@ package crawler
 
 import (
 	"context"
-	frontier "crawler/frontier_queue"
-	pageNavigator "crawler/internal/page_navigator"
 	"crawler/internal/rabbitmq"
 	"crawler/internal/types"
 	webdriver "crawler/internal/webdriver"
@@ -40,12 +38,13 @@ type Spawner struct {
 type Crawler struct {
 	URL           string
 	WD            *selenium.WebDriver
-	FrontierQueue frontier.FrontierQueue
+	FrontierQueue FrontierQueue
 }
 
 type CrawlerManager struct {
-	RBQClient *rabbitmq.RabbitMQClient
-	WD        *selenium.WebDriver
+	RBQClient     *rabbitmq.RabbitMQClient
+	WD            *selenium.WebDriver
+	FrontierQueue FrontierQueue
 }
 
 type CrawlMessageStatus struct {
@@ -66,7 +65,7 @@ func NewCrawlerManager(rbqClient *rabbitmq.RabbitMQClient, limit int) (*CrawlerM
 	return cm, nil
 }
 
-func (cr *CrawlerManager) NewCrawler(entryPoint string, fq frontier.FrontierQueue) *Crawler {
+func (cr *CrawlerManager) NewCrawler(entryPoint string, fq FrontierQueue) *Crawler {
 	c := &Crawler{
 		URL:           entryPoint,
 		FrontierQueue: fq,
@@ -81,8 +80,8 @@ func (crm *CrawlerManager) SpawnCrawlers(ctx context.Context, URLs []string) err
 
 	crawlerResultsChan := make(chan CrawlMessageStatus, len(URLs))
 
+	fq := crm.NewFrontierQueue()
 	for _, entryPoint := range URLs {
-		fq := frontier.New()
 		crawler := crm.NewCrawler(entryPoint, fq)
 		go func() {
 			defer func() {
@@ -101,7 +100,7 @@ func (crm *CrawlerManager) SpawnCrawlers(ctx context.Context, URLs []string) err
 				messageStatus.IsSuccess = false
 			}
 			crawlerResultsChan <- messageStatus
-			fmt.Printf("NOTIF: Thread Token release\n")
+			fmt.Printf("Thread Token release\n")
 		}()
 	}
 
@@ -114,21 +113,20 @@ func (crm *CrawlerManager) SpawnCrawlers(ctx context.Context, URLs []string) err
 		}
 	}
 
-	fmt.Println("NOTIF: All Process have finished.")
+	fmt.Println("All Process have finished.")
 	return nil
 }
 
 func (c Crawler) Crawl() error {
-	defer fmt.Printf("NOTIF: Finished Crawling\n")
-	defer (*c.WD).Close()
+	defer fmt.Printf("Finished Crawling\n")
 
-	fmt.Printf("NOTIF: Start Crawling %s\n", c.URL)
+	fmt.Printf("Start Crawling %s\n", c.URL)
 
 	// ROBOTS.TXT HANDLING
 	hostname, _, _ := utilities.GetHostname(c.URL)
 	disallowedPaths, err := utilities.ExtractRobotsTxt(c.URL)
 	if err != nil {
-		fmt.Println("ERROR: Unable to extract robots.txt")
+		fmt.Println("Unable to extract robots.txt")
 		fmt.Println(err.Error())
 	}
 	languagePaths := []string{"/es/", "/ko/", "/tr/", "/th/", "/it/", "/uk/", "/sk/", "/fr/", "/de/", "/zh/", "/ja/", "/ru/", "/ar/", "/pt/", "/hi/", "/zh/", "/zh-tw/", "/zh-c/", "/zh-cn/", "/pt-br/", "/uz/"}
@@ -136,11 +134,10 @@ func (c Crawler) Crawl() error {
 	fmt.Printf("DISALLOWED PATHS: %+v\n", disallowedPaths)
 	// ROBOTS.TXT HANDLING
 
-	pageNavigator := pageNavigator.PageNavigator{
+	pageNavigator := PageNavigator{
 		WD:              c.WD,
 		Urls:            []string{}, // initialize Queue with URLSeed
 		DisallowedPaths: disallowedPaths,
-		IndexedWebpages: make([]types.IndexedWebpage, 0, 50),
 		Hostname:        hostname,
 		FQ:              &c.FrontierQueue,
 	}
@@ -167,15 +164,19 @@ func (c Crawler) Crawl() error {
 	// been visited by it.
 
 	// Blocks thread
+
+	// FIX: This throws away new list and instead continues on the old ones that already
+	// exists in the frontier queue from a previously failed session
 	queueLength, err := c.FrontierQueue.Len(hostname)
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
 
+	// BOOT STRAPPING FRONTIER QUEUE
 	if queueLength == 0 {
 		fmt.Println("CRAWLER TEST: QUEUE IS EMPTY")
-		ex := frontier.ExtractedUrls{
+		ex := ExtractedUrls{
 			Root:  hostname,
 			Nodes: []string{c.URL},
 		}
@@ -184,7 +185,7 @@ func (c Crawler) Crawl() error {
 		err = c.FrontierQueue.Enqueue(ex)
 		if err != nil {
 			// Error for when crawler is not able to crawl and index the seed URL.
-			fmt.Printf("ERROR: unable to store Urls to database service %s\n", c.URL)
+			fmt.Printf("unable to store Urls to database service %s\n", c.URL)
 			fmt.Println(err.Error())
 			return err
 		}
@@ -204,32 +205,28 @@ func (c Crawler) Crawl() error {
 
 	for dq := range dqUrlChan {
 		fmt.Printf("DEQUEUE DATA: %+v\n", dq)
-		retries := 0
 
 		if dq.RemainingInQueue == 0 {
 			fmt.Println("No more urls in queue, cleaning up")
 			close(dqUrlChan)
 			break
 		}
-		// if dq.RemainingInQueue == 0 && isRoot == false {
-		// 	fmt.Println("No more urls in queue, cleaning up")
-		// 	close(dqUrlChan)
-		// 	break
-		// }
 
 		fmt.Printf("TEST CRAWLER: PROCESSING DEQUEUED URL: %s\n", dq.Url)
-		err = pageNavigator.ProcessUrl(dq.Url)
-		if err != nil {
-			retries++
-			for retries < 7 {
-				err = pageNavigator.ProcessUrl(dq.Url)
+		// TODO: Process pages concurrently
+		go func() {
+			retries := 0
+			for retries < MAX_RETRIES {
+				res, err := pageNavigator.ProcessUrl(dq.Url)
 				if err != nil {
-					fmt.Printf("ERROR: unable to naviagate to %s retrying\n", dq.Url)
+					fmt.Printf("unable to naviagate to %s retrying\n", dq.Url)
 					retries++
+					continue
 				}
+				return
 			}
-			fmt.Printf("ERROR: unable to naviagate to %s after %d, skipping url\n", dq.Url, retries)
-		}
+			fmt.Printf("Unable to navigate to %s after %d retries, skipping url\n", dq.Url, retries)
+		}()
 
 		// if queue is empty it should return an object with blanked url string
 		// and a length of 0 and sets the current node to is_visited
@@ -240,7 +237,7 @@ func (c Crawler) Crawl() error {
 		}
 	}
 
-	fmt.Printf("NOTIF: Crawler returned with no errors from navigating %s\n", c.URL)
+	fmt.Printf("Crawler returned with no errors from navigating %s\n", c.URL)
 	return nil
 }
 
@@ -249,7 +246,7 @@ func (crm *CrawlerManager) SendIndexedWebpage(result types.Result) error {
 
 	b, err := json.Marshal(result)
 	if err != nil {
-		fmt.Println("ERROR: unable to marshal indexed results")
+		fmt.Println("unable to marshal indexed results")
 		return err
 	}
 
@@ -280,10 +277,10 @@ func (crm *CrawlerManager) SendIndexedWebpage(result types.Result) error {
 	crm.RBQClient.EventsChannel.NotifyReturn(returnChan)
 	select {
 	case r := <-returnChan:
-		fmt.Printf("ERROR: Unable to deliver message to designated queue %s\n", rabbitmq.CRAWLER_DB_INDEXING_QUEUE)
-		return fmt.Errorf("ERROR: code=%d message=%s\n", r.ReplyCode, r.ReplyText)
+		fmt.Printf("Unable to deliver message to designated queue %s\n", rabbitmq.CRAWLER_DB_INDEXING_QUEUE)
+		return fmt.Errorf("code=%d message=%s\n", r.ReplyCode, r.ReplyText)
 	case <-time.After(1 * time.Second):
-		fmt.Println("NOTIF: No return error from messge broker")
+		fmt.Println("No return error from messge broker")
 		return nil
 	}
 
@@ -294,7 +291,7 @@ func (crm *CrawlerManager) SendCrawlMessageStatus(crawlStatus CrawlMessageStatus
 
 	b, err := json.Marshal(crawlStatus)
 	if err != nil {
-		fmt.Println("ERROR: unable to marshal message status")
+		fmt.Println("unable to marshal message status")
 		return err
 	}
 	err = crm.RBQClient.PublishChannel.Publish("",
@@ -306,7 +303,7 @@ func (crm *CrawlerManager) SendCrawlMessageStatus(crawlStatus CrawlMessageStatus
 			Body:        b,
 		})
 	if err != nil {
-		fmt.Println("ERROR: Unable send crawl message status to express ")
+		fmt.Println("Unable send crawl message status to express ")
 		return err
 	}
 	return nil
