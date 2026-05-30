@@ -92,8 +92,4 @@ func (rb *RabbitMQClient) SetDefinitions() error {
 }
 
 func (rb *RabbitMQClient) HandleIncomingUrls(ctx context.Context, list types.CrawlList) {
-	fmt.Printf("Docs: %+v\n", list.Docs)
-
-	crawlerManager := crawlerNewCrawlerManager()
-	crawlerManager.SpawnCrawlers(list.Docs)
 }

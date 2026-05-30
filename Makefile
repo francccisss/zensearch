@@ -14,7 +14,7 @@ build: main.go go_build node_build
 
 go_build:  
 	go build -o zensearch 
-	# cd ./crawler/ && go build -o crawler-bin 
+	cd ./crawler/ && go build -o crawler-bin 
 	cd ./search-engine/ && go build -o search-engine-bin
 endif
 

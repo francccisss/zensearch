@@ -100,7 +100,7 @@ func (rb *RabbitMQClient) EstablishConnection(retries int) error {
 	return fmt.Errorf("Shutting down search engine after serveral retries")
 }
 
-func (rb *RabbitMQClient) QueryDatabase(message string) {
+func QueryDatabase(message string, rb *RabbitMQClient) {
 
 	err := rb.PublishChannel.Publish(
 		rb.Definitions.Exchange.General,
@@ -116,7 +116,7 @@ func (rb *RabbitMQClient) QueryDatabase(message string) {
 	}
 }
 
-func (rb *RabbitMQClient) DatabaseResponseHandler(webpageBytesChan chan *bytes.Buffer, searchQuery string) {
+func DatabaseResponseHandler(webpageBytesChan chan *bytes.Buffer, searchQuery string, rb *RabbitMQClient) {
 	serializer := segments.NewSegmentSerializer(rb.HighThroughputChannel)
 	for {
 		dbMsg, err := rb.HighThroughputChannel.Consume(

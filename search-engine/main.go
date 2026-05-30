@@ -93,8 +93,8 @@ func main() {
 		webpageBytesChan := make(chan *bytes.Buffer, 1)
 		fmt.Printf("User's Query: %s\n", newMsg.Body)
 
-		go client.DatabaseResponseHandler(webpageBytesChan, string(newMsg.Body))
-		client.QueryDatabase(string(newMsg.Body))
+		go rabbitmq.DatabaseResponseHandler(webpageBytesChan, string(newMsg.Body), &client)
+		rabbitmq.QueryDatabase(string(newMsg.Body), &client)
 
 		// // Handling search engine logic for parsing webpage to json, ranking and data segmentation for transpotation
 		go func() {

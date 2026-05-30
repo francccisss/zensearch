@@ -13,9 +13,6 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// TODO: Need to make the crawler send an error crawl message aside from individual ones
-// could use a different queue that the express server to consume from and handle
-
 func main() {
 
 	defBuf, err := os.ReadFile("../rabbitmq.yml")
@@ -77,7 +74,7 @@ func main() {
 	defer cancel()
 
 	for {
-		expressMsg, err := client.EventsChannel.Consume(client.Definitions.ES_CR_REQUEST_QUEUE, "", false, false, false, false, nil)
+		expressMsg, err := client.EventsChannel.Consume(client.Definitions.Queues.ES_CR_REQUEST_QUEUE, "", false, false, false, false, nil)
 		if err != nil {
 			log.Println("Unable to listen to express server")
 			break
@@ -99,6 +96,8 @@ func main() {
 				}
 			}
 			err = crawlerManager.SpawnCrawlers(ctx, list.Docs)
+			// TODO: Need to make the crawler send an error crawl message aside from individual ones
+			// could use a different queue that the express server to consume from and handle
 			if err != nil {
 				panic(err)
 			}

@@ -44,9 +44,9 @@ type queues struct {
 	}
 }
 type CrawlerDefinitions struct {
-	Exchange exchange
-	RoutingKeys
-	Queues
+	Exchange    exchange
+	RoutingKeys RoutingKeys
+	Queues      Queues
 }
 
 type RoutingKeys struct {
