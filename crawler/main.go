@@ -26,7 +26,7 @@ func main() {
 
 	var rbqDef rabbitmq.RabbitMQDefinitions
 
-	err = yaml.Unmarshal(defBuf, rbqDef)
+	err = yaml.Unmarshal(defBuf, &rbqDef)
 	if err != nil {
 		panic(err)
 	}
@@ -81,7 +81,7 @@ func main() {
 		}
 		msg := <-expressMsg
 		var list types.CrawlList
-		err = json.Unmarshal(msg.Body, list)
+		err = json.Unmarshal(msg.Body, &list)
 		if err != nil {
 			log.Panic(err)
 		}
@@ -91,9 +91,7 @@ func main() {
 			fmt.Printf("Docs: %+v\n", list.Docs)
 			crawlerManager, err := crawler.NewCrawlerManager(&client, len(list.Docs))
 			if err != nil {
-				if err != nil {
-					log.Panic(err)
-				}
+				log.Fatal(err)
 			}
 			err = crawlerManager.SpawnCrawlers(ctx, list.Docs)
 			// TODO: Need to make the crawler send an error crawl message aside from individual ones

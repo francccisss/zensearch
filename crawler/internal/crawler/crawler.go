@@ -8,6 +8,7 @@ import (
 	utilities "crawler/utilities"
 	"encoding/json"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -88,7 +89,7 @@ func (crm *CrawlerManager) SpawnCrawlers(ctx context.Context, URLs []string) err
 				wg.Done()
 				(*crawler.WD).Quit()
 			}()
-			err := crawler.Crawl()
+			err := crawler.Crawl(crm.SendIndexedWebpage)
 
 			messageStatus := CrawlMessageStatus{
 				IsSuccess: true,
@@ -106,18 +107,14 @@ func (crm *CrawlerManager) SpawnCrawlers(ctx context.Context, URLs []string) err
 
 	for result := range crawlerResultsChan {
 		err := crm.SendCrawlMessageStatus(result)
-		if err != nil {
-			result.Message = err.Error()
-			result.IsSuccess = false
-			crm.SendCrawlMessageStatus(result)
-		}
+		fmt.Println(err)
 	}
 
 	fmt.Println("All Process have finished.")
 	return nil
 }
 
-func (c Crawler) Crawl() error {
+func (c Crawler) Crawl(SaveWebpageHandler func(types.IndexedResult) error) error {
 	defer fmt.Printf("Finished Crawling\n")
 
 	fmt.Printf("Start Crawling %s\n", c.URL)
@@ -223,6 +220,10 @@ func (c Crawler) Crawl() error {
 					retries++
 					continue
 				}
+				err = SaveWebpageHandler(res)
+				if err != nil {
+					log.Fatal(err.Error())
+				}
 				return
 			}
 			fmt.Printf("Unable to navigate to %s after %d retries, skipping url\n", dq.Url, retries)
@@ -242,7 +243,20 @@ func (c Crawler) Crawl() error {
 }
 
 // TODO: Make SendIndexedWebpage use Go Routine instead
-func (crm *CrawlerManager) SendIndexedWebpage(result types.Result) error {
+// ```typescript
+//
+//	(alias) type IndexedWebpage = {
+//	    Message: string;
+//	    CrawlStatus: number;
+//	    Webpage: {
+//	        Header: header;
+//	        Contents: string;
+//	    };
+//	    URLSeed: string;
+//	}
+//
+// ````
+func (crm *CrawlerManager) SendIndexedWebpage(result types.IndexedResult) error {
 
 	b, err := json.Marshal(result)
 	if err != nil {
