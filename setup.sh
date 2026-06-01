@@ -29,7 +29,10 @@ GRANT ALL PRIVILEGES ON $DB_NAME.* TO '$DB_USER'@'$DB_HOST';
 FLUSH PRIVILEGES;
 EOF
 
+
 echo -e "\nSetting up Database Environment Variables."
+
+
 
 
 cat > .env << EOF
@@ -38,6 +41,8 @@ DB_HOST=$DB_HOST
 DB_USER=$DB_USER
 DB_PASS=$DB_PASS
 EOF
+
+echo -e "\nCreating Zensearch Tables..."
 
 echo -e "\n.env generated in the root directory.\n"
 

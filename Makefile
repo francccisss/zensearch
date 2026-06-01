@@ -22,6 +22,12 @@ node_build:
 	npm run build --prefix ./database/
 	npm run build --prefix ./express-server/
 
+
+node_install:
+	npm install --prefix ./database/
+	npm install --prefix ./express-server/
+
+
 ifdef GO_TESTFILES
 go_test: 
 	@echo "Go Tests"
