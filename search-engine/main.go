@@ -50,8 +50,10 @@ func main() {
 		},
 		RoutingKeys: struct {
 			SE_DB_REQUEST string
+			ES_SE_QUERY   string
 		}{
 			SE_DB_REQUEST: rbqDef.RoutingKeys.SearchEngineKeys.SE_DB_REQUEST,
+			ES_SE_QUERY:   rbqDef.RoutingKeys.ExpressServerKeys.ES_SE_QUERY,
 		},
 	}
 

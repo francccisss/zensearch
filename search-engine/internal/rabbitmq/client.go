@@ -58,20 +58,32 @@ func (rb *RabbitMQClient) SetDefinitions() error {
 		return err
 	}
 	rb.EventsChannel = eventsCh
-	_, err = pubCh.QueueDeclare(rb.Definitions.Queues.SE_DB_REQUEST_QUEUE, true, false, false, false, nil)
+
+	rb.PublishChannel.ExchangeDeclare(rb.Definitions.Exchange.General, "direct", true, false, false, false, nil)
+
+	_, err = rb.PublishChannel.QueueDeclare(rb.Definitions.Queues.SE_DB_REQUEST_QUEUE, true, false, false, false, nil)
 	if err != nil {
 		fmt.Printf("From Declaring Queue %s\n", rb.Definitions.Queues.SE_DB_REQUEST_QUEUE)
 		return err
 	}
 
-	_, err = pubCh.QueueDeclare(rb.Definitions.Queues.SE_DB_REQUEST_CBQ, false, true, false, false, nil)
+	_, err = rb.PublishChannel.QueueDeclare(rb.Definitions.Queues.SE_DB_REQUEST_CBQ, false, true, false, false, nil)
 
 	if err != nil {
 		fmt.Printf("From Declaring Queue %s\n", rb.Definitions.Queues.SE_DB_REQUEST_CBQ)
 		return err
 	}
 
-	err = pubCh.QueueBind(rb.Definitions.Queues.SE_DB_REQUEST_QUEUE, rb.Definitions.RoutingKeys.SE_DB_REQUEST, rb.Definitions.Exchange.General, false, nil)
+	_, err = rb.PublishChannel.QueueDeclare(rb.Definitions.Queues.ES_SE_QUERY_QUEUE, true, false, false, false, nil)
+
+	if err != nil {
+		fmt.Printf("From Declaring Queue %s\n", rb.Definitions.Queues.ES_SE_QUERY_QUEUE)
+		return err
+	}
+
+	err = rb.PublishChannel.QueueBind(rb.Definitions.Queues.SE_DB_REQUEST_QUEUE, rb.Definitions.RoutingKeys.SE_DB_REQUEST, rb.Definitions.Exchange.General, false, nil)
+
+	err = rb.PublishChannel.QueueBind(rb.Definitions.Queues.ES_SE_QUERY_QUEUE, rb.Definitions.RoutingKeys.ES_SE_QUERY, rb.Definitions.Exchange.General, false, nil)
 
 	if err != nil {
 

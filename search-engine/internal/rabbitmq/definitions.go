@@ -9,6 +9,7 @@ type SearchEngineDefinitions struct {
 	Exchange    exchange
 	RoutingKeys struct {
 		SE_DB_REQUEST string
+		ES_SE_QUERY   string
 	}
 	Queues struct {
 		SE_DB_REQUEST_QUEUE string
@@ -24,6 +25,10 @@ type exchange struct {
 }
 
 type routingKeys struct {
+	ExpressServerKeys struct {
+		ES_SE_QUERY string `yaml:"es_se_query"`
+	} `yaml:"express_server_keys"`
+
 	SearchEngineKeys struct {
 		SE_DB_REQUEST string `yaml:"se_db_request"`
 	} `yaml:"search_engine_keys"`
