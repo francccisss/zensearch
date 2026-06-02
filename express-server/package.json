@@ -27,7 +27,7 @@
   "dependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/ws": "^8.5.12",
-    "amqplib": "^0.10.4",
+    "amqplib": "^2.0.1",
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",
     "express": "^4.19.2",

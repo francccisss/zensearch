@@ -1,4 +1,4 @@
-import type { Channel, Connection, ConsumeMessage } from "amqplib";
+import type { Channel, ChannelModel, ConsumeMessage } from "amqplib";
 import yaml from "js-yaml";
 import fs from "fs";
 import type {
@@ -13,7 +13,7 @@ import path from "path";
 
 // TODO ADD LOGS TO RECEIVED AND PROCESSED SEGMENTS
 class RabbitMQClient {
-  connection: null | Connection = null;
+  connection: null | ChannelModel = null;
   client: this = this;
   publishChannel: Channel | null = null;
   eventsChannel: Channel | null = null;
