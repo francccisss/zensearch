@@ -69,6 +69,14 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Println("Crawler established TCP Connection with RabbitMQ")
+	defer func() {
+
+		client.PublishChannel.QueueDelete(client.Definitions.Queues.ES_CR_REQUEST_CBQ, false, false, true)
+		client.PublishChannel.QueueDelete(client.Definitions.Queues.CR_DB_INDEXING_CBQ, false, false, true)
+		client.PublishChannel.QueueDelete(client.Definitions.Queues.CR_DB_ENQUEUE_CBQ, false, false, true)
+		client.PublishChannel.QueueDelete(client.Definitions.Queues.CR_DB_DEQUEUE_CBQ, false, false, true)
+		client.PublishChannel.QueueDelete(client.Definitions.Queues.CR_DB_GETLEN_CBQ, false, false, true)
+	}()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

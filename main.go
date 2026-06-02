@@ -39,7 +39,7 @@ var RabbitmqConfig = DockerContainerConfig{
 	ContainerPorts: nat.PortSet{"5672/tcp": struct{}{}, "15672/tcp": struct{}{}},
 	Name:           "zensearch-cli-rabbitmq",
 	ImageName:      "rabbitmq",
-	Tag:            "4.0-management",
+	Tag:            "4.3.1-management",
 }
 
 // TODO use options method for optional arguments still dont know how to do that

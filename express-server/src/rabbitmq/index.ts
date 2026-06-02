@@ -90,7 +90,7 @@ class RabbitMQClient {
       );
       await this.eventsChannel.assertQueue(
         this.definitions.queues.es_db_check_cbq,
-        { exclusive: false, durable: false, autoDelete: true },
+        { exclusive: false, durable: true },
       );
 
       await this.eventsChannel.assertQueue(
@@ -99,7 +99,7 @@ class RabbitMQClient {
       );
       await this.eventsChannel.assertQueue(
         this.definitions.queues.es_cr_request_cbq,
-        { exclusive: false, durable: false, autoDelete: true },
+        { exclusive: false, durable: true },
       );
       // SEARCH SPECIFIC TASK
       await this.searchChannel.assertQueue(
@@ -108,7 +108,7 @@ class RabbitMQClient {
       );
       await this.searchChannel.assertQueue(
         this.definitions.queues.es_se_query_cbq,
-        { exclusive: false, durable: false, autoDelete: true },
+        { exclusive: false, durable: true },
       );
 
       // QUEUE BINDING

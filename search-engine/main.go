@@ -69,6 +69,10 @@ func main() {
 	}
 
 	err = client.SetDefinitions()
+	// Manual removal of ephemeral queues for rabbitmq 4.3-1
+	defer func() {
+		_, _ = client.EventsChannel.QueueDelete(searchEngineDef.Queues.SE_DB_REQUEST_CBQ, false, false, true)
+	}()
 	if err != nil {
 		panic(err.Error())
 	}
@@ -86,24 +90,27 @@ func main() {
 			log.Fatalf("Error from Consume %s", err)
 		}
 		newMsg := <-msgs
+		fmt.Println("Received User query")
 
 		err = client.EventsChannel.Ack(newMsg.DeliveryTag, true)
 		if err != nil {
 			log.Fatalf("Error from Ack %s", err)
 		}
 
+		fmt.Println("Sent Ack")
+
 		webpageBytesChan := make(chan *bytes.Buffer, 1)
 		fmt.Printf("User's Query: %s\n", newMsg.Body)
 
-		go rabbitmq.DatabaseResponseHandler(webpageBytesChan, string(newMsg.Body), &client)
+		go rabbitmq.DatabaseResponseHandler(webpageBytesChan, string(newMsg.Body), &client) //<- This feeds segements
+		// TODO STREAM INSTEAD OF BULK PARSING :D
 		rabbitmq.QueryDatabase(string(newMsg.Body), &client)
 
-		// // Handling search engine logic for parsing webpage to json, ranking and data segmentation for transpotation
 		go func() {
 
 			// TODO THROW ERRORS TO FRONT END
 			fmt.Println("Spawned Webpage Buffer Listener Routine")
-			webpageBuffer := <-webpageBytesChan
+			webpageBuffer := <-webpageBytesChan //<- This Consumes segments
 			fmt.Println("Received Webpage Buffer")
 
 			// Parsing webpages

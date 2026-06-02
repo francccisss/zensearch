@@ -76,11 +76,11 @@ func (rb *RabbitMQClient) SetDefinitions() error {
 	rb.PublishChannel.QueueDeclare(rb.Definitions.Queues.CR_DB_DEQUEUE_QUEUE, true, false, false, false, nil)
 	rb.PublishChannel.QueueDeclare(rb.Definitions.Queues.CR_DB_GETLEN_QUEUE, true, false, false, false, nil)
 
-	rb.PublishChannel.QueueDeclare(rb.Definitions.Queues.ES_CR_REQUEST_CBQ, false, true, false, false, nil)
-	rb.PublishChannel.QueueDeclare(rb.Definitions.Queues.CR_DB_INDEXING_CBQ, false, true, false, false, nil)
-	rb.PublishChannel.QueueDeclare(rb.Definitions.Queues.CR_DB_ENQUEUE_CBQ, false, true, false, false, nil)
-	rb.PublishChannel.QueueDeclare(rb.Definitions.Queues.CR_DB_DEQUEUE_CBQ, false, true, false, false, nil)
-	rb.PublishChannel.QueueDeclare(rb.Definitions.Queues.CR_DB_GETLEN_CBQ, false, true, false, false, nil)
+	rb.PublishChannel.QueueDeclare(rb.Definitions.Queues.ES_CR_REQUEST_CBQ, true, false, false, false, nil)
+	rb.PublishChannel.QueueDeclare(rb.Definitions.Queues.CR_DB_INDEXING_CBQ, true, false, false, false, nil)
+	rb.PublishChannel.QueueDeclare(rb.Definitions.Queues.CR_DB_ENQUEUE_CBQ, true, false, false, false, nil)
+	rb.PublishChannel.QueueDeclare(rb.Definitions.Queues.CR_DB_DEQUEUE_CBQ, true, false, false, false, nil)
+	rb.PublishChannel.QueueDeclare(rb.Definitions.Queues.CR_DB_GETLEN_CBQ, true, false, false, false, nil)
 
 	rb.PublishChannel.QueueBind(rb.Definitions.Queues.ES_CR_REQUEST_QUEUE, rb.Definitions.RoutingKeys.ES_CR_REQUEST, rb.Definitions.Exchange.General, false, nil)
 	rb.PublishChannel.QueueBind(rb.Definitions.Queues.CR_DB_INDEXING_QUEUE, rb.Definitions.RoutingKeys.CR_DB_INDEXING, rb.Definitions.Exchange.Crawler, false, nil)

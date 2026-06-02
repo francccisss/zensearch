@@ -67,7 +67,7 @@ func (rb *RabbitMQClient) SetDefinitions() error {
 		return err
 	}
 
-	_, err = rb.PublishChannel.QueueDeclare(rb.Definitions.Queues.SE_DB_REQUEST_CBQ, false, true, false, false, nil)
+	_, err = rb.PublishChannel.QueueDeclare(rb.Definitions.Queues.SE_DB_REQUEST_CBQ, true, false, false, false, nil)
 
 	if err != nil {
 		fmt.Printf("From Declaring Queue %s\n", rb.Definitions.Queues.SE_DB_REQUEST_CBQ)
