@@ -102,9 +102,9 @@ func main() {
 		webpageBytesChan := make(chan *bytes.Buffer, 1)
 		fmt.Printf("User's Query: %s\n", newMsg.Body)
 
-		go rabbitmq.DatabaseResponseHandler(webpageBytesChan, string(newMsg.Body), &client) //<- This feeds segements
+		go client.DatabaseResponseHandler(webpageBytesChan, string(newMsg.Body)) //<- This feeds segements
 		// TODO STREAM INSTEAD OF BULK PARSING :D
-		rabbitmq.QueryDatabase(string(newMsg.Body), &client)
+		client.QueryDatabase(string(newMsg.Body))
 
 		go func() {
 

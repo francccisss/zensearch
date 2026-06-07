@@ -5,15 +5,15 @@ import (
 	_ "encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"search-engine/internal/rabbitmq"
-	segments "search-engine/internal/segment_serializer"
 	"search-engine/internal/types"
 	"search-engine/utilities"
 	"sync"
 	"testing"
 	"time"
 
-	amqp "github.com/rabbitmq/amqp091-go"
+	"gopkg.in/yaml.v2"
 )
 
 /*
@@ -31,13 +31,20 @@ var TEST_QRY = "bm25"
 
 func TestProcessParallelism(t *testing.T) {
 
-	webpageBuffer := mockConnection(t)
+	client := mockConnection(t)
 	timeStart := time.Now()
-	webpages, err := utilities.ParseWebpages(webpageBuffer.Bytes())
+
+	webpageBytesChan := make(chan *bytes.Buffer)
+	go client.DatabaseResponseHandler(webpageBytesChan, TEST_QRY)
+
+	client.QueryDatabase(TEST_QRY)
+	webpage := <-webpageBytesChan
+	webpages, err := utilities.ParseWebpages(webpage.Bytes())
 	if err != nil {
 		log.Println("Unable to parse webpages")
 		t.Fatal(err.Error())
 	}
+
 	t.Logf("TEST: Time elapsed parsing: %dms\n\n\n", time.Until(timeStart).Abs().Milliseconds())
 
 	fmt.Printf("TEST: Comparing runtime\n\n")
@@ -134,59 +141,55 @@ func Bm25TestConcurrency(query string, webpages *[]types.WebpageTFIDF) *[]types.
 	return webpages
 }
 
-func mockConnection(t *testing.T) bytes.Buffer {
-	incomingSegmentsChan := make(chan amqp.Delivery)
-	webpageBytesChan := make(chan bytes.Buffer)
-	err := rabbitmq.EstablishConnection(7)
+func mockConnection(t *testing.T) *rabbitmq.RabbitMQClient {
 
-	conn, err := rabbitmq.GetConnection("conn")
+	defBuff, err := os.ReadFile("../../../rabbitmq.yml")
+	if err != nil {
+		panic(err)
+	}
+	if len(defBuff) == 0 {
+		panic("Empty config file")
+	}
+	fmt.Printf("DefBuff len: %d\n", len(defBuff))
+	var searchEngineDef rabbitmq.SearchEngineDefinitions
+	var rbqDef rabbitmq.RabbitMQDefinitions
+
+	err = yaml.Unmarshal(defBuff, &rbqDef)
+	if err != nil {
+		panic(err)
+	}
+
+	searchEngineDef = rabbitmq.SearchEngineDefinitions{
+		Exchange: rbqDef.Exchange,
+		Queues: struct {
+			SE_DB_REQUEST_QUEUE string
+			SE_DB_REQUEST_CBQ   string
+			ES_SE_QUERY_QUEUE   string
+			ES_SE_QUERY_CBQ     string
+		}{
+			SE_DB_REQUEST_QUEUE: rbqDef.Queues.SearchEngineQueues.SE_DB_REQUEST_QUEUE,
+			SE_DB_REQUEST_CBQ:   rbqDef.Queues.SearchEngineQueues.SE_DB_REQUEST_CBQ,
+			ES_SE_QUERY_QUEUE:   rbqDef.Queues.ExpressServerQueues.ES_SE_QUERY_QUEUE,
+			ES_SE_QUERY_CBQ:     rbqDef.Queues.ExpressServerQueues.ES_SE_QUERY_CBQ,
+		},
+		RoutingKeys: struct {
+			SE_DB_REQUEST string
+			ES_SE_QUERY   string
+		}{
+			SE_DB_REQUEST: rbqDef.RoutingKeys.SearchEngineKeys.SE_DB_REQUEST,
+			ES_SE_QUERY:   rbqDef.RoutingKeys.ExpressServerKeys.ES_SE_QUERY,
+		},
+	}
+
+	client := rabbitmq.NewRabbitMQClient(searchEngineDef)
+	err = client.EstablishConnection(7)
 	if err != nil {
 		t.Fatalf("Connection does not exist")
 	}
-	dbQueryChannel, err := conn.Channel()
+	err = client.SetDefinitions()
 	if err != nil {
-		t.Fatalf("Unable to create a database channel")
-	}
-	_, err = dbQueryChannel.QueueDeclare(rabbitmq.DB_SENGINE_REQUEST_CBQ, false, false, false, false, nil)
-	if err != nil {
-		t.Fatalf("Unable to declare DB_RESPONSE_QUEUE")
+		t.Fatalf("Connection does not exist")
 	}
 
-	rabbitmq.SetNewChannel("dbChannel", dbQueryChannel)
-	// spanw segment handler
-	go segments.HandleIncomingSegments(dbQueryChannel, incomingSegmentsChan, webpageBytesChan)
-
-	// spawn listener
-	go func(chann *amqp.Channel) {
-
-		dbMsg, err := chann.Consume(
-			rabbitmq.DB_SENGINE_REQUEST_CBQ,
-			"",
-			false,
-			false,
-			false,
-			false,
-			nil,
-		)
-
-		if err != nil {
-			log.Panicf("Unable to listen to %s", rabbitmq.EXPRESS_SENGINE_QUERY_QUEUE)
-		}
-
-		// Consume and send segment to segment channel
-		for incomingSegment := range dbMsg {
-			incomingSegmentsChan <- incomingSegment
-		}
-
-	}(dbQueryChannel)
-
-	const TEST_QRY = "semaphore is really good"
-	// send database query
-	rabbitmq.QueryDatabase("nothing burger")
-
-	t.Log("TEST: Waiting for webpage handler to finish")
-	webpageBuffer := <-webpageBytesChan
-
-	t.Log("TEST: Parsing and rating calculation starting...")
-	return webpageBuffer
+	return &client
 }
