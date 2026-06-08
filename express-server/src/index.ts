@@ -68,17 +68,17 @@ await (async function start_server() {
   rbqConn.CrawlChannelHandler(
     wsService.sendCrawlResultsToClient.bind(wsService),
   );
-  (async () => {
-    let segmentsReceived = 0;
-    rbqConn.eventEmitter.on("newSegment", () => {
-      segmentsReceived++;
-    });
 
-    rbqConn.eventEmitter.on("done", () => {
-      console.log("Segments Received: %d", segmentsReceived);
-      segmentsReceived = 0;
-    });
-  })();
+  // set segment events
+  let segmentsReceived = 0;
+  rbqConn.eventEmitter.on("newSegment", () => {
+    segmentsReceived++;
+  });
+
+  rbqConn.eventEmitter.on("done", () => {
+    console.log("Segments Received: %d", segmentsReceived);
+    segmentsReceived = 0;
+  });
 
   rbqConn.AddSegmentsToQueue();
   rbqConn.SearchChannelHandler();

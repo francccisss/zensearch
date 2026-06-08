@@ -228,7 +228,7 @@ class RabbitMQClient {
 	 Everytime a new segment arrives from the search engine the promise is resolved
 	 within the callback function of the event listener, this is synchronous
 	 in terms of data being perserved within the segmentGenerator.
-	*/
+*/
 
   async *SegmentGenerator() {
     while (true) {

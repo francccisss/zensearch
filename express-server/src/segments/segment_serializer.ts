@@ -32,7 +32,6 @@ async function listenIncomingSegments(
     }
 
     webpageBuffer.push(segment.payload);
-    channel!.ack(m.data);
     expectedSequenceNum++;
     segmentCount++;
 
@@ -44,6 +43,7 @@ async function listenIncomingSegments(
       break;
     }
   }
+  channel.ackAll();
 
   return Buffer.concat(webpageBuffer);
 }

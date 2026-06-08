@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"search-engine/constants"
 	"search-engine/internal/types"
 	"time"
 
@@ -49,6 +48,7 @@ func (ss *SegmentSerializer) HandleIncomingSegments(incomingSegmentsChan <-chan 
 
 	timeStart := time.Now()
 	var webpageBytes bytes.Buffer
+
 segmentLoop:
 	for newSegment := range incomingSegmentsChan {
 
@@ -71,10 +71,6 @@ segmentLoop:
 		ss.segmentCounter++
 		ss.expectedSequenceNum++
 
-		if ss.segmentCounter%constants.CMLTV_ACK == 0 {
-			fmt.Println("Ack all prior messages from")
-			ss.HighThroughputChannel.Ack(newSegment.DeliveryTag, true)
-		}
 		webpageBytes.Write(segment.Payload)
 
 		if ss.segmentCounter == segment.Header.TotalSegments {

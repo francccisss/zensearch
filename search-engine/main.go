@@ -81,11 +81,36 @@ func main() {
 
 	defer client.Connection.Close()
 
+	// IMPORTANT:
+	// DOESNT NEED TO ITERATE CONSUME FROM DOCS:
+	// Continues deliveries to the returned chan Delivery until Channel.Cancel,
+	// Connection.Close, Channel.Close, or an AMQP exception occurs.  Consumers must
+	// range over the chan to ensure all deliveries are received.  Unreceived
+	// deliveries will block all methods on the same connection.
+	msgs, err := client.EventsChannel.Consume(
+		client.Definitions.Queues.ES_SE_QUERY_QUEUE,
+		"", false, false, false, false, nil)
+
+	if err != nil {
+		log.Panicf("Unable to listen to %s", client.Definitions.Queues.ES_SE_QUERY_QUEUE)
+	}
+
+	dbMsg, err := client.HighIngressChannel.Consume(
+		client.Definitions.Queues.SE_DB_REQUEST_CBQ,
+		"",
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+
+	if err != nil {
+		log.Panicf("Unable to listen to %s", client.Definitions.Queues.SE_DB_REQUEST_CBQ)
+	}
 	for {
 
-		msgs, err := client.EventsChannel.Consume(
-			client.Definitions.Queues.ES_SE_QUERY_QUEUE,
-			"", false, false, false, false, nil)
+		log.Println("Next Query ready")
 		if err != nil {
 			log.Fatalf("Error from Consume %s", err)
 		}
@@ -102,50 +127,48 @@ func main() {
 		webpageBytesChan := make(chan *bytes.Buffer, 1)
 		fmt.Printf("User's Query: %s\n", newMsg.Body)
 
-		go client.DatabaseResponseHandler(webpageBytesChan, string(newMsg.Body)) //<- This feeds segements
+		go client.DatabaseResponseHandler(webpageBytesChan, dbMsg) //<- This feeds segements
 		// TODO STREAM INSTEAD OF BULK PARSING :D
 		client.QueryDatabase(string(newMsg.Body))
 
-		go func() {
+		// go routine here
+		// TODO THROW ERRORS TO FRONT END
+		fmt.Println("Spawned Webpage Buffer Listener Routine")
+		webpageBuffer := <-webpageBytesChan //<- This Consumes segments
+		fmt.Println("Received Webpage Buffer")
 
-			// TODO THROW ERRORS TO FRONT END
-			fmt.Println("Spawned Webpage Buffer Listener Routine")
-			webpageBuffer := <-webpageBytesChan //<- This Consumes segments
-			fmt.Println("Received Webpage Buffer")
+		// Parsing webpages
 
-			// Parsing webpages
+		timeStart := time.Now()
+		webpages, err := utilities.ParseWebpages(webpageBuffer.Bytes())
+		if err != nil {
+			fmt.Println(err.Error())
+			log.Println("Unable to parse webpages")
+			log.Panic(err)
+		}
+		fmt.Printf("Time elapsed parsing: %dms\n", time.Until(timeStart).Abs().Milliseconds())
 
-			timeStart := time.Now()
-			webpages, err := utilities.ParseWebpages(webpageBuffer.Bytes())
-			if err != nil {
-				fmt.Println(err.Error())
-				log.Println("Unable to parse webpages")
-				log.Panic(err)
-			}
-			fmt.Printf("Time elapsed parsing: %dms\n", time.Until(timeStart).Abs().Milliseconds())
+		// Ranking webpages
+		timeStart = time.Now()
 
-			// Ranking webpages
-			timeStart = time.Now()
+		calculatedRatings := bm25.CalculateBMRatings(string(newMsg.Body), webpages)
+		rankedWebpages := bm25.RankBM25Ratings(calculatedRatings)
 
-			calculatedRatings := bm25.CalculateBMRatings(string(newMsg.Body), webpages)
-			rankedWebpages := bm25.RankBM25Ratings(calculatedRatings)
+		fmt.Printf("Total ranked webpages: %d\n", len(*rankedWebpages))
+		fmt.Printf("Time elapsed ranking: %dms\n", time.Until(timeStart).Abs().Milliseconds())
 
-			fmt.Printf("Total ranked webpages: %d\n", len(*rankedWebpages))
-			fmt.Printf("Time elapsed ranking: %dms\n", time.Until(timeStart).Abs().Milliseconds())
+		// create segments in this section after ranking
+		timeStart = time.Now()
+		segments, err := segments.CreateSegments(rankedWebpages, constants.MSS)
+		if err != nil {
+			fmt.Println(err.Error())
+			log.Println("Unable to create segments")
+			log.Panic(err)
+		}
 
-			// create segments in this section after ranking
-			timeStart = time.Now()
-			segments, err := segments.CreateSegments(rankedWebpages, constants.MSS)
-			if err != nil {
-				fmt.Println(err.Error())
-				log.Println("Unable to create segments")
-				log.Panic(err)
-			}
+		fmt.Printf("Time elapsed data segmentation: %dms\n", time.Until(timeStart).Abs().Milliseconds())
+		go client.PublishScoreRanking(segments)
 
-			fmt.Printf("Time elapsed data segmentation: %dms\n", time.Until(timeStart).Abs().Milliseconds())
-			go client.PublishScoreRanking(segments)
-
-		}()
 	}
 
 }

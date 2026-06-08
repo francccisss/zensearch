@@ -127,41 +127,19 @@ func (rb *RabbitMQClient) QueryDatabase(message string) {
 	}
 }
 
-func (rb *RabbitMQClient) DatabaseResponseHandler(webpageBytesChan chan *bytes.Buffer, searchQuery string) {
+func (rb *RabbitMQClient) DatabaseResponseHandler(webpageBytesChan chan *bytes.Buffer, dbMsg <-chan amqp.Delivery) {
 	serializer := segments.NewSegmentSerializer(rb.HighIngressChannel)
-	for {
-		dbMsg, err := rb.HighIngressChannel.Consume(
-			rb.Definitions.Queues.SE_DB_REQUEST_CBQ,
-			"",
-			false,
-			false,
-			false,
-			false,
-			nil,
-		)
+	fmt.Print("Spawned segment listener\n")
 
-		if err != nil {
-			log.Panicf("Unable to listen to %s", rb.Definitions.Queues.SE_DB_REQUEST_CBQ)
-		}
-
-		fmt.Print("Spawn segment listener\n")
-
-		// Listens for incoming segments from the database Query channel consumer
-		done, webpageBytes, err := serializer.HandleIncomingSegments(dbMsg)
-		select {
-		case <-done:
-			fmt.Println("Done Handling Segments")
-			if err != nil {
-				log.Fatalf("Error from Handling Segments: %s", err)
-			}
-			webpageBytesChan <- &webpageBytes
-			fmt.Printf("Clean up Handler for %s search query\n", searchQuery)
-			return
-		default:
-			continue
-		}
+	// Listens for incoming segments from the database Query channel consumer
+	done, webpageBytes, err := serializer.HandleIncomingSegments(dbMsg)
+	<-done
+	fmt.Println("Done Handling Segments")
+	if err != nil {
+		log.Fatalf("Error from Handling Segments: %s", err)
 	}
-
+	webpageBytesChan <- &webpageBytes
+	fmt.Println("Clean up Handler for search query")
 }
 
 func (rb *RabbitMQClient) PublishScoreRanking(segments [][]byte) {
