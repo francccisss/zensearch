@@ -11,22 +11,22 @@ import (
 )
 
 type RabbitMQClient struct {
-	Connection            *amqp.Connection
-	PublishChannel        *amqp.Channel
-	HighThroughputChannel *amqp.Channel // for returning search results
-	EventsChannel         *amqp.Channel
-	Definitions           SearchEngineDefinitions
+	Connection         *amqp.Connection
+	PublishChannel     *amqp.Channel
+	HighIngressChannel *amqp.Channel // for returning search results
+	EventsChannel      *amqp.Channel
+	Definitions        SearchEngineDefinitions
 }
 
 const CMLTV_ACK = 1000
 
 func NewRabbitMQClient(def SearchEngineDefinitions) RabbitMQClient {
 	rb := RabbitMQClient{
-		Connection:            nil,
-		PublishChannel:        nil,
-		EventsChannel:         nil,
-		HighThroughputChannel: nil,
-		Definitions:           def,
+		Connection:         nil,
+		PublishChannel:     nil,
+		EventsChannel:      nil,
+		HighIngressChannel: nil,
+		Definitions:        def,
 	}
 	return rb
 }
@@ -49,8 +49,8 @@ func (rb *RabbitMQClient) SetDefinitions() error {
 		fmt.Println("From HighChannel")
 		return err
 	}
-	rb.HighThroughputChannel = highCh
-	rb.HighThroughputChannel.Qos(CMLTV_ACK, 0, false)
+	rb.HighIngressChannel = highCh
+	rb.HighIngressChannel.Qos(CMLTV_ACK, 0, false)
 
 	eventsCh, err := rb.Connection.Channel()
 	if err != nil {
@@ -128,9 +128,9 @@ func (rb *RabbitMQClient) QueryDatabase(message string) {
 }
 
 func (rb *RabbitMQClient) DatabaseResponseHandler(webpageBytesChan chan *bytes.Buffer, searchQuery string) {
-	serializer := segments.NewSegmentSerializer(rb.HighThroughputChannel)
+	serializer := segments.NewSegmentSerializer(rb.HighIngressChannel)
 	for {
-		dbMsg, err := rb.HighThroughputChannel.Consume(
+		dbMsg, err := rb.HighIngressChannel.Consume(
 			rb.Definitions.Queues.SE_DB_REQUEST_CBQ,
 			"",
 			false,
@@ -169,7 +169,7 @@ func (rb *RabbitMQClient) PublishScoreRanking(segments [][]byte) {
 	fmt.Printf("Sending %d ranked webpage segments\n", len(segments))
 	defer fmt.Printf("Successfully sent all %d segments\n", len(segments))
 	for i := range len(segments) {
-		err := rb.HighThroughputChannel.Publish(
+		err := rb.PublishChannel.Publish(
 			"",
 			rb.Definitions.Queues.ES_SE_QUERY_CBQ,
 			false,
@@ -184,5 +184,5 @@ func (rb *RabbitMQClient) PublishScoreRanking(segments [][]byte) {
 			log.Panicf(err.Error())
 		}
 	}
-
+	fmt.Println("Sent all segments")
 }

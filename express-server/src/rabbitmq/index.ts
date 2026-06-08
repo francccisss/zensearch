@@ -11,14 +11,15 @@ import CircularBuffer from "../segments/circular_buffer.js";
 import type { CrawlMessageStatus } from "../types/index.js";
 import path from "path";
 
+const CMLTV_ACK = 1000;
 // TODO ADD LOGS TO RECEIVED AND PROCESSED SEGMENTS
 class RabbitMQClient {
   connection: null | ChannelModel = null;
   client: this = this;
   publishChannel: Channel | null = null;
   eventsChannel: Channel | null = null;
-  crawlChannel: Channel | null = null;
-  searchChannel: Channel | null = null;
+  crawlIngressChannel: Channel | null = null;
+  searchIngressChannel: Channel | null = null;
   eventEmitter: EventEmitter = new EventEmitter();
   circleBuffer: CircularBuffer = new CircularBuffer(100);
   definitions: ExpressServerDefinition;
@@ -66,8 +67,13 @@ class RabbitMQClient {
       // consumer channels
       this.eventsChannel = (await this.connection.createChannel()) as Channel;
       // SearchChannel consumes from queue with heavier workload
-      this.searchChannel = (await this.connection.createChannel()) as Channel;
-      this.crawlChannel = (await this.connection.createChannel()) as Channel;
+      this.searchIngressChannel =
+        (await this.connection.createChannel()) as Channel;
+
+      this.searchIngressChannel.prefetch(CMLTV_ACK, false);
+
+      this.crawlIngressChannel =
+        (await this.connection.createChannel()) as Channel;
 
       // EXCHANGE ASSERTION
       await this.publishChannel.assertExchange(
@@ -102,11 +108,11 @@ class RabbitMQClient {
         { exclusive: false, durable: true },
       );
       // SEARCH SPECIFIC TASK
-      await this.searchChannel.assertQueue(
+      await this.searchIngressChannel.assertQueue(
         this.definitions.queues.es_se_query_queue,
         { exclusive: false, durable: true },
       );
-      await this.searchChannel.assertQueue(
+      await this.searchIngressChannel.assertQueue(
         this.definitions.queues.es_se_query_cbq,
         { exclusive: false, durable: true },
       );
@@ -159,24 +165,24 @@ class RabbitMQClient {
   async CrawlChannelHandler(
     cb: (chan: Channel, data: ConsumeMessage, message_type: string) => void,
   ) {
-    if (this.crawlChannel == null)
+    if (this.crawlIngressChannel == null)
       throw new Error("ERROR: Crawl Channel is null.");
 
     try {
-      this.crawlChannel.consume(
+      this.crawlIngressChannel.consume(
         this.definitions.queues.es_cr_request_cbq,
         async (msg) => {
           if (msg === null) throw new Error("No Response");
           console.log("LOG: Message received from crawler");
-          if (this.crawlChannel == null) {
+          if (this.crawlIngressChannel == null) {
             throw new Error("ERROR: Crawl Channel is null.");
           }
           const deserializedMessage = msg.content.toString();
           const crawlMessage: CrawlMessageStatus =
             JSON.parse(deserializedMessage);
           console.log(crawlMessage);
-          //this.crawlChannel.ack(msg, true);
-          cb(this.crawlChannel, msg, "crawling");
+          //this.crawlIngressChannel.ack(msg, true);
+          cb(this.crawlIngressChannel, msg, "crawling");
         },
       );
     } catch (err) {
@@ -189,7 +195,7 @@ class RabbitMQClient {
 
   async SearchChannelHandler() {
     try {
-      this.searchChannel!.consume(
+      this.searchIngressChannel!.consume(
         this.definitions.queues.es_se_query_cbq,
         (data: ConsumeMessage | null) => {
           if (data === null) {
