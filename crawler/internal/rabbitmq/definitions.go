@@ -41,7 +41,7 @@ type queues struct {
 
 		CR_DB_GETLEN_QUEUE string `yaml:"cr_db_getlen_queue"`
 		CR_DB_GETLEN_CBQ   string `yaml:"cr_db_getlen_cbq"`
-	}
+	} `yaml:"crawler_queues"`
 }
 type CrawlerDefinitions struct {
 	Exchange    exchange
