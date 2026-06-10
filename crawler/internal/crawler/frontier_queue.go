@@ -64,12 +64,12 @@ func (q Queue) Dequeue(root string) error {
 
 func (q Queue) ListenDequeuedUrl() {
 	fmt.Println("Listening to dequeued url")
+	msg, err := q.RBQClient.EventsChannel.Consume(q.RBQClient.Definitions.Queues.CR_DB_DEQUEUE_CBQ, "", false, false, false, false, nil)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 	for {
-		msg, err := q.RBQClient.EventsChannel.Consume(q.RBQClient.Definitions.Queues.CR_DB_DEQUEUE_CBQ, "", false, false, false, false, nil)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
 		chanMsg := <-msg
 		var dq DequeuedUrl
 		fmt.Println("CRAWLER TEST: received dequeued URL")

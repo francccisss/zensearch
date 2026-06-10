@@ -31,12 +31,7 @@ var elementSelector = []string{
 	"div",
 }
 
-type Spawner struct {
-	ThreadPool int
-	URLs       []string
-}
-
-type Crawler struct {
+type crawler struct {
 	URL           string
 	WD            *selenium.WebDriver
 	FrontierQueue FrontierQueue
@@ -46,6 +41,7 @@ type CrawlerManager struct {
 	RBQClient     *rabbitmq.RabbitMQClient
 	WD            *selenium.WebDriver
 	FrontierQueue FrontierQueue
+	CrawlerList   []*crawler
 }
 
 type CrawlMessageStatus struct {
@@ -60,14 +56,16 @@ func NewCrawlerManager(rbqClient *rabbitmq.RabbitMQClient, limit int) (*CrawlerM
 		return nil, err
 	}
 	cm := &CrawlerManager{
-		WD:        wd,
-		RBQClient: rbqClient,
+		WD:          wd,
+		RBQClient:   rbqClient,
+		CrawlerList: make([]*crawler, 0, limit),
 	}
 	return cm, nil
 }
 
-func (cr *CrawlerManager) NewCrawler(entryPoint string, fq FrontierQueue) *Crawler {
-	c := &Crawler{
+func (cr *CrawlerManager) newCrawler(entryPoint string) *crawler {
+	fq := cr.NewFrontierQueue()
+	c := &crawler{
 		URL:           entryPoint,
 		FrontierQueue: fq,
 		WD:            cr.WD,
@@ -75,26 +73,35 @@ func (cr *CrawlerManager) NewCrawler(entryPoint string, fq FrontierQueue) *Crawl
 	return c
 }
 
+// give each crawler their own go routine from a thread pool
 func (crm *CrawlerManager) SpawnCrawlers(ctx context.Context, URLs []string) error {
+
+	for _, entryPoint := range URLs {
+		crm.CrawlerList = append(crm.CrawlerList, crm.newCrawler(entryPoint))
+	}
+	fmt.Println("All Process have finished.")
+	return nil
+
+}
+
+func (crm *CrawlerManager) Crawl() error {
 
 	var wg sync.WaitGroup
 
-	crawlerResultsChan := make(chan CrawlMessageStatus, len(URLs))
+	crawlerResultsChan := make(chan CrawlMessageStatus, len(crm.CrawlerList))
+	for i := range crm.CrawlerList {
 
-	fq := crm.NewFrontierQueue()
-	for _, entryPoint := range URLs {
-		crawler := crm.NewCrawler(entryPoint, fq)
-		go func() {
+		wg.Go(func() {
+			crawler := crm.CrawlerList[i]
+			err := crawler.crawl(crm.SendIndexedWebpage)
 			defer func() {
 				wg.Done()
 				(*crawler.WD).Quit()
 			}()
-			err := crawler.Crawl(crm.SendIndexedWebpage)
-
 			messageStatus := CrawlMessageStatus{
 				IsSuccess: true,
 				Message:   "Succesfully indexed and stored webpages",
-				URLSeed:   entryPoint,
+				URLSeed:   crawler.URL,
 			}
 			if err != nil {
 				messageStatus.Message = err.Error()
@@ -102,19 +109,17 @@ func (crm *CrawlerManager) SpawnCrawlers(ctx context.Context, URLs []string) err
 			}
 			crawlerResultsChan <- messageStatus
 			fmt.Printf("Thread Token release\n")
-		}()
+		})
 	}
 
 	for result := range crawlerResultsChan {
 		err := crm.SendCrawlMessageStatus(result)
 		fmt.Println(err)
 	}
-
-	fmt.Println("All Process have finished.")
 	return nil
 }
 
-func (c Crawler) Crawl(SaveWebpageHandler func(types.IndexedResult) error) error {
+func (c crawler) crawl(SaveWebpageHandler func(types.IndexedResult) error) error {
 	defer fmt.Printf("Finished Crawling\n")
 
 	fmt.Printf("Start Crawling %s\n", c.URL)
