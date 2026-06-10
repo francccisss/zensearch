@@ -179,18 +179,21 @@ func (c crawler) crawl(SaveWebpageHandler func(types.IndexedResult) error) error
 	if queueLength == 0 {
 		fmt.Println("CRAWLER TEST: QUEUE IS EMPTY")
 		fmt.Printf("CRAWLER TEST: Appending %s to queue\n", hostname)
-		ex := ExtractedUrls{
-			Root:  hostname,
-			Nodes: []string{c.URL},
-		}
 		fmt.Printf("CRAWLER TEST: HOSTNAME OF SEED %s\n", hostname)
 		// Sends the URL seed to the frontier queue
-		err = c.FrontierQueue.Enqueue(ex)
-		if err != nil {
-			// Error for when crawler is not able to crawl and index the seed URL.
-			fmt.Printf("unable to store Urls to database service %s\n", c.URL)
-			fmt.Println(err.Error())
-			return err
+		retries := 0
+		for retries < MAX_RETRIES {
+			res, err := pageNavigator.ProcessUrl(c.URL)
+			if err != nil {
+				fmt.Printf("unable to naviagate to %s retrying\n", c.URL)
+				retries++
+				continue
+			}
+			err = SaveWebpageHandler(res)
+			if err != nil {
+				log.Fatal(err.Error())
+			}
+			break
 		}
 
 		// TODO: race condition issue xd
@@ -209,11 +212,11 @@ func (c crawler) crawl(SaveWebpageHandler func(types.IndexedResult) error) error
 	for dq := range dqUrlChan {
 		fmt.Printf("DEQUEUE DATA: %+v\n", dq)
 
-		// if dq.RemainingInQueue == 0 {
-		// 	fmt.Println("No more urls in queue, cleaning up")
-		// 	close(dqUrlChan)
-		// 	break
-		// }
+		if dq.RemainingInQueue == 0 {
+			fmt.Println("No more urls in queue, cleaning up")
+			close(dqUrlChan)
+			break
+		}
 
 		fmt.Printf("TEST CRAWLER: PROCESSING DEQUEUED URL: %s\n", dq.Url)
 		// TODO: Process pages concurrently
@@ -228,11 +231,10 @@ func (c crawler) crawl(SaveWebpageHandler func(types.IndexedResult) error) error
 				}
 				err = SaveWebpageHandler(res)
 				if err != nil {
-					log.Fatal(err.Error())
+					log.Println(err.Error())
 				}
 				return
 			}
-			fmt.Printf("Unable to navigate to %s after %d retries, skipping url\n", dq.Url, retries)
 		}()
 
 		// if queue is empty it should return an object with blanked url string

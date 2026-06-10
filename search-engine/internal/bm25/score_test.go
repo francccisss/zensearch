@@ -35,7 +35,22 @@ func TestProcessParallelism(t *testing.T) {
 	timeStart := time.Now()
 
 	webpageBytesChan := make(chan *bytes.Buffer)
-	go client.DatabaseResponseHandler(webpageBytesChan, TEST_QRY)
+
+	dbMsg, err := client.HighIngressChannel.Consume(
+		client.Definitions.Queues.SE_DB_REQUEST_CBQ,
+		"",
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		log.Println("Unable to consume from HighIngressChannel")
+		t.Fatal(err.Error())
+	}
+
+	go client.DatabaseResponseHandler(webpageBytesChan, dbMsg)
 
 	client.QueryDatabase(TEST_QRY)
 	webpage := <-webpageBytesChan

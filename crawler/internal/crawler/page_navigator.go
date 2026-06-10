@@ -188,11 +188,12 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) (types.IndexedResult, err
 	// Empty urls
 	pn.Urls = []string{}
 
-	err = (*pn.FQ).Enqueue(ex)
-	if err != nil {
-		fmt.Printf("ERROR: Unable to store extracted Urls.\n")
-		return types.IndexedResult{}, err
-	}
+	go func() {
+		err = (*pn.FQ).Enqueue(ex)
+		if err != nil {
+			fmt.Printf("ERROR: Unable to store extracted Urls.\n")
+		}
+	}()
 
 	// INDEXING PHASE
 
@@ -236,11 +237,8 @@ func (pt PageNavigator) Index() (types.IndexedWebpage, error) {
 	var wg sync.WaitGroup
 
 	// Start wait group after go routine is processed on a different thread
-	wg.Add(1)
-
 	// Go routine generator
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for _, selector := range elementSelector {
 			wg.Add(1)
 			go func(selector string) {
@@ -257,7 +255,7 @@ func (pt PageNavigator) Index() (types.IndexedWebpage, error) {
 				htmlTextElementChan <- joinTextContents(textContents)
 			}(selector)
 		}
-	}()
+	})
 
 	fmt.Println("NOTIF: Waiting for page indexer")
 	wg.Wait()
