@@ -37,7 +37,7 @@ type ExtractedUrls struct {
 func (crm *CrawlerManager) NewFrontierQueue() FrontierQueue {
 
 	q := Queue{
-		QueueChann: make(chan DequeuedUrl),
+		QueueChann: make(chan DequeuedUrl, 1),
 		RBQClient:  *crm.RBQClient,
 	}
 	return q
@@ -66,8 +66,7 @@ func (q Queue) ListenDequeuedUrl() {
 	fmt.Println("Listening to dequeued url")
 	msg, err := q.RBQClient.EventsChannel.Consume(q.RBQClient.Definitions.Queues.CR_DB_DEQUEUE_CBQ, "", false, false, false, false, nil)
 	if err != nil {
-		fmt.Println(err)
-		return
+		panic("PANIC RAISED FROM QUEUE: CR_DB_DEQUEUE_CBQ")
 	}
 	for {
 		chanMsg := <-msg

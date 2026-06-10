@@ -4,13 +4,12 @@ import (
 	"context"
 	"crawler/internal/rabbitmq"
 	"fmt"
+	"gopkg.in/yaml.v2"
 	"os"
 	"testing"
-
-	"gopkg.in/yaml.v2"
 )
 
-var CRAWL_QUERY = []string{"https://gobyexample"}
+var CRAWL_QUERY = []string{"https://gobyexample.com/"}
 
 func TestCrawler(t *testing.T) {
 
@@ -42,7 +41,7 @@ func TestCrawler(t *testing.T) {
 }
 
 func MockConnection(t *testing.T) *rabbitmq.RabbitMQClient {
-	defBuf, err := os.ReadFile("../rabbitmq.yml")
+	defBuf, err := os.ReadFile("../../../rabbitmq.yml")
 	if err != nil {
 		panic(err)
 	}
@@ -68,16 +67,20 @@ func MockConnection(t *testing.T) *rabbitmq.RabbitMQClient {
 			CR_DB_GETLEN:   rbqDef.RBRoutingKeys.CrawlerKeys.CR_DB_GETLEN,
 		},
 		Queues: rabbitmq.Queues{
-			ES_CR_REQUEST_QUEUE:  rbqDef.RBQueues.ExpressServerQueues.ES_CR_REQUEST_QUEUE,
-			ES_CR_REQUEST_CBQ:    rbqDef.RBQueues.ExpressServerQueues.ES_CR_REQUEST_CBQ,
+			ES_CR_REQUEST_QUEUE: rbqDef.RBQueues.ExpressServerQueues.ES_CR_REQUEST_QUEUE,
+			ES_CR_REQUEST_CBQ:   rbqDef.RBQueues.ExpressServerQueues.ES_CR_REQUEST_CBQ,
+
 			CR_DB_INDEXING_QUEUE: rbqDef.RBQueues.CrawlerQueues.CR_DB_INDEXING_QUEUE,
 			CR_DB_INDEXING_CBQ:   rbqDef.RBQueues.CrawlerQueues.CR_DB_INDEXING_CBQ,
-			CR_DB_ENQUEUE_QUEUE:  rbqDef.RBQueues.CrawlerQueues.CR_DB_ENQUEUE_QUEUE,
-			CR_DB_ENQUEUE_CBQ:    rbqDef.RBQueues.CrawlerQueues.CR_DB_ENQUEUE_CBQ,
-			CR_DB_DEQUEUE_QUEUE:  rbqDef.RBQueues.CrawlerQueues.CR_DB_DEQUEUE_QUEUE,
-			CR_DB_DEQUEUE_CBQ:    rbqDef.RBQueues.CrawlerQueues.CR_DB_DEQUEUE_CBQ,
-			CR_DB_GETLEN_QUEUE:   rbqDef.RBQueues.CrawlerQueues.CR_DB_GETLEN_QUEUE,
-			CR_DB_GETLEN_CBQ:     rbqDef.RBQueues.CrawlerQueues.CR_DB_GETLEN_CBQ,
+
+			CR_DB_ENQUEUE_QUEUE: rbqDef.RBQueues.CrawlerQueues.CR_DB_ENQUEUE_QUEUE,
+			CR_DB_ENQUEUE_CBQ:   rbqDef.RBQueues.CrawlerQueues.CR_DB_ENQUEUE_CBQ,
+
+			CR_DB_DEQUEUE_QUEUE: rbqDef.RBQueues.CrawlerQueues.CR_DB_DEQUEUE_QUEUE,
+			CR_DB_DEQUEUE_CBQ:   rbqDef.RBQueues.CrawlerQueues.CR_DB_DEQUEUE_CBQ,
+
+			CR_DB_GETLEN_QUEUE: rbqDef.RBQueues.CrawlerQueues.CR_DB_GETLEN_QUEUE,
+			CR_DB_GETLEN_CBQ:   rbqDef.RBQueues.CrawlerQueues.CR_DB_GETLEN_CBQ,
 		},
 	}
 

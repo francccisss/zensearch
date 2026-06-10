@@ -111,11 +111,12 @@ func (crm *CrawlerManager) Crawl() error {
 			fmt.Printf("Thread Token release\n")
 		})
 	}
+	wg.Wait()
 
-	for result := range crawlerResultsChan {
-		err := crm.SendCrawlMessageStatus(result)
-		fmt.Println(err)
-	}
+	// for result := range crawlerResultsChan {
+	// 	err := crm.SendCrawlMessageStatus(result)
+	// 	fmt.Println(err)
+	// }
 	return nil
 }
 
@@ -167,17 +168,17 @@ func (c crawler) crawl(SaveWebpageHandler func(types.IndexedResult) error) error
 
 	// Blocks thread
 
-	// FIX: This throws away new list and instead continues on the old ones that already
-	// exists in the frontier queue from a previously failed session
 	queueLength, err := c.FrontierQueue.Len(hostname)
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
 
+	fmt.Printf("Pre-fill queue len: %d\n", queueLength)
 	// BOOT STRAPPING FRONTIER QUEUE
 	if queueLength == 0 {
 		fmt.Println("CRAWLER TEST: QUEUE IS EMPTY")
+		fmt.Printf("CRAWLER TEST: Appending %s to queue\n", hostname)
 		ex := ExtractedUrls{
 			Root:  hostname,
 			Nodes: []string{c.URL},
@@ -208,11 +209,11 @@ func (c crawler) crawl(SaveWebpageHandler func(types.IndexedResult) error) error
 	for dq := range dqUrlChan {
 		fmt.Printf("DEQUEUE DATA: %+v\n", dq)
 
-		if dq.RemainingInQueue == 0 {
-			fmt.Println("No more urls in queue, cleaning up")
-			close(dqUrlChan)
-			break
-		}
+		// if dq.RemainingInQueue == 0 {
+		// 	fmt.Println("No more urls in queue, cleaning up")
+		// 	close(dqUrlChan)
+		// 	break
+		// }
 
 		fmt.Printf("TEST CRAWLER: PROCESSING DEQUEUED URL: %s\n", dq.Url)
 		// TODO: Process pages concurrently
