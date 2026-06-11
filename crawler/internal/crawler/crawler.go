@@ -38,10 +38,11 @@ type crawler struct {
 }
 
 type CrawlerManager struct {
-	RBQClient     *rabbitmq.RabbitMQClient
-	WD            *selenium.WebDriver
-	FrontierQueue FrontierQueue
-	CrawlerList   []*crawler
+	RBQClient        *rabbitmq.RabbitMQClient
+	WD               *selenium.WebDriver
+	FrontierQueue    FrontierQueue
+	CrawlerList      []*crawler
+	ConsumerChannels map[string]<-chan amqp.Delivery
 }
 
 type CrawlMessageStatus struct {
@@ -209,6 +210,12 @@ func (c crawler) crawl(SaveWebpageHandler func(types.IndexedResult) error) error
 		return err
 	}
 
+	// BUG: when using goroutines for each urls to be processed
+	// the callee returns immediately which leaves all the processing
+	// as zombified threads.
+	// Need to somehow funnel all the thread response to let the main thread
+	// know that processing is done for every url that is dispatched to be processed.
+	var wg sync.WaitGroup
 	for dq := range dqUrlChan {
 		fmt.Printf("DEQUEUE DATA: %+v\n", dq)
 
@@ -220,7 +227,7 @@ func (c crawler) crawl(SaveWebpageHandler func(types.IndexedResult) error) error
 
 		fmt.Printf("TEST CRAWLER: PROCESSING DEQUEUED URL: %s\n", dq.Url)
 		// TODO: Process pages concurrently
-		go func() {
+		wg.Go(func() {
 			retries := 0
 			for retries < MAX_RETRIES {
 				res, err := pageNavigator.ProcessUrl(dq.Url)
@@ -235,7 +242,7 @@ func (c crawler) crawl(SaveWebpageHandler func(types.IndexedResult) error) error
 				}
 				return
 			}
-		}()
+		})
 
 		// if queue is empty it should return an object with blanked url string
 		// and a length of 0 and sets the current node to is_visited
@@ -246,6 +253,7 @@ func (c crawler) crawl(SaveWebpageHandler func(types.IndexedResult) error) error
 		}
 	}
 
+	wg.Wait()
 	fmt.Printf("Crawler returned with no errors from navigating %s\n", c.URL)
 	return nil
 }
@@ -274,32 +282,32 @@ func (crm *CrawlerManager) SendIndexedWebpage(result types.IndexedResult) error 
 
 	returnChan := make(chan amqp.Return)
 
-	err = crm.RBQClient.PublishChannel.Publish("",
-		rabbitmq.CRAWLER_DB_INDEXING_QUEUE,
+	err = crm.RBQClient.PublishChannel.Publish(crm.RBQClient.Definitions.Exchange.Crawler,
+		crm.RBQClient.Definitions.Queues.CR_DB_INDEXING_QUEUE,
 		false, false,
 		amqp.Publishing{
 			ContentType: "application/json",
 			Type:        "store-indexed-webpages",
 			Body:        b,
-			ReplyTo:     rabbitmq.DB_CRAWLER_INDEXING_CBQ,
+			ReplyTo:     crm.RBQClient.Definitions.Queues.CR_DB_INDEXING_CBQ,
 		})
 	go func() {
-		del, err := crm.RBQClient.EventsChannel.Consume(rabbitmq.DB_CRAWLER_INDEXING_CBQ, "", false, false, false, false, nil)
+		del, err := crm.RBQClient.EventsChannel.Consume(crm.RBQClient.Definitions.Queues.CR_DB_INDEXING_CBQ, "", false, false, false, false, nil)
 		if err != nil {
-			fmt.Printf("Error on DB_CRAWLER_INDEXING_CBQ = '%s'\n", err)
+			fmt.Printf("Error on DB_CR_INDEXING_CBQ = '%s'\n", err)
 			return
 		}
 		msg := <-del
 		err = crm.RBQClient.EventsChannel.Ack(msg.DeliveryTag, false)
 		if err != nil {
-			fmt.Printf("Error from ACK on DB_CRAWLER_INDEXING_CBQ = '%s'\n", err)
+			fmt.Printf("Error from ACK on DB_CR_INDEXING_CBQ = '%s'\n", err)
 			return
 		}
 	}()
 	crm.RBQClient.EventsChannel.NotifyReturn(returnChan)
 	select {
 	case r := <-returnChan:
-		fmt.Printf("Unable to deliver message to designated queue %s\n", rabbitmq.CRAWLER_DB_INDEXING_QUEUE)
+		fmt.Printf("Unable to deliver message to designated queue %s\n", crm.RBQClient.Definitions.Queues.CR_DB_INDEXING_CBQ)
 		return fmt.Errorf("code=%d message=%s\n", r.ReplyCode, r.ReplyText)
 	case <-time.After(1 * time.Second):
 		fmt.Println("No return error from messge broker")
@@ -316,8 +324,8 @@ func (crm *CrawlerManager) SendCrawlMessageStatus(crawlStatus CrawlMessageStatus
 		fmt.Println("unable to marshal message status")
 		return err
 	}
-	err = crm.RBQClient.PublishChannel.Publish("",
-		rabbitmq.CRAWLER_EXPRESS_CBQ,
+	err = crm.RBQClient.PublishChannel.Publish(crm.RBQClient.Definitions.Exchange.General,
+		crm.RBQClient.Definitions.Queues.ES_CR_REQUEST_CBQ,
 		false, false,
 		amqp.Publishing{
 			ContentType: "application/json",
