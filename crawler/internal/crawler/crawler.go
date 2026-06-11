@@ -75,17 +75,17 @@ func (cr *CrawlerManager) newCrawler(entryPoint string) *crawler {
 }
 
 // give each crawler their own go routine from a thread pool
-func (crm *CrawlerManager) SpawnCrawlers(ctx context.Context, URLs []string) error {
+func (crm *CrawlerManager) SpawnCrawlers(URLs []string) error {
 
 	for _, entryPoint := range URLs {
 		crm.CrawlerList = append(crm.CrawlerList, crm.newCrawler(entryPoint))
 	}
-	fmt.Println("All Process have finished.")
+	fmt.Printf("%d Crawlers Created\n", len(URLs))
 	return nil
 
 }
 
-func (crm *CrawlerManager) Crawl() error {
+func (crm *CrawlerManager) Crawl(ctx context.Context) error {
 
 	var wg sync.WaitGroup
 
@@ -94,7 +94,9 @@ func (crm *CrawlerManager) Crawl() error {
 
 		wg.Go(func() {
 			crawler := crm.CrawlerList[i]
+			// crawl and index webpage
 			err := crawler.crawl(crm.SendIndexedWebpage)
+
 			defer func() {
 				wg.Done()
 				(*crawler.WD).Quit()
@@ -210,12 +212,11 @@ func (c crawler) crawl(SaveWebpageHandler func(types.IndexedResult) error) error
 		return err
 	}
 
-	// BUG: when using goroutines for each urls to be processed
-	// the callee returns immediately which leaves all the processing
-	// as zombified threads.
-	// Need to somehow funnel all the thread response to let the main thread
-	// know that processing is done for every url that is dispatched to be processed.
 	var wg sync.WaitGroup
+	// TODO: Make this more faster by dequeuing N urls
+	// and processing them using go routines, then waiting for
+	// each routine to finish using wait groups, to then process
+	// the next batch of urls
 	for dq := range dqUrlChan {
 		fmt.Printf("DEQUEUE DATA: %+v\n", dq)
 
@@ -227,22 +228,20 @@ func (c crawler) crawl(SaveWebpageHandler func(types.IndexedResult) error) error
 
 		fmt.Printf("TEST CRAWLER: PROCESSING DEQUEUED URL: %s\n", dq.Url)
 		// TODO: Process pages concurrently
-		wg.Go(func() {
-			retries := 0
-			for retries < MAX_RETRIES {
-				res, err := pageNavigator.ProcessUrl(dq.Url)
-				if err != nil {
-					fmt.Printf("unable to naviagate to %s retrying\n", dq.Url)
-					retries++
-					continue
-				}
-				err = SaveWebpageHandler(res)
-				if err != nil {
-					log.Println(err.Error())
-				}
-				return
+		retries := 0
+		for retries < MAX_RETRIES {
+			res, err := pageNavigator.ProcessUrl(dq.Url)
+			if err != nil {
+				fmt.Printf("unable to naviagate to %s retrying\n", dq.Url)
+				retries++
+				continue
 			}
-		})
+			err = SaveWebpageHandler(res)
+			if err != nil {
+				log.Println(err.Error())
+			}
+			break
+		}
 
 		// if queue is empty it should return an object with blanked url string
 		// and a length of 0 and sets the current node to is_visited
@@ -288,22 +287,9 @@ func (crm *CrawlerManager) SendIndexedWebpage(result types.IndexedResult) error 
 		amqp.Publishing{
 			ContentType: "application/json",
 			Type:        "store-indexed-webpages",
-			Body:        b,
 			ReplyTo:     crm.RBQClient.Definitions.Queues.CR_DB_INDEXING_CBQ,
+			Body:        b,
 		})
-	go func() {
-		del, err := crm.RBQClient.EventsChannel.Consume(crm.RBQClient.Definitions.Queues.CR_DB_INDEXING_CBQ, "", false, false, false, false, nil)
-		if err != nil {
-			fmt.Printf("Error on DB_CR_INDEXING_CBQ = '%s'\n", err)
-			return
-		}
-		msg := <-del
-		err = crm.RBQClient.EventsChannel.Ack(msg.DeliveryTag, false)
-		if err != nil {
-			fmt.Printf("Error from ACK on DB_CR_INDEXING_CBQ = '%s'\n", err)
-			return
-		}
-	}()
 	crm.RBQClient.EventsChannel.NotifyReturn(returnChan)
 	select {
 	case r := <-returnChan:

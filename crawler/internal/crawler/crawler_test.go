@@ -4,9 +4,11 @@ import (
 	"context"
 	"crawler/internal/rabbitmq"
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"os"
 	"testing"
+	"time"
+
+	"gopkg.in/yaml.v2"
 )
 
 var CRAWL_QUERY = []string{"https://gobyexample.com/"}
@@ -15,25 +17,25 @@ func TestCrawler(t *testing.T) {
 
 	client := MockConnection(t)
 	// ephemeral queues
-	// defer func() {
-	// 	client.PublishChannel.QueueDelete(client.Definitions.Queues.ES_CR_REQUEST_CBQ, false, false, true)
-	// 	client.PublishChannel.QueueDelete(client.Definitions.Queues.CR_DB_INDEXING_CBQ, false, false, true)
-	// 	client.PublishChannel.QueueDelete(client.Definitions.Queues.CR_DB_ENQUEUE_CBQ, false, false, true)
-	// 	client.PublishChannel.QueueDelete(client.Definitions.Queues.CR_DB_DEQUEUE_CBQ, false, false, true)
-	// 	client.PublishChannel.QueueDelete(client.Definitions.Queues.CR_DB_GETLEN_CBQ, false, false, true)
-	// 	client.Connection.Close()
-	// }()
+	defer func() {
+		client.PublishChannel.QueueDelete(client.Definitions.Queues.ES_CR_REQUEST_CBQ, false, false, true)
+		client.PublishChannel.QueueDelete(client.Definitions.Queues.CR_DB_INDEXING_CBQ, false, false, true)
+		client.PublishChannel.QueueDelete(client.Definitions.Queues.CR_DB_ENQUEUE_CBQ, false, false, true)
+		client.PublishChannel.QueueDelete(client.Definitions.Queues.CR_DB_DEQUEUE_CBQ, false, false, true)
+		client.PublishChannel.QueueDelete(client.Definitions.Queues.CR_DB_GETLEN_CBQ, false, false, true)
+		client.Connection.Close()
+	}()
 	cm, err := NewCrawlerManager(client, len(CRAWL_QUERY))
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithCancel(t.Context())
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second*3)
 	defer cancel()
-	err = cm.SpawnCrawlers(ctx, CRAWL_QUERY)
+	err = cm.SpawnCrawlers(CRAWL_QUERY)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = cm.Crawl()
+	err = cm.Crawl(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
