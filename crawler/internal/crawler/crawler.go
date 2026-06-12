@@ -8,7 +8,6 @@ import (
 	utilities "crawler/utilities"
 	"encoding/json"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -33,8 +32,8 @@ var elementSelector = []string{
 
 type crawler struct {
 	URL           string
-	WD            *selenium.WebDriver
 	FrontierQueue FrontierQueue
+	PageNavigator *PageNavigator
 }
 
 type CrawlerManager struct {
@@ -64,73 +63,13 @@ func NewCrawlerManager(rbqClient *rabbitmq.RabbitMQClient, limit int) (*CrawlerM
 	return cm, nil
 }
 
-func (cr *CrawlerManager) newCrawler(entryPoint string) *crawler {
-	fq := cr.NewFrontierQueue()
-	c := &crawler{
-		URL:           entryPoint,
-		FrontierQueue: fq,
-		WD:            cr.WD,
-	}
-	return c
-}
-
-// give each crawler their own go routine from a thread pool
-func (crm *CrawlerManager) SpawnCrawlers(URLs []string) error {
-
-	for _, entryPoint := range URLs {
-		crm.CrawlerList = append(crm.CrawlerList, crm.newCrawler(entryPoint))
-	}
-	fmt.Printf("%d Crawlers Created\n", len(URLs))
-	return nil
-
-}
-
-func (crm *CrawlerManager) Crawl(ctx context.Context) error {
-
-	var wg sync.WaitGroup
-
-	crawlerResultsChan := make(chan CrawlMessageStatus, len(crm.CrawlerList))
-	for i := range crm.CrawlerList {
-
-		wg.Go(func() {
-			crawler := crm.CrawlerList[i]
-			// crawl and index webpage
-			err := crawler.crawl(crm.SendIndexedWebpage)
-
-			defer func() {
-				wg.Done()
-				(*crawler.WD).Quit()
-			}()
-			messageStatus := CrawlMessageStatus{
-				IsSuccess: true,
-				Message:   "Succesfully indexed and stored webpages",
-				URLSeed:   crawler.URL,
-			}
-			if err != nil {
-				messageStatus.Message = err.Error()
-				messageStatus.IsSuccess = false
-			}
-			crawlerResultsChan <- messageStatus
-			fmt.Printf("Thread Token release\n")
-		})
-	}
-	wg.Wait()
-
-	// for result := range crawlerResultsChan {
-	// 	err := crm.SendCrawlMessageStatus(result)
-	// 	fmt.Println(err)
-	// }
-	return nil
-}
-
-func (c crawler) crawl(SaveWebpageHandler func(types.IndexedResult) error) error {
-	defer fmt.Printf("Finished Crawling\n")
-
-	fmt.Printf("Start Crawling %s\n", c.URL)
+func (crm *CrawlerManager) newCrawler(entryPoint string) *crawler {
+	fq := crm.NewFrontierQueue()
+	fmt.Printf("Start Crawling %s\n", entryPoint)
 
 	// ROBOTS.TXT HANDLING
-	hostname, _, _ := utilities.GetHostname(c.URL)
-	disallowedPaths, err := utilities.ExtractRobotsTxt(c.URL)
+	hostname, _, _ := utilities.GetHostname(entryPoint)
+	disallowedPaths, err := utilities.ExtractRobotsTxt(entryPoint)
 	if err != nil {
 		fmt.Println("Unable to extract robots.txt")
 		fmt.Println(err.Error())
@@ -140,12 +79,12 @@ func (c crawler) crawl(SaveWebpageHandler func(types.IndexedResult) error) error
 	fmt.Printf("DISALLOWED PATHS: %+v\n", disallowedPaths)
 	// ROBOTS.TXT HANDLING
 
-	pageNavigator := PageNavigator{
-		WD:              c.WD,
+	pg := PageNavigator{
+		WD:              crm.WD,
 		Urls:            []string{}, // initialize Queue with URLSeed
 		DisallowedPaths: disallowedPaths,
 		Hostname:        hostname,
-		FQ:              &c.FrontierQueue,
+		FQ:              &fq,
 	}
 
 	/*
@@ -154,125 +93,175 @@ func (c crawler) crawl(SaveWebpageHandler func(types.IndexedResult) error) error
 	 I know its ugly.
 	*/
 
+	c := &crawler{
+		URL:           entryPoint,
+		FrontierQueue: fq,
+		PageNavigator: &pg,
+	}
 	if c.URL[len(c.URL)-1] != '/' {
 		c.URL += "/"
 	}
 
-	dqUrlChan := c.FrontierQueue.GetChann()
-	go c.FrontierQueue.ListenDequeuedUrl()
+	return c
+}
 
-	// check queue length, means that if it is > 0, then there are pending
-	// nodes from the previous session, so if it > 0, we continue from
-	// the current node in the queue, else  then we enqueue a new seed url
+// give each crawler their own go routine from a thread pool
+func (crm *CrawlerManager) SpawnCrawlers(URLs []string) error {
 
-	// Visited links are already checked from the database service
-	// so crawler does not have to check if the current url has already
-	// been visited by it.
-
-	// Blocks thread
-
-	queueLength, err := c.FrontierQueue.Len(hostname)
-	if err != nil {
-		fmt.Println(err)
-		return err
+	for _, entryPoint := range URLs {
+		crawler := crm.newCrawler(entryPoint)
+		go crawler.FrontierQueue.ListenDequeuedUrl()
+		crm.CrawlerList = append(crm.CrawlerList, crawler)
 	}
+	fmt.Printf("%d Crawlers Created\n", len(URLs))
+	return nil
 
-	fmt.Printf("Pre-fill queue len: %d\n", queueLength)
-	// BOOT STRAPPING FRONTIER QUEUE
-	if queueLength == 0 {
-		fmt.Println("CRAWLER TEST: QUEUE IS EMPTY")
-		fmt.Printf("CRAWLER TEST: Appending %s to queue\n", hostname)
-		fmt.Printf("CRAWLER TEST: HOSTNAME OF SEED %s\n", hostname)
-		// Sends the URL seed to the frontier queue
-		retries := 0
-		for retries < MAX_RETRIES {
-			res, err := pageNavigator.ProcessUrl(c.URL)
-			if err != nil {
-				fmt.Printf("unable to naviagate to %s retrying\n", c.URL)
-				retries++
-				continue
-			}
-			err = SaveWebpageHandler(res)
-			if err != nil {
-				log.Fatal(err.Error())
-			}
-			break
-		}
+}
 
-		// TODO: race condition issue xd
-		// need to wait for database service to receive enqueued url
-		time.Sleep(time.Second * 3)
-	}
-
-	fmt.Println("CRAWLER TEST: DEQUEUEING")
-
-	err = c.FrontierQueue.Dequeue(hostname)
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
+func (crm *CrawlerManager) Crawl(ctx context.Context) error {
 
 	var wg sync.WaitGroup
-	// TODO: Make this more faster by dequeuing N urls
-	// and processing them using go routines, then waiting for
-	// each routine to finish using wait groups, to then process
-	// the next batch of urls
-	for dq := range dqUrlChan {
-		fmt.Printf("DEQUEUE DATA: %+v\n", dq)
+	defer (*crm.WD).Quit()
 
-		if dq.RemainingInQueue == 0 {
-			fmt.Println("No more urls in queue, cleaning up")
-			close(dqUrlChan)
-			break
-		}
+	crawlerResultsChan := make(chan CrawlMessageStatus, len(crm.CrawlerList))
+	for i := range crm.CrawlerList {
 
-		fmt.Printf("TEST CRAWLER: PROCESSING DEQUEUED URL: %s\n", dq.Url)
-		// TODO: Process pages concurrently
-		retries := 0
-		for retries < MAX_RETRIES {
-			res, err := pageNavigator.ProcessUrl(dq.Url)
-			if err != nil {
-				fmt.Printf("unable to naviagate to %s retrying\n", dq.Url)
-				retries++
-				continue
+		wg.Go(func() {
+			crawler := crm.CrawlerList[i]
+			dqUrlChan := crawler.FrontierQueue.GetChann()
+
+			messageStatus := CrawlMessageStatus{
+				IsSuccess: true,
+				Message:   "Succesfully indexed and stored webpages",
+				URLSeed:   crawler.URL,
 			}
-			err = SaveWebpageHandler(res)
-			if err != nil {
-				log.Println(err.Error())
-			}
-			break
-		}
 
-		// if queue is empty it should return an object with blanked url string
-		// and a length of 0 and sets the current node to is_visited
-		err := c.FrontierQueue.Dequeue(hostname)
-		if err != nil {
-			fmt.Println(err)
-			return err
-		}
+			queueLength, err := crawler.FrontierQueue.Len(crawler.PageNavigator.Hostname)
+			if err != nil {
+				fmt.Println(err)
+				messageStatus.IsSuccess = false
+				messageStatus.Message = err.Error()
+				crawlerResultsChan <- messageStatus
+				return
+			}
+
+			fmt.Printf("Pre-fill queue len: %d\n", queueLength)
+			// BOOT STRAPPING FRONTIER QUEUE
+			if queueLength == 0 {
+				// Sends the URL seed to the frontier queue
+				dqBootStrap := DequeuedUrl{
+					RemainingInQueue: 0,
+					Url:              crawler.URL,
+				}
+				res, err := crawler.crawl(dqBootStrap)
+				if err != nil {
+					fmt.Println(err)
+					messageStatus.IsSuccess = false
+					messageStatus.Message = err.Error()
+					crawlerResultsChan <- messageStatus
+					return
+				}
+
+				err = crm.SendIndexedWebpage(res)
+				panic("AAAAAAAAAAAAAAAAAAAA")
+				if err != nil {
+					fmt.Println(err)
+					messageStatus.IsSuccess = false
+					messageStatus.Message = err.Error()
+					crawlerResultsChan <- messageStatus
+					return
+				}
+			}
+
+			err = crawler.FrontierQueue.Dequeue(crawler.PageNavigator.Hostname)
+			if err != nil {
+				fmt.Println(err)
+				messageStatus.IsSuccess = false
+				messageStatus.Message = err.Error()
+				crawlerResultsChan <- messageStatus
+				return
+			}
+
+			for dq := range dqUrlChan {
+
+				if dq.RemainingInQueue == 0 {
+					fmt.Println("No more urls in queue, cleaning up")
+					close(dqUrlChan)
+					break
+				}
+
+				res, err := crawler.crawl(dq)
+				if err != nil {
+					fmt.Println(err)
+					continue
+				}
+
+				fmt.Println("WILL BE INDEXING")
+				err = crm.SendIndexedWebpage(res)
+				fmt.Println("Sent Indexed webpage to database service.")
+				if err != nil {
+					fmt.Println(err)
+					messageStatus.IsSuccess = false
+					messageStatus.Message = err.Error()
+					crawlerResultsChan <- messageStatus
+					return
+				}
+
+				err = crawler.FrontierQueue.Dequeue(crawler.PageNavigator.Hostname)
+
+				if err != nil {
+					fmt.Println(err)
+					messageStatus.IsSuccess = false
+					messageStatus.Message = err.Error()
+					crawlerResultsChan <- messageStatus
+					return
+				}
+
+			}
+			crawlerResultsChan <- messageStatus
+			fmt.Printf("Thread Token release\n")
+
+		})
+
 	}
-
 	wg.Wait()
-	fmt.Printf("Crawler returned with no errors from navigating %s\n", c.URL)
+
+	for result := range crawlerResultsChan {
+		fmt.Println(result)
+		// err := crm.SendCrawlMessageStatus(result)
+		// fmt.Println(err)
+	}
 	return nil
 }
 
-// TODO: Make SendIndexedWebpage use Go Routine instead
-// ```typescript
-//
-//	(alias) type IndexedWebpage = {
-//	    Message: string;
-//	    CrawlStatus: number;
-//	    Webpage: {
-//	        Header: header;
-//	        Contents: string;
-//	    };
-//	    URLSeed: string;
-//	}
-//
-// ````
+// TODO: Make this more faster by dequeuing N urls
+// and processing them using go routines, then waiting for
+// each routine to finish using wait groups, to then process
+// the next batch of urls
+func (c crawler) crawl(dq DequeuedUrl) (types.IndexedResult, error) {
+	defer fmt.Printf("Finished Crawling\n")
+
+	fmt.Printf("DEQUEUE DATA: %+v\n", dq)
+
+	fmt.Printf("TEST CRAWLER: PROCESSING DEQUEUED URL: %s\n", dq.Url)
+	retries := 0
+	for retries < MAX_RETRIES {
+		res, err := c.PageNavigator.ProcessUrl(dq.Url)
+		if err != nil {
+			fmt.Printf("unable to naviagate to %s retrying\n", dq.Url)
+			retries++
+			continue
+		}
+		fmt.Printf("Crawler returned with no errors from navigating %s\n", c.URL)
+		return res, nil
+	}
+
+	return types.IndexedResult{}, fmt.Errorf("Unable to fetch process page from %s", c.URL)
+}
+
 func (crm *CrawlerManager) SendIndexedWebpage(result types.IndexedResult) error {
 
+	fmt.Println("AM I SENDING ANYTHING")
 	b, err := json.Marshal(result)
 	if err != nil {
 		fmt.Println("unable to marshal indexed results")
@@ -290,13 +279,16 @@ func (crm *CrawlerManager) SendIndexedWebpage(result types.IndexedResult) error 
 			ReplyTo:     crm.RBQClient.Definitions.Queues.CR_DB_INDEXING_CBQ,
 			Body:        b,
 		})
+	if err != nil {
+		return err
+	}
 	crm.RBQClient.EventsChannel.NotifyReturn(returnChan)
 	select {
 	case r := <-returnChan:
 		fmt.Printf("Unable to deliver message to designated queue %s\n", crm.RBQClient.Definitions.Queues.CR_DB_INDEXING_CBQ)
 		return fmt.Errorf("code=%d message=%s\n", r.ReplyCode, r.ReplyText)
 	case <-time.After(1 * time.Second):
-		fmt.Println("No return error from messge broker")
+		fmt.Println("No error from messge broker")
 		return nil
 	}
 
