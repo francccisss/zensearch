@@ -11,7 +11,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-var CRAWL_QUERY = []string{"https://gobyexample.com/"}
+var CRAWL_QUERY = []string{"https://zenread.pro/"}
 
 func TestCrawler(t *testing.T) {
 
@@ -86,7 +86,7 @@ func MockConnection(t *testing.T) *rabbitmq.RabbitMQClient {
 		},
 	}
 
-	fmt.Printf("%+v", crawlerDef.Queues)
+	fmt.Println(crawlerDef.Queues.CR_DB_INDEXING_QUEUE)
 	client := rabbitmq.NewRabbitMQClient(crawlerDef)
 
 	err = client.EstablishConnection(7)

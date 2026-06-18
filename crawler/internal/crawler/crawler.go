@@ -149,10 +149,13 @@ func (crm *CrawlerManager) Crawl(ctx context.Context) error {
 			// BOOT STRAPPING FRONTIER QUEUE
 			if queueLength == 0 {
 				// Sends the URL seed to the frontier queue
+				fmt.Println("No Links to continue")
 				dqBootStrap := DequeuedUrl{
 					RemainingInQueue: 0,
 					Url:              crawler.URL,
 				}
+
+				fmt.Println("Boot Strapping current url")
 				res, err := crawler.crawl(dqBootStrap)
 				if err != nil {
 					fmt.Println(err)
@@ -163,7 +166,6 @@ func (crm *CrawlerManager) Crawl(ctx context.Context) error {
 				}
 
 				err = crm.SendIndexedWebpage(res)
-				panic("AAAAAAAAAAAAAAAAAAAA")
 				if err != nil {
 					fmt.Println(err)
 					messageStatus.IsSuccess = false
