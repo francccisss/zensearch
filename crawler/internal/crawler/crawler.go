@@ -271,11 +271,10 @@ func (crm *CrawlerManager) SendIndexedWebpage(result types.IndexedResult) error 
 	returnChan := make(chan amqp.Return)
 
 	err = crm.RBQClient.PublishChannel.Publish(crm.RBQClient.Definitions.Exchange.Crawler,
-		crm.RBQClient.Definitions.Queues.CR_DB_INDEXING_QUEUE,
+		crm.RBQClient.Definitions.RoutingKeys.CR_DB_INDEXING,
 		false, false,
 		amqp.Publishing{
 			ContentType: "application/json",
-			Type:        "store-indexed-webpages",
 			ReplyTo:     crm.RBQClient.Definitions.Queues.CR_DB_INDEXING_CBQ,
 			Body:        b,
 		})
