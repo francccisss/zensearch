@@ -85,6 +85,7 @@ func (q Queue) ListenDequeuedUrl() {
 
 func (q Queue) Enqueue(exUrls ExtractedUrls) error {
 
+	fmt.Printf("Enqueuing URL %+v\n", exUrls)
 	b, err := json.Marshal(exUrls)
 	if err != nil {
 		return err

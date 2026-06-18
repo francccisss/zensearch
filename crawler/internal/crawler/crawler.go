@@ -81,7 +81,6 @@ func (crm *CrawlerManager) newCrawler(entryPoint string) *crawler {
 
 	pg := PageNavigator{
 		WD:              crm.WD,
-		Urls:            []string{}, // initialize Queue with URLSeed
 		DisallowedPaths: disallowedPaths,
 		Hostname:        hostname,
 		FQ:              &fq,
@@ -222,12 +221,12 @@ func (crm *CrawlerManager) Crawl(ctx context.Context) error {
 			}
 			crawlerResultsChan <- messageStatus
 			fmt.Printf("Thread Token release\n")
-
 		})
 
 	}
 	wg.Wait()
 
+	close(crawlerResultsChan)
 	for result := range crawlerResultsChan {
 		fmt.Println(result)
 		// err := crm.SendCrawlMessageStatus(result)

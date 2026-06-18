@@ -15,7 +15,6 @@ import (
 
 type PageNavigator struct {
 	WD              *selenium.WebDriver
-	Urls            []string
 	DisallowedPaths []string
 	RetryCount      int
 	RequestTime
@@ -86,10 +85,15 @@ func (pn *PageNavigator) requestDelay(multiplier int) {
 	time.Sleep(time.Duration(pn.interval * 1000000))
 }
 
+// ProcessUrl is called for every dequeued URL that the crawler requests from the database service
+// Like Breadth-first Search, this function congregates all Links in the current page of the website
+// and enqueues them to the database by appending it to the existing queue of the current job
 func (pn *PageNavigator) ProcessUrl(currentUrl string) (types.IndexedResult, error) {
 
 	fmt.Printf("NOTIF: `%s` has popped from queue.\n", currentUrl)
 	// pn.requestDelay(2)
+	// Updates webdriver client to refer to the current page visited, page retries is independent from
+	// the ProcessUrl, the ProcessUrl only utilizes the webdriver client to execute commands to selenium
 	err := pn.navigatePageWithRetries(MAX_RETRIES, currentUrl)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -130,6 +134,8 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) (types.IndexedResult, err
 		}
 	}
 
+	validURLS := make([]string, 0, 50)
+
 	// Improve this by O(Log n), split it up, find duplicates on each branch
 	// combine, find duplicates
 	for _, link := range pageLinks {
@@ -149,10 +155,10 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) (types.IndexedResult, err
 		}
 		// Visited links are already checked from the database service
 		if childHostname == pn.Hostname {
-			pn.Urls = append(pn.Urls, href)
+			validURLS = append(validURLS, href)
 		}
 	}
-	fmt.Printf("NOTIF: Link Count in current url: %d\n", len(pageLinks))
+	fmt.Printf("NOTIF: Link Count in current url: %d\n", len(validURLS))
 
 	if len(pageLinks) == 0 {
 		indexedWebpage, err := pn.Index()
@@ -182,18 +188,13 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) (types.IndexedResult, err
 
 	ex := ExtractedUrls{
 		Root:  pn.Hostname,
-		Nodes: pn.Urls,
+		Nodes: validURLS,
 	}
 
-	// Empty urls
-	pn.Urls = []string{}
-
-	go func() {
-		err = (*pn.FQ).Enqueue(ex)
-		if err != nil {
-			fmt.Printf("ERROR: Unable to store extracted Urls.\n")
-		}
-	}()
+	err = (*pn.FQ).Enqueue(ex)
+	if err != nil {
+		fmt.Printf("ERROR: Unable to store extracted Urls.\n")
+	}
 
 	// INDEXING PHASE
 
