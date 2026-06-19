@@ -245,19 +245,13 @@ func (c crawler) crawl(dq DequeuedUrl) (types.IndexedResult, error) {
 	fmt.Printf("DEQUEUE DATA: %+v\n", dq)
 
 	fmt.Printf("TEST CRAWLER: PROCESSING DEQUEUED URL: %s\n", dq.Url)
-	retries := 0
-	for retries < MAX_RETRIES {
-		res, err := c.PageNavigator.ProcessUrl(dq.Url)
-		if err != nil {
-			fmt.Printf("unable to naviagate to %s retrying\n", dq.Url)
-			retries++
-			continue
-		}
-		fmt.Printf("Crawler returned with no errors from navigating %s\n", c.URL)
-		return res, nil
+	res, err := c.PageNavigator.ProcessUrl(dq.Url)
+	if err != nil {
+		return types.IndexedResult{}, fmt.Errorf("Unable to fetch process page from %s", c.URL)
 	}
+	fmt.Printf("Crawler returned with no errors from navigating %s\n", c.URL)
 
-	return types.IndexedResult{}, fmt.Errorf("Unable to fetch process page from %s", c.URL)
+	return res, nil
 }
 
 func (crm *CrawlerManager) SendIndexedWebpage(result types.IndexedResult) error {
