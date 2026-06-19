@@ -14,3 +14,4 @@ crawler-bin
 search-engine-bin
 .env
 RELEARN.md
+database/tmp.log
