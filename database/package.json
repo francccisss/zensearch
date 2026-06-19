@@ -7,6 +7,7 @@
     "dev": "nodemon src/index.ts",
     "start": "node dist/index.js",
     "build": "npx tsc",
+    "clean": "node ./scripts/clean.ts",
     "postbuild": "cp -r src/db_utils dist/"
   },
   "keywords": [],

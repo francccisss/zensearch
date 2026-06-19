@@ -15,18 +15,28 @@ const db = mysql.createPool({
 
 const [res, _] = await db.execute("show tables;");
 
+let i = 0;
 for (const table of res as Array<QueryResult>) {
   const tableName = Object.values(table)[0];
   console.log("clean: removing %s", tableName);
+  if (i == 0) {
+    console.log(`TABLE ${tableName}`);
+    // push to the last
+    // REMOVE WEBPAGE LAST
+    (res as Array<any>).push(table);
+    i++;
+    continue;
+  }
   try {
     await db.query(`DELETE FROM ${tableName};`);
+    i++;
   } catch (err: any) {
     console.error(err);
     exit(1);
   }
 }
-console.log("Current tables:");
-console.log(res);
+
+console.log("Tables Deleted:");
 
 console.log("Done");
 exit(0);
