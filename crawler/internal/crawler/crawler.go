@@ -69,11 +69,14 @@ func (crm *CrawlerManager) newCrawler(entryPoint string) *crawler {
 
 	// ROBOTS.TXT HANDLING
 	hostname, _, _ := utilities.GetHostname(entryPoint)
-	disallowedPaths, err := utilities.ExtractRobotsTxt(entryPoint)
-	if err != nil {
-		fmt.Println("Unable to extract robots.txt")
-		fmt.Println(err.Error())
-	}
+	// BUG: Pushing '/' in the array for some reason, which makes the
+	// make navigator not process the links with "/"
+	// disallowedPaths, err := utilities.ExtractRobotsTxt(entryPoint)
+	// if err != nil {
+	// 	fmt.Println("Unable to extract robots.txt")
+	// 	fmt.Println(err.Error())
+	// }
+	disallowedPaths := make([]string, 0, 50)
 	languagePaths := []string{"/es/", "/ko/", "/tr/", "/th/", "/it/", "/uk/", "/sk/", "/fr/", "/de/", "/zh/", "/ja/", "/ru/", "/ar/", "/pt/", "/hi/", "/zh/", "/zh-tw/", "/zh-c/", "/zh-cn/", "/pt-br/", "/uz/"}
 	disallowedPaths = append(disallowedPaths, languagePaths...)
 	fmt.Printf("DISALLOWED PATHS: %+v\n", disallowedPaths)

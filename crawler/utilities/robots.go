@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// BUG: Pushing "/" at the beginning of the array
 func ExtractRobotsTxt(url string) ([]string, error) {
 	hostname, _, err := GetHostname(url)
 	if err != nil {
