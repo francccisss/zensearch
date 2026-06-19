@@ -88,6 +88,8 @@ func (pn *PageNavigator) requestDelay(multiplier int) {
 // ProcessUrl is called for every dequeued URL that the crawler requests from the database service
 // Like Breadth-first Search, this function congregates all Links in the current page of the website
 // and enqueues them to the database by appending it to the existing queue of the current job
+//
+// TODO: So many things that can be used to make this faster using go's concurrency feature
 func (pn *PageNavigator) ProcessUrl(currentUrl string) (types.IndexedResult, error) {
 
 	fmt.Printf("NOTIF: `%s` has popped from queue.\n", currentUrl)
@@ -186,15 +188,16 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) (types.IndexedResult, err
 
 	}
 
-	ex := ExtractedUrls{
-		Root:  pn.Hostname,
-		Nodes: validURLS,
-	}
-
-	err = (*pn.FQ).Enqueue(ex)
-	if err != nil {
-		fmt.Printf("ERROR: Unable to store extracted Urls.\n")
-	}
+	go func() {
+		err = (*pn.FQ).Enqueue(ExtractedUrls{
+			Root:  pn.Hostname,
+			Nodes: validURLS,
+		})
+		if err != nil {
+			fmt.Printf("ERROR: Unable to store extracted Urls.\n")
+		}
+		fmt.Println("Successfully Enqueued Urls")
+	}()
 
 	// INDEXING PHASE
 
