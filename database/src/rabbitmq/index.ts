@@ -186,7 +186,7 @@ class RabbitMQClient {
     this.eventsChannel!.consume(
       this.definitions.queues.se_db_request_queue,
       async (data) => {
-        if (data === null) throw new Error("No data was pushed.");
+        if (data === null) throw new Error("Something went wrong.");
         console.log("Received query from search engine");
         try {
           const dataQuery: Webpage[] = await dbInterface.queryWebpages(pool);
@@ -239,7 +239,7 @@ class RabbitMQClient {
     this.eventsChannel!.consume(
       this.definitions.queues.es_db_check_queue,
       async (data) => {
-        if (data == null) throw new Error("No data was pushed.");
+        if (data == null) throw new Error("Something went wrong.");
         try {
           console.log(
             "NOTIF: DB service received crawl list to check existing indexed websites.",
@@ -280,12 +280,15 @@ class RabbitMQClient {
   }
 
   CrawlerHandler(pool: mysql.Pool) {
+    console.log(this.definitions.queues.cr_db_indexing_queue);
     // Crawler indexing handler
     this.eventsChannel!.consume(
       this.definitions.queues.cr_db_indexing_queue,
+
       async (data) => {
+        console.log("LISTENING CRAWL HANDLER");
         // who is going to catch this error? aaaaaa
-        if (data === null) throw new Error("No data was pushed.");
+        if (data === null) throw new Error("Something went wrong.");
         const decoder = new TextDecoder();
         const decodedData = decoder.decode(
           data.content as unknown as ArrayBuffer,
