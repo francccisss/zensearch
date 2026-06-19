@@ -127,42 +127,36 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) (types.IndexedResult, err
 	if linksInterface != nil {
 		links = linksInterface.([]interface{})
 	}
-	pageLinks := make([]string, len(links))
+	validURLS := make([]string, 0, 50)
 	for i, link := range links {
 		if strLink, ok := link.(string); ok {
-			pageLinks[i] = strLink
+			fmt.Printf("Link %d: %s\n", i, link)
+			href, _, _ := strings.Cut(strLink, "#")
+			childHostname, path, err := utilities.GetHostname(href)
+
+			if err != nil {
+				fmt.Println(err.Error())
+				continue
+			}
+
+			isAllowed := pn.isPathAllowed(path)
+			if !isAllowed {
+				fmt.Printf("invalid link: %s\n", path)
+				continue
+			}
+			// Visited links are already checked from the database service
+			if childHostname == pn.Hostname {
+				fmt.Printf("valid link: %s\n", href)
+				validURLS = append(validURLS, href)
+			}
 		} else {
-			log.Printf("ERROR: Link at index %d is not a string, skipping this index\n", i)
+			fmt.Printf("ERROR: element: %s is not a string, skipping this index\n", strLink)
 		}
 	}
 
-	validURLS := make([]string, 0, 50)
-
-	// Improve this by O(Log n), split it up, find duplicates on each branch
-	// combine, find duplicates
-	for _, link := range pageLinks {
-
-		// need to filter out links that is not the same as hostname
-		href, _, _ := strings.Cut(link, "#")
-		childHostname, path, err := utilities.GetHostname(href)
-
-		if err != nil {
-			fmt.Println(err.Error())
-			continue
-		}
-
-		isAllowed := pn.isPathAllowed(path)
-		if !isAllowed {
-			continue
-		}
-		// Visited links are already checked from the database service
-		if childHostname == pn.Hostname {
-			validURLS = append(validURLS, href)
-		}
-	}
 	fmt.Printf("NOTIF: Link Count in current url: %d\n", len(validURLS))
 
-	if len(pageLinks) == 0 {
+	if len(validURLS) == 0 {
 		indexedWebpage, err := pn.Index()
 		if err != nil {
 			// then skip this page
