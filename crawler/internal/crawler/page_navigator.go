@@ -128,9 +128,8 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) (types.IndexedResult, err
 		links = linksInterface.([]interface{})
 	}
 	validURLS := make([]string, 0, 50)
-	for i, link := range links {
+	for _, link := range links {
 		if strLink, ok := link.(string); ok {
-			fmt.Printf("Link %d: %s\n", i, link)
 			href, _, _ := strings.Cut(strLink, "#")
 			childHostname, path, err := utilities.GetHostname(href)
 
@@ -141,12 +140,10 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) (types.IndexedResult, err
 
 			isAllowed := pn.isPathAllowed(path)
 			if !isAllowed {
-				fmt.Printf("invalid link: %s\n", path)
 				continue
 			}
 			// Visited links are already checked from the database service
 			if childHostname == pn.Hostname {
-				fmt.Printf("valid link: %s\n", href)
 				validURLS = append(validURLS, href)
 			}
 		} else {
@@ -182,16 +179,14 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) (types.IndexedResult, err
 
 	}
 
-	go func() {
-		err = (*pn.FQ).Enqueue(ExtractedUrls{
-			Root:  pn.Hostname,
-			Nodes: validURLS,
-		})
-		if err != nil {
-			fmt.Printf("ERROR: Unable to store extracted Urls.\n")
-		}
-		fmt.Println("Successfully Enqueued Urls")
-	}()
+	err = (*pn.FQ).Enqueue(ExtractedUrls{
+		Root:  pn.Hostname,
+		Nodes: validURLS,
+	})
+	if err != nil {
+		fmt.Printf("ERROR: Unable to store extracted Urls.\n")
+	}
+	fmt.Println("Successfully Enqueued Urls")
 
 	// INDEXING PHASE
 

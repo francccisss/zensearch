@@ -39,7 +39,6 @@ type crawler struct {
 type CrawlerManager struct {
 	RBQClient        *rabbitmq.RabbitMQClient
 	WD               *selenium.WebDriver
-	FrontierQueue    FrontierQueue
 	CrawlerList      []*crawler
 	ConsumerChannels map[string]<-chan amqp.Delivery
 }
@@ -147,16 +146,15 @@ func (crm *CrawlerManager) Crawl(ctx context.Context) error {
 				return
 			}
 
-			fmt.Printf("Pre-fill queue len: %d\n", queueLength)
+			fmt.Printf("Existing # of nodes in queue: %d\n", queueLength)
 			// BOOT STRAPPING FRONTIER QUEUE
 			if queueLength == 0 {
 				// Sends the URL seed to the frontier queue
 				fmt.Println("No Links to continue")
 				dqBootStrap := DequeuedUrl{
-					RemainingInQueue: 0,
+					RemainingInQueue: 1,
 					Url:              crawler.URL,
 				}
-
 				fmt.Println("Boot Strapping current url")
 				res, err := crawler.crawl(dqBootStrap)
 				if err != nil {
@@ -177,50 +175,33 @@ func (crm *CrawlerManager) Crawl(ctx context.Context) error {
 				}
 			}
 
-			err = crawler.FrontierQueue.Dequeue(crawler.PageNavigator.Hostname)
-			if err != nil {
-				fmt.Println(err)
-				messageStatus.IsSuccess = false
-				messageStatus.Message = err.Error()
-				crawlerResultsChan <- messageStatus
-				return
-			}
-
+			var jwg sync.WaitGroup
+			go func() {
+				fmt.Println("Waiting for go routines to finish processing urls")
+				jwg.Wait()
+				fmt.Println("Released barrier")
+				fmt.Println("Returned DoneChann token")
+				close(dqUrlChan)
+			}()
 			for dq := range dqUrlChan {
-
-				if dq.RemainingInQueue == 0 {
-					fmt.Println("No more urls in queue, cleaning up")
-					close(dqUrlChan)
-					break
-				}
-
-				res, err := crawler.crawl(dq)
-				if err != nil {
-					fmt.Println(err)
-					continue
-				}
-
-				fmt.Println("WILL BE INDEXING")
-				err = crm.SendIndexedWebpage(res)
-				fmt.Println("Sent Indexed webpage to database service.")
-				if err != nil {
-					fmt.Println(err)
-					messageStatus.IsSuccess = false
-					messageStatus.Message = err.Error()
-					crawlerResultsChan <- messageStatus
-					return
-				}
-
-				err = crawler.FrontierQueue.Dequeue(crawler.PageNavigator.Hostname)
-
-				if err != nil {
-					fmt.Println(err)
-					messageStatus.IsSuccess = false
-					messageStatus.Message = err.Error()
-					crawlerResultsChan <- messageStatus
-					return
-				}
-
+				fmt.Println("Received dequeued url")
+				jwg.Go(func() {
+					res, err := crawler.crawl(dq)
+					if err != nil {
+						fmt.Println(err)
+						return
+					}
+					fmt.Println("WILL BE INDEXING")
+					err = crm.SendIndexedWebpage(res)
+					fmt.Println("Sent Indexed webpage to database service.")
+					if err != nil {
+						fmt.Println(err)
+						messageStatus.IsSuccess = false
+						messageStatus.Message = err.Error()
+						crawlerResultsChan <- messageStatus
+						return
+					}
+				})
 			}
 			crawlerResultsChan <- messageStatus
 			fmt.Printf("Thread Token release\n")

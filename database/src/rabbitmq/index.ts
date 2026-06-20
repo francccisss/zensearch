@@ -342,11 +342,40 @@ class RabbitMQClient {
         if (msg == null) {
           throw new Error("Message received is null");
         }
-
+      },
+    );
+    // doensnt really send any message back to crawler enqueue cbq
+    this.eventsChannel!.consume(
+      this.definitions.queues.cr_db_enqueue_queue,
+      async (msg: amqp.ConsumeMessage | null) => {
+        if (msg == null) {
+          throw new Error("Message received is null");
+        }
         try {
+          const URLs: URLs = JSON.parse(msg.content.toString());
+          console.log("dbInterface TEST: URLS ", URLs);
+          await dbInterface.enqueueUrls(pool, URLs);
           this.eventsChannel!.ack(msg);
+
+          if (URLs.Nodes.length == 0) {
+            const dequeuedUrl: DequeuedUrl = {
+              RemainingInQueue: 0,
+              Url: "",
+            };
+            const msgBuffer = Buffer.from(JSON.stringify(dequeuedUrl));
+            const sent = this.lowThroughputChannel!.publish(
+              "",
+              msg.properties.replyTo,
+              msgBuffer,
+            );
+            if (!sent) {
+              throw new Error("Error: Unable to send a dequeueded URL");
+            }
+          }
+
+          // Auto dequeueing after enqueuing new urls
           console.log("dbInterface TEST: DEQUEUEING");
-          const domain = msg.content.toString();
+          const domain = URLs.Root;
           const { length, url, inProgressNode, message } =
             await dbInterface.dequeueURL(pool, domain);
 
@@ -378,25 +407,6 @@ class RabbitMQClient {
             console.log("dbInterface TEST: REMOVED QUEUE");
             await dbInterface.removeQueue(pool, domain);
           }
-        } catch (e: any) {
-          console.error(e);
-          this.eventsChannel!.nack(msg);
-          throw new Error(e);
-        }
-      },
-    );
-    // doensnt really send any message back to crawler enqueue cbq
-    this.eventsChannel!.consume(
-      this.definitions.queues.cr_db_enqueue_queue,
-      async (msg: amqp.ConsumeMessage | null) => {
-        if (msg == null) {
-          throw new Error("Message received is null");
-        }
-        try {
-          const URLs: URLs = JSON.parse(msg.content.toString());
-          console.log("dbInterface TEST: URLS ", URLs);
-          await dbInterface.enqueueUrls(pool, URLs);
-          this.eventsChannel!.ack(msg);
         } catch (e: any) {
           console.error(e);
           this.eventsChannel!.nack(msg);

@@ -45,6 +45,7 @@ func (crm *CrawlerManager) NewFrontierQueue() FrontierQueue {
 }
 
 func (q Queue) Dequeue(root string) error {
+	fmt.Println("Dequeue request sent")
 
 	err := q.RBQClient.PublishChannel.Publish(q.RBQClient.Definitions.Exchange.Crawler,
 		q.RBQClient.Definitions.RoutingKeys.CR_DB_DEQUEUE,
@@ -79,7 +80,10 @@ func (q Queue) ListenDequeuedUrl() {
 			return
 		}
 		q.RBQClient.EventsChannel.Ack(chanMsg.DeliveryTag, false)
-		q.QueueChann <- dq
+		fmt.Printf("Interesting: %+v\n", dq)
+		if dq.Url != "" && dq.RemainingInQueue != 0 {
+			q.QueueChann <- dq
+		}
 	}
 }
 
@@ -91,7 +95,7 @@ func (q Queue) Enqueue(exUrls ExtractedUrls) error {
 		return err
 	}
 	err = q.RBQClient.PublishChannel.Publish(q.RBQClient.Definitions.Exchange.Crawler, q.RBQClient.Definitions.RoutingKeys.CR_DB_ENQUEUE, false, false, amqp.Publishing{
-		ReplyTo:     q.RBQClient.Definitions.Queues.CR_DB_ENQUEUE_CBQ,
+		ReplyTo:     q.RBQClient.Definitions.Queues.CR_DB_DEQUEUE_CBQ,
 		ContentType: "application/json",
 		Body:        b,
 	})
@@ -102,7 +106,6 @@ func (q Queue) Enqueue(exUrls ExtractedUrls) error {
 }
 
 func (q Queue) Len(hostname string) (uint32, error) {
-	fmt.Printf("CRAWLER TEST: GETTING QUEUE LENGTH FOR %s\n", hostname)
 
 	err := q.RBQClient.PublishChannel.Publish("", q.RBQClient.Definitions.Queues.CR_DB_GETLEN_QUEUE, false, false, amqp.Publishing{
 		ContentType: "application/json",
@@ -119,8 +122,6 @@ func (q Queue) Len(hostname string) (uint32, error) {
 
 	queueLen := binary.LittleEndian.Uint32(msg.Body)
 
-	fmt.Printf("CRAWLER TEST: BODY BUF = %v\n", msg.Body)
-	fmt.Printf("CRAWLER TEST: CURRENT QUEUE LEN: %d\n", queueLen)
 	q.RBQClient.EventsChannel.Ack(msg.DeliveryTag, false)
 
 	return queueLen, nil
