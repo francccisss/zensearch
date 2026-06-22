@@ -358,6 +358,7 @@ class RabbitMQClient {
           this.eventsChannel!.ack(msg);
 
           if (URLs.Nodes.length == 0) {
+            console.log("NO MORE NODEEES THAT WAS ENQUEUED");
             const dequeuedUrl: DequeuedUrl = {
               RemainingInQueue: 0,
               Url: "",
@@ -371,6 +372,7 @@ class RabbitMQClient {
             if (!sent) {
               throw new Error("Error: Unable to send a dequeueded URL");
             }
+            return;
           }
 
           // Auto dequeueing after enqueuing new urls

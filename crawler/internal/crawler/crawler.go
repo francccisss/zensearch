@@ -69,7 +69,7 @@ func (crm *CrawlerManager) newCrawler(entryPoint string) *crawler {
 	// ROBOTS.TXT HANDLING
 	hostname, _, _ := utilities.GetHostname(entryPoint)
 	// BUG: Pushing '/' in the array for some reason, which makes the
-	// make navigator not process the links with "/"
+	// make navigator not process the links that are just "/"
 	// disallowedPaths, err := utilities.ExtractRobotsTxt(entryPoint)
 	// if err != nil {
 	// 	fmt.Println("Unable to extract robots.txt")
@@ -111,7 +111,6 @@ func (crm *CrawlerManager) SpawnCrawlers(URLs []string) error {
 
 	for _, entryPoint := range URLs {
 		crawler := crm.newCrawler(entryPoint)
-		go crawler.FrontierQueue.ListenDequeuedUrl()
 		crm.CrawlerList = append(crm.CrawlerList, crawler)
 	}
 	fmt.Printf("%d Crawlers Created\n", len(URLs))
@@ -130,6 +129,7 @@ func (crm *CrawlerManager) Crawl(ctx context.Context) error {
 		wg.Go(func() {
 			crawler := crm.CrawlerList[i]
 			dqUrlChan := crawler.FrontierQueue.GetChann()
+			go crawler.FrontierQueue.ListenDequeuedUrl()
 
 			messageStatus := CrawlMessageStatus{
 				IsSuccess: true,
@@ -152,7 +152,7 @@ func (crm *CrawlerManager) Crawl(ctx context.Context) error {
 				// Sends the URL seed to the frontier queue
 				fmt.Println("No Links to continue")
 				dqBootStrap := DequeuedUrl{
-					RemainingInQueue: 1,
+					RemainingInQueue: 0,
 					Url:              crawler.URL,
 				}
 				fmt.Println("Boot Strapping current url")
@@ -180,11 +180,11 @@ func (crm *CrawlerManager) Crawl(ctx context.Context) error {
 				fmt.Println("Waiting for go routines to finish processing urls")
 				jwg.Wait()
 				fmt.Println("Released barrier")
-				fmt.Println("Returned DoneChann token")
 				close(dqUrlChan)
+				fmt.Println("Closed Dequeue URL Channel")
 			}()
 			for dq := range dqUrlChan {
-				fmt.Println("Received dequeued url")
+				fmt.Printf("Received dequeued url: %s\n", dq.Url)
 				jwg.Go(func() {
 					res, err := crawler.crawl(dq)
 					if err != nil {

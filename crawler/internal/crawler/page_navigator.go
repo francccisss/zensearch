@@ -179,14 +179,16 @@ func (pn *PageNavigator) ProcessUrl(currentUrl string) (types.IndexedResult, err
 
 	}
 
-	err = (*pn.FQ).Enqueue(ExtractedUrls{
-		Root:  pn.Hostname,
-		Nodes: validURLS,
-	})
-	if err != nil {
-		fmt.Printf("ERROR: Unable to store extracted Urls.\n")
-	}
-	fmt.Println("Successfully Enqueued Urls")
+	go func() {
+		err = (*pn.FQ).Enqueue(ExtractedUrls{
+			Root:  pn.Hostname,
+			Nodes: validURLS,
+		})
+		if err != nil {
+			fmt.Printf("ERROR: Unable to store extracted Urls.\n")
+		}
+		fmt.Println("Successfully Enqueued Urls")
+	}()
 
 	// INDEXING PHASE
 

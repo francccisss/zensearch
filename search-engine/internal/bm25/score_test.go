@@ -27,7 +27,7 @@ import (
  an argument to each BM25ranking methods
 */
 
-var TEST_QRY = "bm25"
+var TEST_QRY = "quote"
 
 func TestProcessParallelism(t *testing.T) {
 

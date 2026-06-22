@@ -1,10 +1,14 @@
 #! /bin/bash
 
 
-# This bash script will setup the Database Environment 
-# Variables as well as setting up the .env for the 
-# Database service client to connect to the Database
-# engine via Unix Socket by default
+###################### NOTICE ##########################
+#                                                      #
+# This bash script will setup the Database Environment #
+# Variables as well as setting up the .env for the     #
+# Database service client to connect to the Database   #
+# engine via Unix Socket by default                    #
+#                                                      #
+# ######################################################
 
 echo -e "Welcome to zensearch setup.\n"
 
