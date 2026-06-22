@@ -20,7 +20,6 @@ done
 
 
 read -p "Are you sure? [y/n]: " user_confirmation
-read -p "Do you also want to remove the generated .env? [y/n]: " clear_env
 
 if [ "$user_confirmation" = "n" ]; then
 	echo -e "Cancelled"
@@ -35,10 +34,6 @@ DROP DATABASE IF EXISTS $DB_NAME;
 SHOW DATABASES;
 EOF
 
-if [ "$clear_env" = y ];then
-	rm -rf .env
-	echo "Removed .env file"
-fi
 
 
 echo "--------------------"
