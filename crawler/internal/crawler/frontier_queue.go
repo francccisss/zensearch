@@ -75,6 +75,9 @@ func (q Queue) ListenDequeuedUrl() {
 		fmt.Println("CRAWLER TEST: received dequeued URL")
 		err = json.Unmarshal(chanMsg.Body, &dq)
 		if err != nil {
+			// BUG: Ignore the last message error when crawl was successful:
+			// At the end of a successful crawl, this somehow receives a message that is unable to be
+			// unmarshalled at the end for some reason.
 			fmt.Println("ERROR: unable to unmarshal dequeued url")
 			fmt.Println(err.Error())
 			return
