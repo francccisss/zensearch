@@ -11,7 +11,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-var CRAWL_QUERY = []string{"https://zenread.pro"}
+var CRAWL_QUERY = []string{"https://gobyexample.com/"}
 
 func TestCrawler(t *testing.T) {
 

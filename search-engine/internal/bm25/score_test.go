@@ -27,10 +27,9 @@ import (
  an argument to each BM25ranking methods
 */
 
-var TEST_QRY = "quote"
+var TEST_QRY = os.Args[len(os.Args)-1 : len(os.Args)][0]
 
 func TestProcessParallelism(t *testing.T) {
-
 	client := mockConnection(t)
 	timeStart := time.Now()
 

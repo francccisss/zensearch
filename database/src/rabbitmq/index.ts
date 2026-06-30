@@ -336,11 +336,53 @@ class RabbitMQClient {
     );
 
     // Crawler frontier queues handlers
+    // Contingency for handling a force dequeue to kickstart the resumption of existing nodes
+    // for when services crashes or closes.
     this.eventsChannel!.consume(
       this.definitions.queues.cr_db_dequeue_queue,
       async (msg: amqp.ConsumeMessage | null) => {
         if (msg == null) {
           throw new Error("Message received is null");
+        }
+        try {
+          // Auto dequeueing after enqueuing new urls
+          console.log("dbInterface TEST: DEQUEUEING");
+          const domain = msg.content.toString();
+          const { length, url, inProgressNode, message } =
+            await dbInterface.dequeueURL(pool, domain);
+
+          const dequeuedUrl: DequeuedUrl = {
+            RemainingInQueue: length,
+            Url: url,
+          };
+          const msgBuffer = Buffer.from(JSON.stringify(dequeuedUrl));
+
+          const sent = this.lowThroughputChannel!.publish(
+            "",
+            msg.properties.replyTo,
+            msgBuffer,
+          );
+          if (!sent) {
+            throw new Error("Error: Unable to send a dequeueded URL");
+          }
+
+          console.log("TEST dbInterface: DEQUEUED NODE ", dequeuedUrl);
+          console.log("TEST dbInterface: DEQUEUE MESSAGE: %s", message);
+          console.log(inProgressNode);
+          // node can be null if queue is empty
+          if (inProgressNode !== null) {
+            await dbInterface.setNodeToVisited(pool, inProgressNode);
+            console.log("Node updated to visited, remove in_progress node.");
+          }
+
+          if (inProgressNode == null && length == 0) {
+            console.log("dbInterface TEST: REMOVED QUEUE");
+            await dbInterface.removeQueue(pool, domain);
+          }
+        } catch (e: any) {
+          console.error(e);
+          this.eventsChannel!.nack(msg);
+          throw new Error(e);
         }
       },
     );

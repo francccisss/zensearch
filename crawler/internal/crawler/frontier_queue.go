@@ -84,9 +84,7 @@ func (q Queue) ListenDequeuedUrl() {
 		}
 		q.RBQClient.EventsChannel.Ack(chanMsg.DeliveryTag, false)
 		fmt.Printf("Interesting: %+v\n", dq)
-		if dq.Url != "" && dq.RemainingInQueue != 0 {
-			q.QueueChann <- dq
-		}
+		q.QueueChann <- dq
 	}
 }
 

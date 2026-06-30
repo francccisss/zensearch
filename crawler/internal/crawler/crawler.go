@@ -173,36 +173,42 @@ func (crm *CrawlerManager) Crawl(ctx context.Context) error {
 					crawlerResultsChan <- messageStatus
 					return
 				}
+			} else {
+				// force dequeue to start from remaning nodes in the queue
+				err := crawler.FrontierQueue.Dequeue(crawler.PageNavigator.Hostname)
+				if err != nil {
+					fmt.Printf("ERROR: from force dequeue %s\n", err)
+					return
+				}
 			}
 
-			var jwg sync.WaitGroup
-			go func() {
-				fmt.Println("Waiting for go routines to finish processing urls")
-				jwg.Wait()
-				fmt.Println("Released barrier")
-				close(dqUrlChan)
-				fmt.Println("Closed Dequeue URL Channel")
-			}()
 			for dq := range dqUrlChan {
 				fmt.Printf("Received dequeued url: %s\n", dq.Url)
-				jwg.Go(func() {
-					res, err := crawler.crawl(dq)
-					if err != nil {
-						fmt.Println(err)
-						return
-					}
-					fmt.Println("WILL BE INDEXING")
-					err = crm.SendIndexedWebpage(res)
-					fmt.Println("Sent Indexed webpage to database service.")
-					if err != nil {
-						fmt.Println(err)
-						messageStatus.IsSuccess = false
-						messageStatus.Message = err.Error()
-						crawlerResultsChan <- messageStatus
-						return
-					}
-				})
+
+				if dq.RemainingInQueue == 0 && dq.Url == "" {
+					close(dqUrlChan)
+					fmt.Println("Closed Dequeue URL Channel")
+					break
+				}
+				res, err := crawler.crawl(dq)
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+				fmt.Println("WILL BE INDEXING")
+				err = crm.SendIndexedWebpage(res)
+				fmt.Println("Sent Indexed webpage to database service.")
+				if err != nil {
+					fmt.Println(err)
+					messageStatus.IsSuccess = false
+					messageStatus.Message = err.Error()
+					crawlerResultsChan <- messageStatus
+					return
+				}
 			}
+
+			fmt.Println("Waiting for go routines to finish processing urls")
+			fmt.Println("Released barrier")
 			crawlerResultsChan <- messageStatus
 			fmt.Printf("Thread Token release\n")
 		})
