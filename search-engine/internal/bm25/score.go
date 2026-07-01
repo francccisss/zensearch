@@ -11,6 +11,7 @@ import (
 
 // CHUNK_SIZE is the total amount of webpages within each chunks to be proccessed in parallel
 const CHUNK_SIZE = 40
+const MAX_TOKEN_COUNT = 10
 
 // TODO CONCURRENCY ISSUE NOT FROM TEST AND MAIN
 // SOMETIMES TEXT IS FULLY RENDERED AND RANKED SOMETIMES IT ISNT
@@ -18,33 +19,30 @@ const CHUNK_SIZE = 40
 func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.WebpageTFIDF {
 	// return immediately if database is currently empty
 	if len(*webpages) == 0 {
-		return webpages
+		return nil
 	}
 	var mux sync.Mutex
 	tokenizedTerms := Tokenizer(query)
 
-	var wg sync.WaitGroup
 	// get IDF and TF for each token
-	IDFChan := make(chan float64, 10)
-	// TODO do master slave, aggregate results back to go master routine
+	// token count is unknown so keeping a space of MAX_TOKEN_COUNT
+	// for reasonable user search tokens.
+	IDFarr := make([]float64, 0, MAX_TOKEN_COUNT)
 
 	go func() {
 		var mwg sync.WaitGroup
 		for i := range tokenizedTerms {
-			mwg.Add(1)
-			go func() {
+			mwg.Go(func() {
 				defer mwg.Done()
 				// IDF is a constant throughout the current term
-				IDF := CalculateIDF(tokenizedTerms[i], webpages)
-				IDFChan <- IDF
-			}()
+				IDFarr = append(IDFarr, CalculateIDF(tokenizedTerms[i], webpages))
+			})
 		}
 		mwg.Wait()
-		close(IDFChan)
 	}()
 
-	wg.Add(1)
-	go func() {
+	var wg sync.WaitGroup
+	wg.Go(func() {
 
 		// TODO FIX THE MATH HERE
 		// divide to valid chunks valid chunks == chunk_size = total webpages in chunk
@@ -61,9 +59,8 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 
 		// creates task parallelism
 		for _, term := range tokenizedTerms {
-			mwg.Add(1)
 
-			go func() {
+			mwg.Go(func() {
 				// First calculate term frequency of each webpage for each token
 				// TF(q1,webpages) -> TF(q2,webpages)...
 
@@ -83,15 +80,15 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 				end := math.Min(totalWebpages, CHUNK_SIZE)
 
 				for range int(totalChunks) {
-					swg.Add(1)
-					go func() {
+					swg.Go(func() {
 						defer swg.Done()
 
 						// TF(q1,webpages) + TF(q2,webpages)...
 						_ = TF(term, docLen, webpages, int(start), int(end)) // adds old rating if exists
+						// BUG: Unlocking an unlocked mutex
 						mux.Unlock()
 
-					}()
+					})
 					// fmt.Println(start - end)
 					mux.Lock()
 					start = end + 1 // always 0
@@ -99,15 +96,15 @@ func CalculateBMRatings(query string, webpages *[]types.WebpageTFIDF) *[]types.W
 				}
 				swg.Wait()
 				mwg.Done()
-			}()
+			})
 		}
 		mwg.Wait()
 		wg.Done()
-	}()
+	})
 	wg.Wait()
 	// for each IDF of each token, calculate BM25Rating for each webpages
 	// by summing the rating from the previous rated token
-	for IDF := range IDFChan {
+	for _, IDF := range IDFarr {
 		for j := range *webpages {
 			bm25rating := BM25(IDF, (*webpages)[j].TfRating)
 			(*webpages)[j].TokenRating.Bm25rating += bm25rating
